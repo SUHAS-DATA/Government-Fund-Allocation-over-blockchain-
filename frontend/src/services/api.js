@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://127.0.0.1:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000/api';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -25,7 +25,7 @@ api.interceptors.response.use(
   (response) => response.data,
   (error) => {
     if (error.response) {
-      if (error.response.status === 401 && !window.location.pathname.includes('/login')) {
+      if (error.response.status === 401 && !window.location.href.includes('login')) {
         localStorage.removeItem('govtfund_token');
         localStorage.removeItem('govtfund_user');
       }

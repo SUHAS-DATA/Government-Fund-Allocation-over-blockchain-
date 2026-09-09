@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 
@@ -106,7 +106,7 @@ function App() {
   return (
     <AuthProvider>
       <NotificationProvider>
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+        <HashRouter>
           <PortalLayout>
             <Routes>
               {/* Public Routes */}
@@ -180,7 +180,7 @@ function App() {
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </PortalLayout>
-        </BrowserRouter>
+        </HashRouter>
       </NotificationProvider>
     </AuthProvider>
   );

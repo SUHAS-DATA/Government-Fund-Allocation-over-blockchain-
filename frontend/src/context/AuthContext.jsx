@@ -51,7 +51,7 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('govtfund_token');
     localStorage.removeItem('govtfund_user');
     setUser(null);
-    window.location.href = '/login';
+    window.location.hash = '#/login';
   };
 
   return (
