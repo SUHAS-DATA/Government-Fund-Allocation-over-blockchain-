@@ -17,15 +17,15 @@ const GrievanceTrack = () => {
   }, [refId]);
 
   if (loading) {
-    return <div style={{ padding: '60px', textAlign: 'center' }}>Searching grievance records...</div>;
+    return <div style={{ padding: '60px', textAlign: 'center' }}>Searching complaint records...</div>;
   }
 
   if (!complaint) {
     return (
       <div className="card" style={{ maxWidth: '600px', margin: '60px auto', textAlign: 'center' }}>
-        <h2 style={{ color: 'var(--color-danger)' }}>Grievance Not Found</h2>
+        <h2 style={{ color: 'var(--color-danger)' }}>Complaint Not Found</h2>
         <p style={{ color: 'var(--text-secondary)', margin: '12px 0 20px 0' }}>
-          No grievance record found with Reference ID: <strong>{refId}</strong>.
+          No complaint record found with Tracking ID: <strong>{refId}</strong>.
         </p>
         <Link to="/public/grievance" className="btn btn-secondary">Submit New Complaint</Link>
       </div>
@@ -37,14 +37,14 @@ const GrievanceTrack = () => {
       <div style={{ marginBottom: '16px' }}>
         <Link to="/public/grievance" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: 'var(--text-secondary)', textDecoration: 'none', fontSize: '13px' }}>
           <ArrowLeft size={14} />
-          <span>Back to Grievance Portal</span>
+          <span>Back to Complaint Portal</span>
         </Link>
       </div>
 
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
           <div>
-            <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>Reference ID</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>Tracking ID</span>
             <div style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-primary)', fontFamily: 'monospace' }}>{complaint.reference_id}</div>
           </div>
 
@@ -60,7 +60,7 @@ const GrievanceTrack = () => {
           </div>
 
           <div>
-            <div style={{ color: 'var(--text-muted)' }}>District Jurisdiction:</div>
+            <div style={{ color: 'var(--text-muted)' }}>District:</div>
             <strong style={{ color: 'var(--text-main)' }}>{complaint.district_name}</strong>
           </div>
 

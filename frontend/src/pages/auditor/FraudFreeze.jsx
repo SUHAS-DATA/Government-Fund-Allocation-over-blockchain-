@@ -108,10 +108,10 @@ const FraudFreeze = () => {
         <div>
           <h1 className="page-title">
             <Lock size={24} color="var(--color-danger)" />
-            <span>Emergency Smart Contract Fund Freeze</span>
+            <span>Emergency Project Fund Freeze</span>
           </h1>
           <p className="page-subtitle">
-            Halt smart contract milestone payments on Ethereum in cases of material fraud, quality failures, or citizen grievances.
+            Temporarily pause payments in cases of serious fraud, work quality failures, or verified citizen complaints.
           </p>
         </div>
       </div>
@@ -150,7 +150,7 @@ const FraudFreeze = () => {
 
             <form onSubmit={handleExecuteFreeze}>
               <div className="form-group">
-                <label className="form-label">Forensic Reason & CAG Statutory Justification</label>
+                <label className="form-label">Reason for Action & Verification Notes</label>
                 <textarea
                   className="form-control"
                   rows="3"

@@ -17,15 +17,11 @@ const Footer = () => {
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <ShieldCheck size={16} color="var(--color-success)" />
-        <span><strong>PFMS Blockchain Transparency Network</strong> | National Public Finance Oversight</span>
+        <span><strong>Government Fund Allocation Tracking</strong> | Official Public Portal</span>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Cpu size={14} color="var(--color-accent)" />
-          <span>Smart Contract: <code style={{ fontFamily: 'monospace', color: 'var(--color-primary)' }}>{formatAddress(getContractAddress())}</code></span>
-        </div>
-        <span>Hardhat Local EVM (Chain ID 31337)</span>
+      <div style={{ color: 'var(--text-muted)' }}>
+        <span>© 2026 Government Fund Allocation Tracking System. All rights reserved.</span>
       </div>
     </footer>
   );

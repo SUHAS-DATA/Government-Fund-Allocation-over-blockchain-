@@ -22,6 +22,239 @@ if os.path.exists(contract_info_path):
 
 w3 = Web3(Web3.HTTPProvider(RPC_URL, request_kwargs={"timeout": 1.5}))
 
+# ==========================================
+# MULTI-TIER WALLET & ENTITY DIRECTORY
+# ==========================================
+WALLET_REGISTRY = {
+    # Central Apex
+    "ADMIN": {
+        "address": "0x1E3A8A93FD0b4c8A9bE14c46f1F0A84D63A50001",
+        "name": "Central Secretariat",
+        "department": "National Planning Commission",
+        "tier": "Tier 1: Central",
+        "role": "SUPER_ADMIN"
+    },
+    "FINANCE": {
+        "address": "0x0F766E99F6E4A836bE9344445839DC9E86DA0002",
+        "name": "Ministry of Finance",
+        "department": "Public Fund Disbursal Authority",
+        "tier": "Tier 1: Central Finance",
+        "role": "FINANCE"
+    },
+    # State Treasuries
+    "STATE_KA": {
+        "address": "0x0369A1BAE6FD3c8290f79BF6Eb2C4F8703650003",
+        "name": "Karnataka State Treasury",
+        "department": "State Finance & Treasury Dept",
+        "state_code": "KA",
+        "tier": "Tier 2: State Treasury",
+        "role": "STATE"
+    },
+    "STATE_MH": {
+        "address": "0x14dC79964da2C08b23698B3D3cc7Ca32193D0004",
+        "name": "Maharashtra State Treasury",
+        "department": "Finance & Planning Dept",
+        "state_code": "MH",
+        "tier": "Tier 2: State Treasury",
+        "role": "STATE"
+    },
+    "STATE_GJ": {
+        "address": "0x15d34AAf54267DB7D7c367839AAf71A00a2C0005",
+        "name": "Gujarat State Treasury",
+        "department": "State Finance Dept",
+        "state_code": "GJ",
+        "tier": "Tier 2: State Treasury",
+        "role": "STATE"
+    },
+    "STATE_TN": {
+        "address": "0x9965507D1a55bcC2695C58ba16FB37d819B00006",
+        "name": "Tamil Nadu State Treasury",
+        "department": "State Finance Dept",
+        "state_code": "TN",
+        "tier": "Tier 2: State Treasury",
+        "role": "STATE"
+    },
+    "STATE_UP": {
+        "address": "0x976EA74026E726554dB657fA54763abd0C3a0007",
+        "name": "Uttar Pradesh State Treasury",
+        "department": "State Finance Dept",
+        "state_code": "UP",
+        "tier": "Tier 2: State Treasury",
+        "role": "STATE"
+    },
+    # District Implementing Agencies
+    "DIST_BELAGAVI": {
+        "address": "0x7C3AEDDDD6FE90f79BF6eb2C4f870365E7850008",
+        "name": "Belagavi District Agency",
+        "department": "District Rural Development Agency, Belagavi",
+        "district": "Belagavi",
+        "state_code": "KA",
+        "tier": "Tier 3: District Agency",
+        "role": "DISTRICT"
+    },
+    "DIST_BENGALURU": {
+        "address": "0x90F79bf6EB2c4f870365E785982E1f101E930009",
+        "name": "Bengaluru Urban Agency",
+        "department": "District Urban Development Agency, Bengaluru",
+        "district": "Bengaluru Urban",
+        "state_code": "KA",
+        "tier": "Tier 3: District Agency",
+        "role": "DISTRICT"
+    },
+    "DIST_MYSURU": {
+        "address": "0x3C44CdDdB6a900fa2b585dd299e03d12FA420010",
+        "name": "Mysuru District Agency",
+        "department": "District Rural Development Agency, Mysuru",
+        "district": "Mysuru",
+        "state_code": "KA",
+        "tier": "Tier 3: District Agency",
+        "role": "DISTRICT"
+    },
+    "DIST_MANGALURU": {
+        "address": "0x92db14e403b83dfe3df233f83dfa3a0d709600016",
+        "name": "Mangaluru District Agency",
+        "department": "District Development Office, Mangaluru",
+        "district": "Mangaluru",
+        "state_code": "KA",
+        "tier": "Tier 3: District Agency",
+        "role": "DISTRICT"
+    },
+    "DIST_PUNE": {
+        "address": "0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B20011",
+        "name": "Pune District Agency",
+        "department": "District Development Agency, Pune",
+        "district": "Pune",
+        "state_code": "MH",
+        "tier": "Tier 3: District Agency",
+        "role": "DISTRICT"
+    },
+    "DIST_NAGPUR": {
+        "address": "0x8b3a350cf5c34c9194ca85829a2df0ec315300015",
+        "name": "Nagpur District Agency",
+        "department": "District Development Agency, Nagpur",
+        "district": "Nagpur",
+        "state_code": "MH",
+        "tier": "Tier 3: District Agency",
+        "role": "DISTRICT"
+    },
+    "DIST_AHMEDABAD": {
+        "address": "0xBcd4042DE499D14e55001CcbB24a551F3b900014",
+        "name": "Ahmedabad District Agency",
+        "department": "District Development Agency, Ahmedabad",
+        "district": "Ahmedabad",
+        "state_code": "GJ",
+        "tier": "Tier 3: District Agency",
+        "role": "DISTRICT"
+    },
+    "DIST_CHENNAI": {
+        "address": "0x71bE63f3384f5fb9899544c7b624147781400013",
+        "name": "Chennai District Agency",
+        "department": "District Development Agency, Chennai",
+        "district": "Chennai",
+        "state_code": "TN",
+        "tier": "Tier 3: District Agency",
+        "role": "DISTRICT"
+    },
+    "DIST_LUCKNOW": {
+        "address": "0xa0Ee7A142d267C1f36714E4a8F75612F20a70012",
+        "name": "Lucknow District Agency",
+        "department": "District Development Agency, Lucknow",
+        "district": "Lucknow",
+        "state_code": "UP",
+        "tier": "Tier 3: District Agency",
+        "role": "DISTRICT"
+    },
+    # Contractors & Concessionaires
+    "CONTRACTOR_APEX": {
+        "address": "0xC2410CFED7AA70997970C51812dc3A010C7d0017",
+        "name": "Apex Infrastructure Contractors Pvt Ltd",
+        "department": "Civil Infrastructure Concessionaire",
+        "tier": "Tier 4: Contractor Escrow",
+        "role": "CONTRACTOR"
+    },
+    "CONTRACTOR_KA": {
+        "address": "0x5de4111afa1a4b94908f83103eb1f17063670018",
+        "name": "Karnataka Highway Infra Concessionaires",
+        "department": "Highway Infrastructure Concessionaire",
+        "tier": "Tier 4: Contractor Escrow",
+        "role": "CONTRACTOR"
+    },
+    "CONTRACTOR_SOUTH": {
+        "address": "0x7c852118294e51e653712a81e05800f419140019",
+        "name": "Southern Roads & Bridges Infrastructure",
+        "department": "Bridge & Road Concessionaire",
+        "tier": "Tier 4: Contractor Escrow",
+        "role": "CONTRACTOR"
+    },
+    # Smart Contract Escrow Ledger
+    "ESCROW_CONTRACT": {
+        "address": contract_address or "0x825A248BdC512e02e77445B3D76Ab01eBC46A22B",
+        "name": "Government Fund Tracking Smart Contract Escrow",
+        "department": "Automated Blockchain Escrow & Milestone Disbursal Vault",
+        "tier": "Smart Contract Vault",
+        "role": "ESCROW"
+    },
+    # Auditor
+    "AUDITOR": {
+        "address": "0xB91C1CFECACAa0Ee7A142d267C1f36714E4a8F750020",
+        "name": "CAG Audit & Inspection Directorate",
+        "department": "Forensic Audit & Public Accounts",
+        "tier": "Oversight & Audit",
+        "role": "AUDITOR"
+    }
+}
+
+def get_entity_wallet(entity_type, identifier=None):
+    """
+    Lookup or generate the authoritative Ethereum address for an entity:
+    - entity_type: 'ADMIN', 'FINANCE', 'STATE', 'DISTRICT', 'CONTRACTOR', 'ESCROW', 'AUDITOR'
+    - identifier: state_code, district_name, contractor_name or specific key
+    """
+    key = str(entity_type).upper()
+    if identifier:
+        clean_id = str(identifier).strip().replace(" ", "_").upper()
+        # Direct key check
+        if f"{key}_{clean_id}" in WALLET_REGISTRY:
+            return WALLET_REGISTRY[f"{key}_{clean_id}"]["address"]
+        # Match district
+        for k, v in WALLET_REGISTRY.items():
+            if v.get("district", "").upper() == str(identifier).upper():
+                return v["address"]
+            if v.get("state_code", "").upper() == str(identifier).upper() and k.startswith("STATE_"):
+                return v["address"]
+            if str(identifier).lower() in v.get("name", "").lower():
+                return v["address"]
+
+    if key in WALLET_REGISTRY:
+        return WALLET_REGISTRY[key]["address"]
+    
+    # Fallback to escrow or default account
+    if "ESCROW" in key or "CONTRACT" in key:
+        return contract_address or "0x825A248BdC512e02e77445B3D76Ab01eBC46A22B"
+
+    # Default fallback
+    return WALLET_REGISTRY.get("ADMIN", {}).get("address", "0x1E3A8A93FD0b4c8A9bE14c46f1F0A84D63A50001")
+
+def get_entity_info(address_or_key):
+    """Retrieve metadata description for a wallet address or key"""
+    if not address_or_key:
+        return {"name": "Public Citizen / Network", "tier": "Public", "role": "PUBLIC"}
+    
+    target = str(address_or_key).lower()
+    for k, v in WALLET_REGISTRY.items():
+        if v["address"].lower() == target or k.lower() == target:
+            return v
+    
+    if contract_address and target == contract_address.lower():
+        return WALLET_REGISTRY["ESCROW_CONTRACT"]
+    
+    return {
+        "name": f"Verified Account ({address_or_key[:6]}...{address_or_key[-4:] if len(address_or_key) > 10 else ''})",
+        "tier": "Network Participant",
+        "role": "MEMBER",
+        "address": address_or_key
+    }
+
 def is_blockchain_connected():
     try:
         return w3.is_connected()

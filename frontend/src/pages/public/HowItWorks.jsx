@@ -6,33 +6,33 @@ const HowItWorks = () => {
   const steps = [
     {
       num: '01',
-      title: 'Central Union Budget Allocation',
-      desc: 'Super Admin and National Planning Authority establish financial year limits and sanction budget ceilings to ministerial departments with cryptographic block registration.'
+      title: 'Central National Budget Allocation',
+      desc: 'Central Admin sets the yearly budget limits and approves funds for each national ministry and government scheme.'
     },
     {
       num: '02',
-      title: 'Finance Disbursal to State Treasury',
-      desc: 'Ministry of Finance verifies allocation ceilings, prevents double-spending, and executes on-chain transfer orders directly to designated State Treasury wallets.'
+      title: 'Finance Ministry Releases Funds to States',
+      desc: 'Ministry of Finance verifies the approved limits and transfers funds directly to State Treasury accounts on the blockchain.'
     },
     {
       num: '03',
-      title: 'Regional Distribution to District Agencies',
-      desc: 'State Treasury allocates regional quotas to District Development Agencies (DRDA), ensuring allocations do not exceed received state balances.'
+      title: 'State Treasury Sends Funds to Districts',
+      desc: 'State Treasury divides the received funds and sends budgets to District Development Offices for local work.'
     },
     {
       num: '04',
-      title: 'Smart Contract Escrow & Contractor KYC',
-      desc: 'District officers review statutory GSTN, PAN, and PWD credentials off-chain, anchor cryptographic digests, and deploy escrow contracts on Ethereum.'
+      title: 'District Creates Project & Assigns Contractor',
+      desc: 'District officers check contractor credentials (GST, PAN, licenses) and lock project funds safely on the blockchain.'
     },
     {
       num: '05',
-      title: 'Milestone Disbursal & SHA-256 Proofs',
-      desc: 'Contractors upload site progress photos with calculated SHA-256 digests. District inspection triggers smart contract payment release directly to contractor wallet.'
+      title: 'Work Completed & Milestone Payment Released',
+      desc: 'Contractors upload photos of completed work with digital verification. Officers inspect the site and release payments directly to the contractor.'
     },
     {
       num: '06',
-      title: 'CAG Forensic Audit & Fraud Safeguards',
-      desc: 'Comptroller & Auditor General cell audits transactions, matches document hashes in real-time, executes emergency fund freezes if needed, and files audit reports.'
+      title: 'Audit Inspection & Fraud Protection',
+      desc: 'Auditors continuously check records, verify documents, freeze funds if any irregularity is detected, and file public audit reports.'
     }
   ];
 
@@ -42,10 +42,10 @@ const HowItWorks = () => {
         <div>
           <h1 className="page-title">
             <Cpu size={24} color="var(--color-primary)" />
-            <span>How the Blockchain Fund Allocation System Operates</span>
+            <span>How the Government Fund Tracking System Works</span>
           </h1>
           <p className="page-subtitle">
-            A comprehensive overview of cryptographic multi-tier governance, smart contract escrows, and forensic auditing.
+            A simple step-by-step guide showing how public funds flow transparently from the central government to local projects.
           </p>
         </div>
       </div>
@@ -68,10 +68,10 @@ const HowItWorks = () => {
 
       <div className="card" style={{ textAlign: 'center', padding: '32px', background: 'var(--bg-subtle)' }}>
         <h2 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--color-primary)', marginBottom: '8px' }}>
-          Explore the Live Transparency Platform
+          Explore the Public Transparency Platform
         </h2>
         <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-          Inspect ongoing grassroots projects or review confirmed Ethereum blockchain transaction receipts.
+          Check ongoing local projects or review confirmed blockchain payment records.
         </p>
         <div style={{ display: 'flex', justifyContent: 'center', gap: '14px' }}>
           <Link to="/public/projects" className="btn btn-primary">
@@ -79,7 +79,7 @@ const HowItWorks = () => {
             <ArrowRight size={14} />
           </Link>
           <Link to="/public/explorer" className="btn btn-secondary">
-            <span>View Blockchain Ledger</span>
+            <span>View Blockchain Records</span>
           </Link>
         </div>
       </div>

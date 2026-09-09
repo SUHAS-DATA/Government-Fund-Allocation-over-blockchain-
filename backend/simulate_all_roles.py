@@ -21,7 +21,8 @@ from datetime import datetime
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
 
-# Import Flask app and database
+# Import FastAPI app and database
+from fastapi.testclient import TestClient
 from app import app
 from database import db
 
@@ -33,6 +34,21 @@ YELLOW = "\033[93m"
 RED = "\033[91m"
 BOLD = "\033[1m"
 RESET = "\033[0m"
+
+class TestClientWrapper:
+    def __init__(self, fastapi_app):
+        self._tc = TestClient(fastapi_app)
+    def _wrap(self, res):
+        res.get_json = res.json
+        return res
+    def get(self, *args, **kwargs):
+        return self._wrap(self._tc.get(*args, **kwargs))
+    def post(self, *args, **kwargs):
+        return self._wrap(self._tc.post(*args, **kwargs))
+    def put(self, *args, **kwargs):
+        return self._wrap(self._tc.put(*args, **kwargs))
+    def delete(self, *args, **kwargs):
+        return self._wrap(self._tc.delete(*args, **kwargs))
 
 def print_header(title):
     print(f"\n{BOLD}{CYAN}{'='*80}{RESET}")
@@ -53,7 +69,7 @@ def run_simulation():
     print(f"{BOLD}{GREEN}    Simulating Real-World Multi-Tier Governance Lifecycle & Audit        {RESET}")
     print(f"{BOLD}{GREEN}========================================================================{RESET}")
 
-    client = app.test_client()
+    client = TestClientWrapper(app)
     session_data = {}
 
     def login(email, password, role_name):

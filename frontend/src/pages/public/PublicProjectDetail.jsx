@@ -69,7 +69,7 @@ const PublicProjectDetail = () => {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
             <span className={`badge ${proj.is_frozen ? 'badge-danger' : proj.status === 'COMPLETED' ? 'badge-success' : 'badge-info'}`}>
-              {proj.is_frozen ? 'ESCROW FROZEN BY CAG AUDIT' : proj.status}
+              {proj.is_frozen ? 'FUNDS FROZEN BY AUDITOR' : proj.status}
             </span>
             <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>ID: {proj.project_id}</span>
           </div>
@@ -80,7 +80,7 @@ const PublicProjectDetail = () => {
 
         <Link to={`/public/grievance?project_id=${proj.project_id}&district=${proj.district_name}`} className="btn btn-warning">
           <MessageSquareWarning size={15} />
-          <span>File Citizen Grievance</span>
+          <span>Report Issue / Complaint</span>
         </Link>
       </div>
 
@@ -99,7 +99,7 @@ const PublicProjectDetail = () => {
           <AlertTriangle size={24} />
           <div>
             <div style={{ fontWeight: '700', fontSize: '13px' }}>EMERGENCY AUDIT HOLD ACTIVE</div>
-            <div style={{ fontSize: '12px' }}>Reason: {proj.freeze_reason || 'Material variance detected by forensic auditors.'}</div>
+            <div style={{ fontSize: '12px' }}>Reason: {proj.freeze_reason || 'Discrepancy detected by auditors.'}</div>
           </div>
         </div>
       )}
@@ -107,28 +107,28 @@ const PublicProjectDetail = () => {
       {/* 3-Column Financial Breakdown */}
       <div className="grid-3" style={{ marginBottom: '24px' }}>
         <div className="card">
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>Sanctioned Budget</div>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>Approved Budget</div>
           <div style={{ fontSize: '22px', fontWeight: '800', color: 'var(--text-main)', marginTop: '4px' }}>{formatCurrency(totalBudget)}</div>
-          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>Smart Contract Escrow Ceiling</div>
+          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>Total Approved Project Funds</div>
         </div>
 
         <div className="card">
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>Disbursed Expenditure</div>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>Released Payments</div>
           <div style={{ fontSize: '22px', fontWeight: '800', color: 'var(--color-success)', marginTop: '4px' }}>{formatCurrency(spentAmount)}</div>
-          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>Released via Verified Milestones</div>
+          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>Paid for Completed Work</div>
         </div>
 
         <div className="card">
-          <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>Remaining Escrow Balance</div>
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>Remaining Balance</div>
           <div style={{ fontSize: '22px', fontWeight: '800', color: 'var(--color-primary)', marginTop: '4px' }}>{formatCurrency(remainingBudget)}</div>
-          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>Protected in Smart Contract</div>
+          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>Safe on Blockchain</div>
         </div>
       </div>
 
       {/* Physical Progress Bar */}
       <div className="card" style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <span style={{ fontWeight: '700', fontSize: '13px', color: 'var(--text-main)' }}>Physical Execution Progress</span>
+          <span style={{ fontWeight: '700', fontSize: '13px', color: 'var(--text-main)' }}>Work Progress</span>
           <span style={{ fontWeight: '800', fontSize: '14px', color: 'var(--color-primary)' }}>{progressPercent}% Completed</span>
         </div>
         <div style={{ height: '10px', background: '#E2E8F0', borderRadius: '5px', overflow: 'hidden' }}>
@@ -144,7 +144,7 @@ const PublicProjectDetail = () => {
         <div className="card-header">
           <div className="card-title">
             <Clock size={18} color="var(--color-primary)" />
-            <span>Milestone Disbursal Schedule ({milestones.length} Phases)</span>
+            <span>Milestone Payment Stages ({milestones.length} Phases)</span>
           </div>
         </div>
 
@@ -192,7 +192,7 @@ const PublicProjectDetail = () => {
         <div className="card-header">
           <div className="card-title">
             <FileText size={18} color="var(--color-primary)" />
-            <span>Off-Chain Inspection Proofs & Cryptographic SHA-256 Digests</span>
+            <span>Inspection Documents & Blockchain Verification Hashes</span>
           </div>
         </div>
 

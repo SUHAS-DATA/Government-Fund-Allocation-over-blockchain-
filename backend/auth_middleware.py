@@ -1,9 +1,8 @@
 import os
 import jwt
 import bcrypt
-from functools import wraps
 from datetime import datetime, timedelta, timezone
-from flask import request, jsonify, g
+from fastapi import Request, HTTPException, status, Depends
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -47,62 +46,53 @@ def decode_token(token: str) -> dict:
     try:
         return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
     except jwt.ExpiredSignatureError:
-        raise Exception("Session expired. Please log in again.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired. Please log in again."
+        )
     except jwt.InvalidTokenError:
-        raise Exception("Invalid authentication token.")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token."
+        )
 
-def token_required(f):
-    """Decorator requiring valid JWT token"""
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        auth_header = request.headers.get("Authorization")
-        if not auth_header:
-            return jsonify({"success": False, "message": "Authorization header missing"}), 401
-        
-        parts = auth_header.split(" ")
-        if len(parts) != 2 or parts[0].lower() != "bearer":
-            return jsonify({"success": False, "message": "Invalid Authorization header format"}), 401
-        
-        token = parts[1]
-        try:
-            payload = decode_token(token)
-            g.current_user = payload
-        except Exception as e:
-            return jsonify({"success": False, "message": str(e)}), 401
-            
-        return f(*args, **kwargs)
-    return decorated
+async def get_current_user(request: Request) -> dict:
+    """FastAPI dependency to extract and validate JWT token from Authorization header"""
+    auth_header = request.headers.get("Authorization")
+    if not auth_header:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization header missing"
+        )
+    
+    parts = auth_header.split(" ")
+    if len(parts) != 2 or parts[0].lower() != "bearer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid Authorization header format"
+        )
+    
+    token = parts[1]
+    payload = decode_token(token)
+    request.state.current_user = payload
+    return payload
 
-def role_required(allowed_roles):
-    """Strict RBAC decorator validating user role"""
+def require_roles(allowed_roles):
+    """FastAPI dependency factory enforcing Role-Based Access Control (RBAC)"""
     if isinstance(allowed_roles, str):
         allowed_roles = [allowed_roles]
 
-    def decorator(f):
-        @wraps(f)
-        def decorated_function(*args, **kwargs):
-            auth_header = request.headers.get("Authorization")
-            if not auth_header:
-                return jsonify({"success": False, "message": "Authentication required"}), 401
-            
-            parts = auth_header.split(" ")
-            if len(parts) != 2 or parts[0].lower() != "bearer":
-                return jsonify({"success": False, "message": "Invalid Token Format"}), 401
-            
-            try:
-                payload = decode_token(parts[1])
-                g.current_user = payload
-                user_role = payload.get("role")
+    async def role_checker(current_user: dict = Depends(get_current_user)) -> dict:
+        user_role = current_user.get("role")
+        if user_role not in allowed_roles and user_role != "SUPER_ADMIN":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access Denied. Role '{user_role}' is not authorized for this resource."
+            )
+        return current_user
 
-                if user_role not in allowed_roles and user_role != "SUPER_ADMIN":
-                    return jsonify({
-                        "success": False,
-                        "message": f"Access Denied. Role '{user_role}' is not authorized for this resource."
-                    }), 403
+    return role_checker
 
-            except Exception as e:
-                return jsonify({"success": False, "message": str(e)}), 401
-
-            return f(*args, **kwargs)
-        return decorated_function
-    return decorator
+# Aliases for backward compatibility in imports
+token_required = get_current_user
+role_required = require_roles

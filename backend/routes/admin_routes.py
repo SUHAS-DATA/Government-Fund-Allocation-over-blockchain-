@@ -1,23 +1,28 @@
 import os
 import random
 import string
-from datetime import datetime
-from flask import Blueprint, request, jsonify, g
+from datetime import datetime, timezone
+from typing import Optional
+from fastapi import APIRouter, Request, Depends, status, Query
+from fastapi.responses import JSONResponse
 from bson import ObjectId
 from database import db, serialize_doc
-from auth_middleware import role_required, token_required
+from auth_middleware import require_roles
 import blockchain_service as bcs
 
-admin_bp = Blueprint("admin_bp", __name__)
+router = APIRouter()
+admin_bp = router
 
 def generate_allocation_id(fy):
     rand_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
     return f"ALLOC-{fy}-{rand_suffix}"
 
-@admin_bp.route("/dashboard", methods=["GET"])
-@role_required(["SUPER_ADMIN"])
-def dashboard():
-    selected_fy = request.args.get("fy")
+@router.get("/dashboard")
+async def dashboard(
+    fy: Optional[str] = Query(None),
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN"]))
+):
+    selected_fy = fy
     
     # 1. Fetch active and all financial years
     all_fys = list(db.financial_years.find().sort("year", -1))
@@ -59,7 +64,7 @@ def dashboard():
     if not recent_allocations and not selected_fy:
         recent_allocations = list(db.budget_allocations.find().sort("created_at", -1).limit(5))
 
-    return jsonify({
+    return {
         "success": True,
         "metrics": {
             "selected_financial_year": target_fy_year,
@@ -80,47 +85,15 @@ def dashboard():
         "financial_years": serialize_doc(all_fys),
         "recent_transfers": serialize_doc(recent_transfers),
         "recent_allocations": serialize_doc(recent_allocations)
-    })
+    }
 
 # --- Financial Years ---
-@admin_bp.route("/financial-years", methods=["GET", "POST"])
-@role_required(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR", "AUDITOR"])
-def financial_years():
-    if request.method == "POST":
-        if g.current_user.get("role") != "SUPER_ADMIN":
-            return jsonify({"success": False, "message": "Super Admin authorization required"}), 403
-
-        data = request.get_json() or {}
-        year = data.get("year", "").strip()
-        if not year:
-            return jsonify({"success": False, "message": "Financial year (e.g. 2026-27) is required"}), 400
-
-        status = data.get("status", "ACTIVE")
-        if status == "ACTIVE":
-            # Deactivate previous active years to ensure clean single active cycle
-            db.financial_years.update_many({"year": {"$ne": year}}, {"$set": {"status": "CLOSED"}})
-
-        # Safe date calculation
-        parts = year.split('-')
-        start_year = parts[0]
-        end_suffix = parts[1] if len(parts) > 1 else str(int(start_year) + 1)[-2:]
-        end_year = f"20{end_suffix}" if len(end_suffix) == 2 else end_suffix
-
-        doc = {
-            "year": year,
-            "title": data.get("title", f"Union Budget FY {year}"),
-            "total_budget": float(data.get("total_budget", 5000000000.0)),
-            "status": status,
-            "start_date": data.get("start_date", f"{start_year}-04-01"),
-            "end_date": data.get("end_date", f"{end_year}-03-31"),
-            "created_at": datetime.utcnow()
-        }
-        db.financial_years.update_one({"year": year}, {"$set": doc}, upsert=True)
-        return jsonify({"success": True, "message": f"Financial year {year} saved successfully", "financial_year": doc}), 201
-
+@router.get("/financial-years")
+async def get_financial_years(
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR", "AUDITOR"]))
+):
     fys = list(db.financial_years.find().sort("year", -1))
     
-    # Enrich each FY with live aggregated allocation totals
     enriched_fys = []
     for fy in fys:
         y = fy.get("year")
@@ -140,150 +113,238 @@ def financial_years():
         fy_dict["allocations_count"] = count
         enriched_fys.append(fy_dict)
 
-    return jsonify({"success": True, "financial_years": enriched_fys})
+    return {"success": True, "financial_years": enriched_fys}
 
-@admin_bp.route("/financial-years/<year>/activate", methods=["PUT"])
-@role_required(["SUPER_ADMIN"])
-def activate_financial_year(year):
+@router.post("/financial-years", status_code=status.HTTP_201_CREATED)
+async def create_financial_year(
+    request: Request,
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN"]))
+):
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
+    year = data.get("year", "").strip()
+    if not year:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Financial year (e.g. 2026-27) is required"}
+        )
+
+    status_val = data.get("status", "ACTIVE")
+    if status_val == "ACTIVE":
+        db.financial_years.update_many({"year": {"$ne": year}}, {"$set": {"status": "CLOSED"}})
+
+    parts = year.split('-')
+    start_year = parts[0]
+    end_suffix = parts[1] if len(parts) > 1 else str(int(start_year) + 1)[-2:]
+    end_year = f"20{end_suffix}" if len(end_suffix) == 2 else end_suffix
+
+    doc = {
+        "year": year,
+        "title": data.get("title", f"Union Budget FY {year}"),
+        "total_budget": float(data.get("total_budget", 5000000000.0)),
+        "status": status_val,
+        "start_date": data.get("start_date", f"{start_year}-04-01"),
+        "end_date": data.get("end_date", f"{end_year}-03-31"),
+        "created_at": datetime.now(timezone.utc)
+    }
+    db.financial_years.update_one({"year": year}, {"$set": doc}, upsert=True)
+    return {"success": True, "message": f"Financial year {year} saved successfully", "financial_year": serialize_doc(doc)}
+
+@router.put("/financial-years/{year}/activate")
+async def activate_financial_year(
+    year: str,
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN"]))
+):
     fy = db.financial_years.find_one({"year": year})
     if not fy:
-        return jsonify({"success": False, "message": "Financial year not found"}), 404
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"success": False, "message": "Financial year not found"}
+        )
 
-    # Set all other FYs to CLOSED and this one to ACTIVE
     db.financial_years.update_many({"year": {"$ne": year}}, {"$set": {"status": "CLOSED"}})
-    db.financial_years.update_one({"year": year}, {"$set": {"status": "ACTIVE", "updated_at": datetime.utcnow()}})
+    db.financial_years.update_one({"year": year}, {"$set": {"status": "ACTIVE", "updated_at": datetime.now(timezone.utc)}})
     
-    return jsonify({"success": True, "message": f"Financial year {year} is now ACTIVE."})
+    return {"success": True, "message": f"Financial year {year} is now ACTIVE."}
 
 # --- Departments ---
-@admin_bp.route("/departments", methods=["GET", "POST"])
-@role_required(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR", "AUDITOR"])
-def departments():
-    if request.method == "POST":
-        if g.current_user.get("role") != "SUPER_ADMIN":
-            return jsonify({"success": False, "message": "Super Admin authorization required"}), 403
-
-        data = request.get_json() or {}
-        code = data.get("code", "").strip().upper()
-        name = data.get("name", "").strip()
-        if not code or not name:
-            return jsonify({"success": False, "message": "Department code and name are required"}), 400
-
-        doc = {
-            "code": code,
-            "name": name,
-            "budget_share": float(data.get("budget_share", 20.0)),
-            "head": data.get("head", ""),
-            "created_at": datetime.utcnow()
-        }
-        db.departments.update_one({"code": code}, {"$set": doc}, upsert=True)
-        return jsonify({"success": True, "message": "Department registered successfully", "department": doc}), 201
-
+@router.get("/departments")
+async def get_departments(
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR", "AUDITOR"]))
+):
     depts = list(db.departments.find().sort("name", 1))
-    return jsonify({"success": True, "departments": serialize_doc(depts)})
+    return {"success": True, "departments": serialize_doc(depts)}
+
+@router.post("/departments", status_code=status.HTTP_201_CREATED)
+async def create_department(
+    request: Request,
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN"]))
+):
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
+    code = data.get("code", "").strip().upper()
+    name = data.get("name", "").strip()
+    if not code or not name:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Department code and name are required"}
+        )
+
+    doc = {
+        "code": code,
+        "name": name,
+        "budget_share": float(data.get("budget_share", 20.0)),
+        "head": data.get("head", ""),
+        "created_at": datetime.now(timezone.utc)
+    }
+    db.departments.update_one({"code": code}, {"$set": doc}, upsert=True)
+    return {"success": True, "message": "Department registered successfully", "department": serialize_doc(doc)}
 
 # --- States & Districts ---
-@admin_bp.route("/states", methods=["GET", "POST"])
-@role_required(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR", "AUDITOR"])
-def states():
-    if request.method == "POST":
-        if g.current_user.get("role") != "SUPER_ADMIN":
-            return jsonify({"success": False, "message": "Super Admin authorization required"}), 403
-
-        data = request.get_json() or {}
-        code = data.get("code", "").strip().upper()
-        name = data.get("name", "").strip()
-        if not code or not name:
-            return jsonify({"success": False, "message": "State code and name required"}), 400
-
-        doc = {
-            "code": code,
-            "name": name,
-            "treasury_address": data.get("treasury_address", "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"),
-            "created_at": datetime.utcnow()
-        }
-        db.states.update_one({"code": code}, {"$set": doc}, upsert=True)
-        return jsonify({"success": True, "message": "State configured successfully", "state": doc}), 201
-
+@router.get("/states")
+async def get_states(
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR", "AUDITOR"]))
+):
     st_list = list(db.states.find().sort("name", 1))
-    return jsonify({"success": True, "states": serialize_doc(st_list)})
+    return {"success": True, "states": serialize_doc(st_list)}
 
-@admin_bp.route("/districts", methods=["GET", "POST"])
-@role_required(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR", "AUDITOR"])
-def districts():
-    if request.method == "POST":
-        if g.current_user.get("role") != "SUPER_ADMIN":
-            return jsonify({"success": False, "message": "Super Admin authorization required"}), 403
+@router.post("/states", status_code=status.HTTP_201_CREATED)
+async def create_state(
+    request: Request,
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN"]))
+):
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
 
-        data = request.get_json() or {}
-        name = data.get("name", "").strip()
-        state_code = data.get("state_code", "").strip().upper()
-        if not name or not state_code:
-            return jsonify({"success": False, "message": "District name and state code required"}), 400
+    code = data.get("code", "").strip().upper()
+    name = data.get("name", "").strip()
+    if not code or not name:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "State code and name required"}
+        )
 
-        st = db.states.find_one({"code": state_code})
-        doc = {
-            "name": name,
-            "state_code": state_code,
-            "state_name": st.get("name") if st else state_code,
-            "treasury_address": data.get("treasury_address", "0x14dC79964da2C08b23698B3D3cc7Ca32193d9955"),
-            "created_at": datetime.utcnow()
-        }
-        db.districts.update_one({"name": name}, {"$set": doc}, upsert=True)
-        return jsonify({"success": True, "message": "District configured successfully", "district": doc}), 201
+    doc = {
+        "code": code,
+        "name": name,
+        "treasury_address": data.get("treasury_address", "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"),
+        "created_at": datetime.now(timezone.utc)
+    }
+    db.states.update_one({"code": code}, {"$set": doc}, upsert=True)
+    return {"success": True, "message": "State configured successfully", "state": serialize_doc(doc)}
 
-    state_code = request.args.get("state_code", "").strip().upper()
-    state_name = request.args.get("state_name", "").strip()
+@router.get("/districts")
+async def get_districts(
+    state_code: Optional[str] = Query(None),
+    state_name: Optional[str] = Query(None),
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR", "AUDITOR"]))
+):
     query = {}
     if state_code:
-        query["state_code"] = state_code
+        query["state_code"] = state_code.strip().upper()
     elif state_name:
-        query["$or"] = [{"state_name": state_name}, {"state_code": state_name.upper()}]
+        s_name = state_name.strip()
+        query["$or"] = [{"state_name": s_name}, {"state_code": s_name.upper()}]
 
     dist_list = list(db.districts.find(query).sort("name", 1))
-    return jsonify({"success": True, "districts": serialize_doc(dist_list)})
+    return {"success": True, "districts": serialize_doc(dist_list)}
+
+@router.post("/districts", status_code=status.HTTP_201_CREATED)
+async def create_district(
+    request: Request,
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN"]))
+):
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
+    name = data.get("name", "").strip()
+    state_code = data.get("state_code", "").strip().upper()
+    if not name or not state_code:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "District name and state code required"}
+        )
+
+    st = db.states.find_one({"code": state_code})
+    doc = {
+        "name": name,
+        "state_code": state_code,
+        "state_name": st.get("name") if st else state_code,
+        "treasury_address": data.get("treasury_address", "0x14dC79964da2C08b23698B3D3cc7Ca32193d9955"),
+        "created_at": datetime.now(timezone.utc)
+    }
+    db.districts.update_one({"name": name}, {"$set": doc}, upsert=True)
+    return {"success": True, "message": "District configured successfully", "district": serialize_doc(doc)}
 
 # --- Schemes ---
-@admin_bp.route("/schemes", methods=["GET", "POST"])
-@role_required(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR", "AUDITOR"])
-def schemes():
-    if request.method == "POST":
-        if g.current_user.get("role") != "SUPER_ADMIN":
-            return jsonify({"success": False, "message": "Super Admin authorization required"}), 403
-
-        data = request.get_json() or {}
-        code = data.get("code", "").strip().upper()
-        name = data.get("name", "").strip()
-        if not code or not name:
-            return jsonify({"success": False, "message": "Scheme code and name required"}), 400
-
-        doc = {
-            "code": code,
-            "name": name,
-            "department_code": data.get("department_code", "INFRA"),
-            "department_name": data.get("department_name", "Road Transport & Infrastructure"),
-            "description": data.get("description", ""),
-            "target_budget": float(data.get("target_budget", 1000000000.0)),
-            "created_at": datetime.utcnow()
-        }
-        db.schemes.update_one({"code": code}, {"$set": doc}, upsert=True)
-        return jsonify({"success": True, "message": "Scheme created successfully", "scheme": doc}), 201
-
+@router.get("/schemes")
+async def get_schemes(
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR", "AUDITOR"]))
+):
     sc_list = list(db.schemes.find().sort("name", 1))
-    return jsonify({"success": True, "schemes": serialize_doc(sc_list)})
+    return {"success": True, "schemes": serialize_doc(sc_list)}
+
+@router.post("/schemes", status_code=status.HTTP_201_CREATED)
+async def create_scheme(
+    request: Request,
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN"]))
+):
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
+    code = data.get("code", "").strip().upper()
+    name = data.get("name", "").strip()
+    if not code or not name:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Scheme code and name required"}
+        )
+
+    doc = {
+        "code": code,
+        "name": name,
+        "department_code": data.get("department_code", "INFRA"),
+        "department_name": data.get("department_name", "Road Transport & Infrastructure"),
+        "description": data.get("description", ""),
+        "target_budget": float(data.get("target_budget", 1000000000.0)),
+        "created_at": datetime.now(timezone.utc)
+    }
+    db.schemes.update_one({"code": code}, {"$set": doc}, upsert=True)
+    return {"success": True, "message": "Scheme created successfully", "scheme": serialize_doc(doc)}
 
 # --- Central Budget Allocation & Blockchain Dispatch ---
-@admin_bp.route("/budget/allocate", methods=["POST"])
-@role_required(["SUPER_ADMIN"])
-def allocate_budget():
-    data = request.get_json() or {}
+@router.post("/budget/allocate", status_code=status.HTTP_201_CREATED)
+async def allocate_budget(
+    request: Request,
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN"]))
+):
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
     fy = data.get("financial_year", "2026-27")
     department = data.get("department", "Road Transport & Infrastructure")
     scheme_name = data.get("scheme_name", "Pradhan Mantri Gram Sadak Yojana (All-Weather Rural Roads)")
     amount = float(data.get("amount", 0))
 
     if amount <= 0:
-        return jsonify({"success": False, "message": "Allocation amount must be greater than zero"}), 400
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Allocation amount must be greater than zero"}
+        )
 
     alloc_id = generate_allocation_id(fy)
 
@@ -309,122 +370,158 @@ def allocate_budget():
         "status": "SANCTIONED",
         "blockchain_tx_hash": tx_hash,
         "blockchain_block": block_num,
-        "allocated_by": g.current_user["name"],
-        "created_at": datetime.utcnow()
+        "allocated_by": current_user["name"],
+        "created_at": datetime.now(timezone.utc)
     }
     db.budget_allocations.insert_one(alloc_doc)
 
     # Log to global blockchain transactions collection
     if tx_hash:
+        from_wallet = bcs.get_entity_wallet("ADMIN")
+        to_wallet = bcs.get_entity_wallet("FINANCE")
         db.blockchain_transactions.insert_one({
             "tx_hash": tx_hash,
             "block_number": block_num,
             "operation_type": "CENTRAL_BUDGET_ALLOCATION",
             "entity_id": alloc_id,
-            "from_address": bcs.get_account().address if bcs.get_account() else "0xCentralGovernment",
-            "to_address": "0xFinanceDisbursalAuthority",
+            "from_address": from_wallet,
+            "to_address": to_wallet,
+            "from_entity": "Central Secretariat (Cabinet Planning)",
+            "to_entity": "Ministry of Finance (Public Fund Authority)",
+            "transfer_tier": "CENTRAL_TO_FINANCE",
+            "flow_stage": "1. Central Sanction -> Finance Dept",
             "amount": amount,
-            "details": f"Budget Sanctioned for {scheme_name} ({department})",
-            "timestamp": datetime.utcnow()
+            "details": f"Budget Sanctioned for {scheme_name} ({department}) -> Forwarded to Ministry of Finance",
+            "timestamp": datetime.now(timezone.utc)
         })
 
-    return jsonify({
+    return {
         "success": True,
         "message": f"Central budget allocation {alloc_id} registered and anchored on blockchain",
         "allocation_id": alloc_id,
         "blockchain": {"tx_hash": tx_hash, "block_number": block_num},
         "budget": serialize_doc(alloc_doc)
-    }), 201
+    }
 
-@admin_bp.route("/allocations", methods=["GET"])
-@role_required(["SUPER_ADMIN"])
-def get_allocations():
-    fy = request.args.get("fy")
+@router.get("/allocations")
+async def get_allocations(
+    fy: Optional[str] = Query(None),
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN"]))
+):
     query = {}
     if fy and fy != "ALL":
         query["financial_year"] = fy
     allocations = list(db.budget_allocations.find(query).sort("created_at", -1))
-    return jsonify({"success": True, "allocations": serialize_doc(allocations)})
+    return {"success": True, "allocations": serialize_doc(allocations)}
 
 # --- Send to Finance ---
-@admin_bp.route("/budget/send-to-finance", methods=["POST"])
-@role_required(["SUPER_ADMIN"])
-def send_to_finance():
-    data = request.get_json() or {}
-    alloc_id = data.get("allocation_id")
+@router.post("/budget/send-to-finance")
+async def send_to_finance(
+    request: Request,
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN"]))
+):
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
 
+    alloc_id = data.get("allocation_id")
     if not alloc_id:
-        return jsonify({"success": False, "message": "Allocation ID is required"}), 400
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Allocation ID is required"}
+        )
 
     alloc = db.budget_allocations.find_one({"allocation_id": alloc_id})
     if not alloc:
-        return jsonify({"success": False, "message": "Allocation not found"}), 404
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"success": False, "message": "Allocation not found"}
+        )
 
     db.budget_allocations.update_one(
         {"allocation_id": alloc_id},
         {"$set": {
             "status": "SENT_TO_FINANCE",
-            "sent_to_finance_at": datetime.utcnow(),
+            "sent_to_finance_at": datetime.now(timezone.utc),
             "forwarding_notes": data.get("notes", "Sanctioned for Public Finance Disbursal")
         }}
     )
 
-    # Create notification for Finance Department
     db.notifications.insert_one({
         "recipient_role": "FINANCE",
         "title": "New Budget Allocation Received",
         "message": f"Central Allocation {alloc_id} for '{alloc.get('scheme_name')}' (INR {alloc.get('amount'):,.2f}) forwarded for State Treasury transfer.",
         "link": f"/finance/transfers?allocation_id={alloc_id}",
         "read": False,
-        "created_at": datetime.utcnow()
+        "created_at": datetime.now(timezone.utc)
     })
 
-    return jsonify({"success": True, "message": f"Allocation {alloc_id} forwarded to Finance Department successfully."})
+    return {"success": True, "message": f"Allocation {alloc_id} forwarded to Finance Department successfully."}
 
 # --- User & Role Management ---
-@admin_bp.route("/users", methods=["GET"])
-@role_required(["SUPER_ADMIN"])
-def get_users():
+@router.get("/users")
+async def get_users(
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN"]))
+):
     users = list(db.users.find().sort("created_at", -1))
-    return jsonify({"success": True, "users": serialize_doc(users)})
+    return {"success": True, "users": serialize_doc(users)}
 
-@admin_bp.route("/users/<user_id>/role", methods=["PUT"])
-@role_required(["SUPER_ADMIN"])
-def update_user_role(user_id):
-    data = request.get_json() or {}
+@router.put("/users/{user_id}/role")
+async def update_user_role(
+    user_id: str,
+    request: Request,
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN"]))
+):
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
     new_role = data.get("role", "").upper()
     if not new_role:
-        return jsonify({"success": False, "message": "Role is required"}), 400
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Role is required"}
+        )
 
     db.users.update_one(
         {"_id": ObjectId(user_id)},
-        {"$set": {"role": new_role, "updated_at": datetime.utcnow()}}
+        {"$set": {"role": new_role, "updated_at": datetime.now(timezone.utc)}}
     )
-    return jsonify({"success": True, "message": f"User role updated to {new_role}"})
+    return {"success": True, "message": f"User role updated to {new_role}"}
 
-@admin_bp.route("/users/<user_id>/status", methods=["PUT"])
-@role_required(["SUPER_ADMIN"])
-def toggle_user_status(user_id):
-    data = request.get_json() or {}
+@router.put("/users/{user_id}/status")
+async def toggle_user_status(
+    user_id: str,
+    request: Request,
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN"]))
+):
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
     is_active = data.get("is_active", True)
-
     db.users.update_one(
         {"_id": ObjectId(user_id)},
-        {"$set": {"is_active": is_active, "updated_at": datetime.utcnow()}}
+        {"$set": {"is_active": is_active, "updated_at": datetime.now(timezone.utc)}}
     )
-    return jsonify({"success": True, "message": f"User status updated to {'Active' if is_active else 'Suspended'}"})
+    return {"success": True, "message": f"User status updated to {'Active' if is_active else 'Suspended'}"}
 
 # --- Audit Reports Review ---
-@admin_bp.route("/audit-reports", methods=["GET"])
-@role_required(["SUPER_ADMIN"])
-def get_audit_reports():
+@router.get("/audit-reports")
+async def get_audit_reports(
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN"]))
+):
     reports = list(db.audit_reports.find().sort("created_at", -1))
-    return jsonify({"success": True, "audit_reports": serialize_doc(reports)})
+    return {"success": True, "audit_reports": serialize_doc(reports)}
 
 # --- Blockchain Explorer ---
-@admin_bp.route("/blockchain-explorer", methods=["GET"])
-@role_required(["SUPER_ADMIN", "AUDITOR", "FINANCE", "STATE", "DISTRICT"])
-def admin_blockchain_explorer():
+@router.get("/blockchain-explorer")
+async def admin_blockchain_explorer(
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN", "AUDITOR", "FINANCE", "STATE", "DISTRICT"]))
+):
     connected = bcs.is_blockchain_connected()
     account = bcs.get_account()
     contract = bcs.get_contract()
@@ -436,7 +533,7 @@ def admin_blockchain_explorer():
             chain_id = 1337
 
     txs = list(db.blockchain_transactions.find().sort("timestamp", -1).limit(200))
-    return jsonify({
+    return {
         "success": True,
         "status": {
             "connected": connected,
@@ -447,4 +544,4 @@ def admin_blockchain_explorer():
             "contract_deployed": contract is not None
         },
         "transactions": serialize_doc(txs)
-    })
+    }

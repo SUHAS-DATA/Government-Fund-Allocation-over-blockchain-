@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, ShieldCheck, Cpu, RefreshCw, Layers, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Activity, ShieldCheck, Cpu, RefreshCw, Layers, CheckCircle2, AlertCircle, Filter } from 'lucide-react';
 import API from '../../services/api';
 import { formatCurrency, formatAddress, getContractAddress, copyToClipboard } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
+import TransactionFlowBadge from '../../components/TransactionFlowBadge';
 import DataTable from '../../components/DataTable';
 
 const AuditExplorer = () => {
@@ -37,10 +38,23 @@ const AuditExplorer = () => {
   }, []);
 
   const filteredTransactions = filterOp
-    ? transactions.filter((t) => t.operation_type === filterOp)
+    ? transactions.filter((t) => t.operation_type === filterOp || t.transfer_tier === filterOp)
     : transactions;
 
   const columns = [
+    {
+      header: 'Transfer Flow (Sender ➔ Recipient)',
+      accessor: 'from_address',
+      render: (r) => (
+        <TransactionFlowBadge
+          fromAddress={r.from_address}
+          toAddress={r.to_address}
+          fromEntity={r.from_entity}
+          toEntity={r.to_entity}
+          flowStage={r.flow_stage}
+        />
+      )
+    },
     {
       header: 'Block / Operation',
       accessor: 'operation_type',

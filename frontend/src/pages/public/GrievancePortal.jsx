@@ -55,10 +55,10 @@ const GrievancePortal = () => {
         <div>
           <h1 className="page-title">
             <MessageSquareWarning size={24} color="var(--color-warning)" />
-            <span>Citizen Grievance & Public Redressal Portal</span>
+            <span>Report an Issue & Citizen Complaint Portal</span>
           </h1>
           <p className="page-subtitle">
-            Submit formal complaints regarding infrastructure quality, delays, or corruption directly to District and CAG audit authorities.
+            Report problems with project construction, delays, or work quality directly to government officers.
           </p>
         </div>
       </div>
@@ -66,20 +66,20 @@ const GrievancePortal = () => {
       {/* Tracker Box */}
       <div className="card" style={{ background: 'var(--bg-subtle)', marginBottom: '28px', padding: '18px 24px' }}>
         <h3 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-main)', marginBottom: '10px' }}>
-          Already have a Grievance Reference ID?
+          Already have a Complaint Tracking ID?
         </h3>
         <form onSubmit={handleTrackSubmit} style={{ display: 'flex', gap: '10px' }}>
           <input
             type="text"
             className="form-control"
-            placeholder="Enter Reference ID (e.g. GRV-2026-369964)"
+            placeholder="Enter Tracking ID (e.g. GRV-2026-369964)"
             value={trackRefInput}
             onChange={(e) => setTrackRefInput(e.target.value)}
             required
           />
           <button type="submit" className="btn btn-secondary" style={{ flexShrink: 0 }}>
             <Search size={14} />
-            <span>Track Status</span>
+            <span>Check Status</span>
           </button>
         </form>
       </div>
@@ -101,11 +101,11 @@ const GrievancePortal = () => {
           </div>
 
           <h2 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-main)', marginBottom: '8px' }}>
-            Grievance Registered Successfully
+            Complaint Submitted Successfully
           </h2>
 
           <p style={{ color: 'var(--text-secondary)', marginBottom: '20px', fontSize: '13px' }}>
-            Your complaint has been forwarded to the District Development Officer and CAG forensic audit cell.
+            Your complaint has been forwarded to the District Development Officer for investigation.
           </p>
 
           <div style={{
@@ -116,7 +116,7 @@ const GrievancePortal = () => {
             marginBottom: '24px',
             display: 'inline-block'
           }}>
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>Your Official Tracking Reference ID</div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>Your Tracking Reference ID</div>
             <div style={{ fontSize: '22px', fontWeight: '800', color: 'var(--color-primary)', fontFamily: 'monospace', marginTop: '4px' }}>
               {successRefId}
             </div>
@@ -124,7 +124,7 @@ const GrievancePortal = () => {
 
           <div>
             <Link to={`/public/grievance/track/${successRefId}`} className="btn btn-primary">
-              <span>Track Investigation Live</span>
+              <span>Track Complaint Status</span>
               <ArrowRight size={14} />
             </Link>
           </div>
@@ -134,11 +134,11 @@ const GrievancePortal = () => {
           <form onSubmit={handleSubmit}>
             <div className="grid-2">
               <div className="form-group">
-                <label className="form-label">Full Name</label>
+                <label className="form-label">Your Name</label>
                 <input
                   type="text"
                   className="form-control"
-                  placeholder="Citizen / Representative Name"
+                  placeholder="Citizen Name"
                   value={formData.citizen_name}
                   onChange={(e) => setFormData({ ...formData, citizen_name: e.target.value })}
                   required
@@ -150,7 +150,7 @@ const GrievancePortal = () => {
                 <input
                   type="email"
                   className="form-control"
-                  placeholder="name@citizen.in"
+                  placeholder="name@gmail.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   required
@@ -159,11 +159,11 @@ const GrievancePortal = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Related Project ID (Optional)</label>
+              <label className="form-label">Project ID (Optional)</label>
               <input
                 type="text"
                 className="form-control"
-                placeholder="e.g. PRJ-BEL-8X9Y2A or PRJ-PUN-001"
+                placeholder="e.g. PRJ-BEL-8X9Y2A or leave blank"
                 value={formData.project_id}
                 onChange={(e) => setFormData({ ...formData, project_id: e.target.value })}
               />
@@ -179,32 +179,32 @@ const GrievancePortal = () => {
               onDistrictChange={(dist) => {
                 setFormData((prev) => ({ ...prev, district_name: dist }));
               }}
-              stateLabel="State Jurisdiction"
-              districtLabel="District Jurisdiction"
+              stateLabel="State"
+              districtLabel="District"
               stateRequired={true}
               districtRequired={true}
             />
 
             <div className="form-group">
-              <label className="form-label">Complaint Category</label>
+              <label className="form-label">Problem Category</label>
               <select
                 className="form-control form-select"
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
               >
-                <option value="CONSTRUCTION_QUALITY">Substandard Material & Construction Quality</option>
-                <option value="PROJECT_DELAY">Unjustified Timeline & Execution Delay</option>
-                <option value="FINANCIAL_CORRUPTION">Suspected Financial Irregularity / Over-Billing</option>
-                <option value="SAFETY_VIOLATION">Public Safety / Hazard Non-Compliance</option>
+                <option value="CONSTRUCTION_QUALITY">Poor Work & Construction Quality</option>
+                <option value="PROJECT_DELAY">Work Stopped or Delayed</option>
+                <option value="FINANCIAL_CORRUPTION">Suspected Corruption or Over-Charging</option>
+                <option value="SAFETY_VIOLATION">Public Safety Hazard</option>
               </select>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Grievance Particulars & Ground Evidence</label>
+              <label className="form-label">Complaint Details & Observations</label>
               <textarea
                 className="form-control"
                 rows="4"
-                placeholder="Provide specific location, observations, and discrepancy details..."
+                placeholder="Describe what is wrong, the location, and what you noticed..."
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 required
@@ -212,7 +212,7 @@ const GrievancePortal = () => {
             </div>
 
             <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={submitting}>
-              <span>{submitting ? 'Registering Grievance...' : 'Submit Grievance to Authorities'}</span>
+              <span>{submitting ? 'Submitting Complaint...' : 'Submit Complaint to Officers'}</span>
             </button>
           </form>
         </div>

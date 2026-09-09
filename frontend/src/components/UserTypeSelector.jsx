@@ -25,119 +25,119 @@ export const USER_ROLES_CONFIG = [
     id: 'SUPER_ADMIN',
     title: 'Super Admin',
     roleLabel: 'Central Secretariat',
-    badge: 'National Central Ceiling',
+    badge: 'Central Budget Authority',
     icon: Landmark,
     accentColor: '#1E3A8A',
     lightBg: 'rgba(30, 58, 138, 0.05)',
     borderColor: '#93C5FD',
-    description: 'National budget sanction, scheme master creation, user provisioning, and CAG forensic review.',
+    description: 'National budget approval, scheme setup, user accounts management, and audit reports.',
     loginTarget: '/login?role=SUPER_ADMIN',
     dashboardTarget: '/admin/dashboard',
     defaultEmail: 'admin@govtfund.gov.in',
     defaultPassword: 'Admin@123',
-    tier: 'Tier 1 • Union Apex',
-    tags: ['National Ceiling', 'Scheme Masters', 'User Roles']
+    tier: 'Tier 1 • Central Level',
+    tags: ['National Budget', 'Schemes', 'User Roles']
   },
   {
     id: 'FINANCE',
-    title: 'Finance Authority',
+    title: 'Finance Dept',
     roleLabel: 'Ministry of Finance',
-    badge: 'Treasury Disbursal Authority',
+    badge: 'Treasury Fund Release',
     icon: FileSpreadsheet,
     accentColor: '#0F766E',
     lightBg: 'rgba(15, 118, 110, 0.05)',
     borderColor: '#99F6E4',
-    description: 'Verify sanctioned union budgets, execute state treasury fund releases, and monitor macro disbursements.',
+    description: 'Check approved budgets, release funds to State Treasuries, and track government payments.',
     loginTarget: '/login?role=FINANCE',
     dashboardTarget: '/finance/dashboard',
     defaultEmail: 'finance@govtfund.gov.in',
     defaultPassword: 'Finance@123',
-    tier: 'Tier 2 • Treasury',
-    tags: ['State Tranches', 'Disbursal Approval', 'Treasury Ledgers']
+    tier: 'Tier 2 • Finance Dept',
+    tags: ['State Fund Releases', 'Payment Approvals', 'Treasury Records']
   },
   {
     id: 'STATE',
     title: 'State Treasury',
     roleLabel: 'State Planning & Finance',
-    badge: 'State Disbursal Unit',
+    badge: 'State Fund Management',
     icon: Building,
     accentColor: '#0369A1',
     lightBg: 'rgba(3, 105, 161, 0.05)',
     borderColor: '#BAE6FD',
-    description: 'Receive central fund releases, allocate state scheme budgets to district agencies (KA, MH, GJ, TN, UP).',
+    description: 'Receive central funds and allocate budgets to District Development Offices (KA, MH, GJ, TN, UP).',
     loginTarget: '/login?role=STATE',
     dashboardTarget: '/state/dashboard',
     defaultEmail: 'karnataka@govtfund.gov.in',
     defaultPassword: 'State@123',
-    tier: 'Tier 3 • State Apex',
-    tags: ['District Allocations', 'State Receipts', 'Regional Ledgers']
+    tier: 'Tier 3 • State Level',
+    tags: ['District Allocations', 'Received Funds', 'State Records']
   },
   {
     id: 'DISTRICT',
     title: 'District Agency',
-    roleLabel: 'District DRDA / Collectorate',
-    badge: 'Implementation Agency',
+    roleLabel: 'District Office / Collectorate',
+    badge: 'Project Planning & Execution',
     icon: Layers,
     accentColor: '#7C3AED',
     lightBg: 'rgba(124, 58, 237, 0.05)',
     borderColor: '#DDD6FE',
-    description: 'Create infrastructure projects, bind contractors, deploy on-chain escrows, and inspect milestone proofs.',
+    description: 'Create development projects, assign contractors, check site work, and release milestone payments.',
     loginTarget: '/district-login',
     dashboardTarget: '/district/dashboard',
     defaultEmail: 'district.belagavi@govtfund.gov.in',
     defaultPassword: 'District@123',
-    tier: 'Tier 4 • Grassroots Ops',
-    tags: ['Project Escrows', 'Contractor KYC', 'Milestone Releases']
+    tier: 'Tier 4 • District Level',
+    tags: ['Project Funds', 'Contractor Verification', 'Milestone Payments']
   },
   {
     id: 'CONTRACTOR',
     title: 'Contractor & Vendor',
-    roleLabel: 'Approved Concessionaires',
-    badge: 'Project Concessionaire',
+    roleLabel: 'Registered Contractors',
+    badge: 'Project Contractor',
     icon: Briefcase,
     accentColor: '#C2410C',
     lightBg: 'rgba(194, 65, 12, 0.05)',
     borderColor: '#FED7AA',
-    description: 'Submit KYC documentation, upload photographic milestone proofs with SHA-256 digests, and claim payouts.',
+    description: 'Submit business profile, upload site work photos with blockchain proof, and claim milestone payments.',
     loginTarget: '/contractor-login',
     dashboardTarget: '/contractor/dashboard',
     defaultEmail: 'contractor@buildcorp.in',
     defaultPassword: 'Contractor@123',
-    tier: 'Tier 5 • Concessionaire',
-    tags: ['Proof Submission', 'Escrow Claims', 'KYC Compliance']
+    tier: 'Tier 5 • Contractor',
+    tags: ['Work Proof Submission', 'Payment Claims', 'Business Profile']
   },
   {
     id: 'AUDITOR',
-    title: 'Auditor & Vigilance',
-    roleLabel: 'CAG Forensic Directorate',
+    title: 'Auditor & Inspection',
+    roleLabel: 'Audit & Inspection Cell',
     badge: 'Independent Oversight',
     icon: Search,
     accentColor: '#B91C1C',
     lightBg: 'rgba(185, 28, 28, 0.05)',
     borderColor: '#FECACA',
-    description: 'Automated AI/statistical anomaly detection, smart contract fund freeze triggers, and forensic audit reports.',
+    description: 'Automatic fraud & anomaly detection, emergency fund freeze actions, and official audit reports.',
     loginTarget: '/login?role=AUDITOR',
     dashboardTarget: '/auditor/dashboard',
     defaultEmail: 'auditor@auditindia.gov.in',
     defaultPassword: 'Auditor@123',
-    tier: 'Independent • Vigilance',
-    tags: ['Anomaly Detection', 'Smart Contract Freeze', 'CAG Reports']
+    tier: 'Independent • Auditor',
+    tags: ['Anomaly Detection', 'Fund Freeze', 'Audit Reports']
   },
   {
     id: 'PUBLIC',
     title: 'Public / Citizen',
-    roleLabel: 'Citizen Transparency Portal',
+    roleLabel: 'Citizen Public Portal',
     badge: 'Open Access • No Login Required',
     icon: Globe,
     accentColor: '#059669',
     lightBg: 'rgba(5, 150, 105, 0.05)',
     borderColor: '#A7F3D0',
-    description: 'Track live government projects in real-time, view verified blockchain transaction records, and file public grievances.',
+    description: 'Track live government projects, check verified blockchain records, and report issues / complaints.',
     loginTarget: '/public/projects',
     dashboardTarget: '/public/projects',
     isPublic: true,
-    tier: 'Public Transparency',
-    tags: ['Public Project Tracking', 'Blockchain Explorer', 'Grievance Redressal']
+    tier: 'Public Tracking',
+    tags: ['Public Project Tracking', 'Blockchain Records', 'Report Complaints']
   }
 ];
 
@@ -225,7 +225,7 @@ const UserTypeSelector = ({ compact = false, showDiagram = true }) => {
               gap: '8px'
             }}>
               <Globe size={16} />
-              <span>MAIN WEBSITE LINK (PFMS Live Portal)</span>
+              <span>MAIN WEBSITE LINK (Government Fund Live Portal)</span>
             </div>
 
             {/* Down Arrow */}

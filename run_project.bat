@@ -5,8 +5,8 @@ echo    STARTING PFMS BLOCKCHAIN FUND ALLOCATION AND TRACKING SYSTEM
 echo ======================================================================
 echo.
 
-REM 1. Start Backend Flask Server
-echo [1/2] Starting Python Flask Backend on http://localhost:5000...
+REM 1. Start Backend FastAPI Server
+echo [1/2] Starting Python FastAPI Backend on http://localhost:5000...
 start "PFMS Backend Server" cmd /k "cd /d %~dp0backend && if exist venv\Scripts\activate (call venv\Scripts\activate) && python app.py"
 
 REM 2. Start Frontend Vite Server
@@ -18,5 +18,6 @@ echo ======================================================================
 echo  System is booting up!
 echo  - Frontend Portal: http://localhost:5173
 echo  - Backend API:     http://localhost:5000/api/health
+echo  - API Docs:        http://localhost:5000/docs
 echo ======================================================================
 pause

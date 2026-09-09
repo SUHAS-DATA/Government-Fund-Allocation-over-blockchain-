@@ -1,17 +1,18 @@
-from datetime import datetime
-from flask import Blueprint, request, jsonify, g
+from datetime import datetime, timezone
+from fastapi import APIRouter, Depends
 from bson import ObjectId
 from database import db, serialize_doc
-from auth_middleware import token_required
+from auth_middleware import get_current_user
 
-notification_bp = Blueprint("notification_bp", __name__)
+router = APIRouter()
+notification_bp = router
 
-@notification_bp.route("", methods=["GET"])
-@token_required
-def get_notifications():
-    user = g.current_user
-    user_id = user.get("user_id")
-    role = user.get("role")
+@router.get("")
+async def get_notifications(
+    current_user: dict = Depends(get_current_user)
+):
+    user_id = current_user.get("user_id")
+    role = current_user.get("role")
 
     query = {
         "$or": [
@@ -24,30 +25,32 @@ def get_notifications():
     notifications = list(db.notifications.find(query).sort("created_at", -1).limit(50))
     unread_count = len([n for n in notifications if not n.get("read")])
 
-    return jsonify({
+    return {
         "success": True,
         "unread_count": unread_count,
         "notifications": serialize_doc(notifications)
-    })
+    }
 
-@notification_bp.route("/<notification_id>/read", methods=["PUT"])
-@token_required
-def mark_read(notification_id):
+@router.put("/{notification_id}/read")
+async def mark_read(
+    notification_id: str,
+    current_user: dict = Depends(get_current_user)
+):
     db.notifications.update_one(
         {"_id": ObjectId(notification_id)},
         {"$set": {"read": True}}
     )
-    return jsonify({"success": True, "message": "Notification marked as read"})
+    return {"success": True, "message": "Notification marked as read"}
 
-@notification_bp.route("/read-all", methods=["PUT"])
-@token_required
-def mark_all_read():
-    user = g.current_user
-    user_id = user.get("user_id")
-    role = user.get("role")
+@router.put("/read-all")
+async def mark_all_read(
+    current_user: dict = Depends(get_current_user)
+):
+    user_id = current_user.get("user_id")
+    role = current_user.get("role")
 
     db.notifications.update_many(
         {"$or": [{"recipient_user_id": user_id}, {"recipient_role": role}]},
         {"$set": {"read": True}}
     )
-    return jsonify({"success": True, "message": "All notifications marked as read"})
+    return {"success": True, "message": "All notifications marked as read"}

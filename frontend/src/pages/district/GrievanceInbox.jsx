@@ -69,7 +69,7 @@ const GrievanceInbox = () => {
           className="btn btn-primary btn-sm"
           onClick={() => { setSelectedGrievance(r); setStatus(r.status || 'RESOLVED'); }}
         >
-          <span>Inspect & Resolve</span>
+          <span>Check & Resolve</span>
         </button>
       )
     }
@@ -81,17 +81,17 @@ const GrievanceInbox = () => {
         <div>
           <h1 className="page-title">
             <MessageSquareWarning size={24} color="var(--color-primary)" />
-            <span>District Grievance & Citizen Complaints Inbox</span>
+            <span>Citizen Complaints & Issues Inbox</span>
           </h1>
-          <p className="page-subtitle">Review public complaints, conduct site investigations, and publish verifiable resolutions.</p>
+          <p className="page-subtitle">Review complaints from citizens, verify site work, and resolve issues.</p>
         </div>
       </div>
 
       <div className="card">
-        <DataTable columns={columns} data={grievances} searchKey="reference_id" searchPlaceholder="Search by reference ID or citizen..." />
+        <DataTable columns={columns} data={grievances} searchKey="reference_id" searchPlaceholder="Search by tracking ID or citizen..." />
       </div>
 
-      <Modal title={`Inspect Grievance: ${selectedGrievance?.reference_id}`} isOpen={!!selectedGrievance} onClose={() => setSelectedGrievance(null)}>
+      <Modal title={`Review Complaint: ${selectedGrievance?.reference_id}`} isOpen={!!selectedGrievance} onClose={() => setSelectedGrievance(null)}>
         {selectedGrievance && (
           <div>
             <div style={{ background: 'var(--bg-subtle)', padding: '14px', borderRadius: 'var(--radius-sm)', marginBottom: '18px', fontSize: '13px' }}>

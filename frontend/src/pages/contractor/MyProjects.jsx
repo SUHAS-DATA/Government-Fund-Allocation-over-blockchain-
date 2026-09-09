@@ -16,7 +16,12 @@ import {
   XCircle,
   FileText,
   Camera,
-  RotateCcw
+  Video,
+  FileArchive,
+  RotateCcw,
+  Ban,
+  Building2,
+  Receipt
 } from 'lucide-react';
 import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
@@ -40,9 +45,15 @@ const MyProjects = () => {
   const [fundRequestAmount, setFundRequestAmount] = useState(0);
   const [fundRequestNotes, setFundRequestNotes] = useState('');
   
+  // Multi-Proof Submission Form States (Flowchart Deliverables)
   const [percentage, setPercentage] = useState(100);
   const [notes, setNotes] = useState('Groundwork, terrain leveling, and structural concrete culverts completed as per PWD specifications.');
-  const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const [materialBillsNotes, setMaterialBillsNotes] = useState('Cement, TMT Steel 500D, and Crushed Aggregate Invoices');
+  const [materialBillsFile, setMaterialBillsFile] = useState(null);
+  const [progressPhotoFile, setProgressPhotoFile] = useState(null);
+  const [progressVideoFile, setProgressVideoFile] = useState(null);
+  const [videoUrl, setVideoUrl] = useState('');
+  const [otherDocFile, setOtherDocFile] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
   
   const [submitting, setSubmitting] = useState(false);
@@ -84,7 +95,7 @@ const MyProjects = () => {
     }
   };
 
-  // --- 1. Accept Project Assignment (Generates 3 Phases: 30%, 40%, 30%) ---
+  // --- Step 5, 6, 7: Accept Project Assignment (Generates 3 Phases: 30%, 40%, 30%) ---
   const handleAcceptProject = async (projectId) => {
     setSubmitting(true);
     setActionError('');
@@ -92,7 +103,7 @@ const MyProjects = () => {
     try {
       const res = await API.post(`/contractor/projects/${projectId}/accept`);
       if (res.success) {
-        setActionSuccess(`Project ${projectId} accepted! Automatically divided into 3 standardized phases (30%, 40%, 30%). Phase 1 is now ready for fund request.`);
+        setActionSuccess(`Step 6 & 7: Project ${projectId} Accepted! 3 standardized phases (30%, 40%, 30%) initialized. Phase 1 is ready for Step 12 Fund Request.`);
         const detailsRes = await API.get(`/contractor/projects/${projectId}`);
         if (detailsRes.success) {
           setSelectedProject(detailsRes.project);
@@ -107,17 +118,17 @@ const MyProjects = () => {
     }
   };
 
-  // --- 2. Reject Project Assignment ---
+  // --- Step 5: Reject Project Assignment (Project Rejected End) ---
   const handleRejectProject = async () => {
     if (!selectedProject) return;
     setSubmitting(true);
     setActionError('');
     try {
       const res = await API.post(`/contractor/projects/${selectedProject.project_id}/reject`, {
-        rejection_reason: rejectReason || 'Contractor at maximum capacity.'
+        rejection_reason: rejectReason || 'Contractor at maximum operational capacity.'
       });
       if (res.success) {
-        setActionSuccess(`Project assignment for ${selectedProject.project_id} has been declined.`);
+        setActionSuccess(`Step 5: Project assignment for ${selectedProject.project_id} has been declined (Project Rejected End).`);
         setShowRejectModal(false);
         setRejectReason('');
         setSelectedProject(null);
@@ -131,7 +142,7 @@ const MyProjects = () => {
     }
   };
 
-  // --- 3. Request Phase Funds from District Officer ---
+  // --- Step 12, 18, 28: Request Phase Funds from District Officer ---
   const handleOpenFundRequest = (phase) => {
     setActivePhaseIndex(phase.milestone_index);
     setFundRequestAmount(phase.amount);
@@ -150,7 +161,7 @@ const MyProjects = () => {
         notes: fundRequestNotes
       });
       if (res.success) {
-        setActionSuccess(`Fund request for Phase #${activePhaseIndex + 1} (INR ${Number(fundRequestAmount).toLocaleString('en-IN')}) submitted to District Officer!`);
+        setActionSuccess(`Step ${activePhaseIndex === 0 ? '12' : activePhaseIndex === 1 ? '18' : '28'}: Fund request for Phase #${activePhaseIndex + 1} (INR ${Number(fundRequestAmount).toLocaleString('en-IN')}) submitted to District Officer!`);
         setShowFundRequestModal(false);
         openProjectDetails(selectedProject);
         loadProjects();
@@ -162,12 +173,36 @@ const MyProjects = () => {
     }
   };
 
-  // --- 4. Upload Milestone Progress & Evidence (Photos, Docs, SHA-256) ---
+  // --- Step 13, 23, 33: Acknowledge Received Allocated Funds & Start Execution ---
+  const handleAcknowledgeFunds = async (phaseIndex) => {
+    if (!selectedProject) return;
+    setSubmitting(true);
+    setActionError('');
+    try {
+      const res = await API.post(`/contractor/projects/${selectedProject.project_id}/phases/${phaseIndex}/receive-funds`);
+      if (res.success) {
+        setActionSuccess(`Step ${phaseIndex === 0 ? '13 & 14' : phaseIndex === 1 ? '23 & 24' : '33 & 34'}: Allocated funds acknowledged! Phase #${phaseIndex + 1} execution initiated.`);
+        openProjectDetails(selectedProject);
+        loadProjects();
+      }
+    } catch (err) {
+      setActionError(err.message || 'Failed to acknowledge funds');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // --- Step 15, 25, 35: Upload Multi-Proof Completion Deliverables (Bills, Photos, Videos, Documents) ---
   const handleOpenProgressUpload = (phase) => {
     setActivePhaseIndex(phase.milestone_index);
     setPercentage(100);
-    setNotes(phase.rejection_reason ? `Resubmission with rectified work for Phase #${phase.milestone_index + 1}: All site items inspected.` : `Phase #${phase.milestone_index + 1} execution complete according to DPR specifications.`);
-    setSelectedPhoto(null);
+    setNotes(phase.rejection_reason ? `Rectified deliverables for Phase #${phase.milestone_index + 1}: Inspected items corrected as per feedback.` : `Phase #${phase.milestone_index + 1} execution complete according to DPR specifications.`);
+    setMaterialBillsNotes('Invoices: Cement (500 Bags), Steel TMT (12 MT), Asphalt & Base Bitumen (40 Drums)');
+    setMaterialBillsFile(null);
+    setProgressPhotoFile(null);
+    setProgressVideoFile(null);
+    setVideoUrl('');
+    setOtherDocFile(null);
     setShowProgressModal(true);
   };
 
@@ -182,16 +217,20 @@ const MyProjects = () => {
     data.append('milestone_index', activePhaseIndex);
     data.append('percentage', percentage);
     data.append('notes', notes);
-    if (selectedPhoto) {
-      data.append('file', selectedPhoto);
-    }
+    data.append('material_bills_notes', materialBillsNotes);
+    data.append('video_url', videoUrl);
+
+    if (materialBillsFile) data.append('material_bills_file', materialBillsFile);
+    if (progressPhotoFile) data.append('progress_photo_file', progressPhotoFile);
+    if (progressVideoFile) data.append('progress_video_file', progressVideoFile);
+    if (otherDocFile) data.append('other_doc_file', otherDocFile);
 
     try {
       const res = await API.post(`/contractor/projects/${selectedProject.project_id}/phases/${activePhaseIndex}/submit-milestone`, data, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       if (res.success) {
-        setActionSuccess(`Phase #${activePhaseIndex + 1} completion evidence uploaded! Cryptographic SHA-256 digest anchored on blockchain. Submitted for District Officer verification.`);
+        setActionSuccess(`Step ${activePhaseIndex === 0 ? '15' : activePhaseIndex === 1 ? '25' : '35'}: Completion proof (Material Bills, Photos, Videos, Docs) anchored on blockchain with SHA-256 digests and submitted to District Officer!`);
         setShowProgressModal(false);
         openProjectDetails(selectedProject);
         loadProjects();
@@ -221,17 +260,20 @@ const MyProjects = () => {
       render: (r) => <span style={{ fontWeight: '700', color: 'var(--color-success)' }}>{formatCurrency(r.total_budget)}</span>
     },
     {
-      header: 'Assignment Status',
+      header: 'Lifecycle Status',
       accessor: 'status',
       render: (r) => {
+        if (r.status === 'CLOSED') {
+          return <span className="badge badge-secondary">38. CLOSED</span>;
+        }
+        if (r.status === 'FINAL_PROJECT_COMPLETED') {
+          return <span className="badge badge-success">37. COMPLETED</span>;
+        }
         if (r.status === 'ASSIGNED' || r.status === 'PENDING_ACCEPTANCE') {
-          return <span className="badge badge-warning">NEW ASSIGNMENT</span>;
+          return <span className="badge badge-warning">4. ASSIGNMENT RECEIVED</span>;
         }
-        if (r.status === 'REJECTED_BY_CONTRACTOR') {
-          return <span className="badge badge-danger">DECLINED</span>;
-        }
-        if (r.status === 'COMPLETED') {
-          return <span className="badge badge-success">COMPLETED</span>;
+        if (r.status === 'REJECTED_BY_CONTRACTOR' || r.status === 'PROJECT_REJECTED') {
+          return <span className="badge badge-danger">5. DECLINED (END)</span>;
         }
         return <span className="badge badge-info">IN PROGRESS</span>;
       }
@@ -250,11 +292,11 @@ const MyProjects = () => {
                 disabled={submitting}
               >
                 <CheckCircle2 size={12} />
-                <span>Accept</span>
+                <span>6. Accept</span>
               </button>
             )}
             <button className="btn btn-primary btn-sm" onClick={() => openProjectDetails(r)}>
-              <span>{needsAccept ? 'View Details' : 'Manage 3 Phases'}</span>
+              <span>{needsAccept ? 'View Assignment' : 'Manage 3 Phases'}</span>
             </button>
           </div>
         );
@@ -263,6 +305,9 @@ const MyProjects = () => {
   ];
 
   const milestones = projectDetails?.milestones || selectedProject?.phases || [];
+  const projData = projectDetails?.project || selectedProject;
+  const isBankDeactivated = projData?.bank_account_status === 'DEACTIVATED' || projData?.contractor_bank_account?.is_active === false;
+  const isProjectClosed = projData?.status === 'CLOSED' || projData?.is_closed;
 
   return (
     <div>
@@ -270,10 +315,10 @@ const MyProjects = () => {
         <div>
           <h1 className="page-title">
             <FolderKanban size={24} color="#C2410C" />
-            <span>Assigned Projects & Phase Lifecycle Management</span>
+            <span>Contractor: Assigned Projects & 3-Phase Execution</span>
           </h1>
           <p className="page-subtitle">
-            Accept project assignments, execute standardized 3-phase progression (30%, 40%, 30%), request mobilization funds, and upload SHA-256 verified milestone proofs.
+            Accept project assignments (Step 5-7), request mobilization funds (Step 12/18/28), receive bank disbursals (Step 13/23/33), and upload 4-category completion proofs (Step 15/25/35).
           </p>
         </div>
       </div>
@@ -320,7 +365,7 @@ const MyProjects = () => {
         <DataTable columns={columns} data={projects} searchKey="name" searchPlaceholder="Search my assigned projects..." />
       </div>
 
-      {/* Selected Project 3-Phase Lifecycle Container */}
+      {/* Selected Project Lifecycle Container */}
       {selectedProject && (
         <div className="card" style={{ marginTop: '24px', borderTop: '4px solid #C2410C' }}>
           
@@ -336,14 +381,38 @@ const MyProjects = () => {
             </div>
 
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Contract Budget Ceiling:</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Total Contract Budget Ceiling:</div>
               <div style={{ fontSize: '16px', fontWeight: '800', color: 'var(--color-success)' }}>
                 {formatCurrency(selectedProject.total_budget)}
               </div>
             </div>
           </div>
 
-          {/* Pending Assignment Alert Banner */}
+          {/* STEP 39: Deactivated Bank Account Banner */}
+          {isBankDeactivated && (
+            <div style={{
+              margin: '16px 0',
+              padding: '16px 20px',
+              background: '#FEF2F2',
+              border: '2px solid #F87171',
+              borderRadius: 'var(--radius-sm)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '14px'
+            }}>
+              <Ban size={28} color="#DC2626" />
+              <div>
+                <div style={{ fontWeight: '800', fontSize: '14px', color: '#991B1B' }}>
+                  🚫 Step 39: Account Not Available to Contractor (Project Bank Account Deactivated)
+                </div>
+                <div style={{ fontSize: '12px', color: '#B91C1C', marginTop: '2px' }}>
+                  The District Development Authority has completed quality audits and closed this project. The designated project bank account/escrow facility is now deactivated and no further fund requests or evidence submissions are permitted.
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Pending Assignment Alert Banner (Steps 4 & 5) */}
           {(milestones.length === 0 || selectedProject.status === 'ASSIGNED' || selectedProject.status === 'PENDING_ACCEPTANCE' || selectedProject.assignment_status !== 'ACCEPTED') && (
             <div style={{
               margin: '16px 0',
@@ -359,10 +428,10 @@ const MyProjects = () => {
             }}>
               <div>
                 <div style={{ fontWeight: '800', fontSize: '14px', color: '#C2410C', marginBottom: '2px' }}>
-                  ⚡ New Infrastructure Contract Assignment Received
+                  4. Notification: New Project Assigned by District Authority
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                  Accepting will automatically configure the project into 3 standardized execution phases (30%, 40%, 30%).
+                  Step 5 Decision: Choose to <strong>Accept Project</strong> (initializes 3 standardized phases: 30%, 40%, 30%) or <strong>Reject Project</strong>.
                 </div>
               </div>
 
@@ -373,15 +442,16 @@ const MyProjects = () => {
                   disabled={submitting}
                 >
                   <CheckCircle2 size={15} />
-                  <span>{submitting ? 'Configuring Phases...' : 'Accept Assignment'}</span>
+                  <span>{submitting ? 'Initializing...' : '6. Accept Project (Step 6 & 7)'}</span>
                 </button>
                 <button
                   className="btn btn-secondary"
+                  style={{ color: 'var(--color-danger)' }}
                   onClick={() => setShowRejectModal(true)}
                   disabled={submitting}
                 >
                   <XCircle size={15} />
-                  <span>Decline</span>
+                  <span>Reject Project (End)</span>
                 </button>
               </div>
             </div>
@@ -400,91 +470,145 @@ const MyProjects = () => {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-              {milestones.length > 0 ? (
-                milestones.map((phase, idx) => {
-                  const isLocked = phase.status === 'LOCKED' || phase.phase_status === 'LOCKED';
-                  const isCompleted = phase.status === 'COMPLETED' || phase.status === 'RELEASED';
-                  const isRejected = phase.status === 'REJECTED' || phase.phase_status === 'REJECTED';
-                  const isSubmitted = phase.status === 'SUBMITTED' || phase.phase_status === 'SUBMITTED_FOR_VERIFICATION';
-                  const isFundRequested = phase.status === 'FUND_REQUESTED' || phase.phase_status === 'FUND_REQUESTED';
-                  const isApprovedForWork = phase.status === 'APPROVED_FOR_WORK' || phase.phase_status === 'APPROVED_FOR_WORK';
-                  const isReadyForFund = phase.status === 'UNLOCKED' || phase.phase_status === 'READY_FOR_FUND_REQUEST';
+              {milestones.map((phase, idx) => {
+                const isLocked = phase.status === 'LOCKED' || phase.phase_status === 'LOCKED';
+                const isCompleted = phase.status === 'COMPLETED';
+                const isRejectedProof = phase.status === 'REJECTED_NEEDS_RECTIFICATION' || phase.status === 'REJECTED';
+                const isFundRejected = phase.status === 'FUND_REQUEST_REJECTED';
+                const isSubmitted = phase.status === 'SUBMITTED' || phase.phase_status === 'SUBMITTED_FOR_VERIFICATION';
+                const isFundRequested = phase.status === 'FUND_REQUESTED' || phase.phase_status === 'FUND_REQUESTED';
+                const isFundsTransferred = phase.status === 'FUNDS_TRANSFERRED' || phase.phase_status === 'FUNDS_TRANSFERRED';
+                const isApprovedForWork = phase.status === 'APPROVED_FOR_WORK' || phase.phase_status === 'EXECUTING_WORK';
+                const isReadyForFund = phase.status === 'UNLOCKED' || phase.phase_status === 'READY_FOR_FUND_REQUEST' || isFundRejected;
 
-                  return (
-                    <div
-                      key={idx}
-                      style={{
-                        background: isLocked ? '#F8FAFC' : '#FFFFFF',
-                        border: isCompleted 
-                          ? '1.5px solid var(--color-success-border)' 
-                          : isRejected 
-                          ? '1.5px solid var(--color-danger-border)' 
-                          : isApprovedForWork 
-                          ? '1.5px solid #FED7AA' 
-                          : '1px solid var(--border-color)',
-                        borderRadius: 'var(--radius-sm)',
-                        padding: '18px 20px',
-                        boxShadow: isLocked ? 'none' : 'var(--shadow-xs)',
-                        opacity: isLocked ? 0.7 : 1
-                      }}
-                    >
-                      {/* Phase Header */}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
-                        <div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                            <span className="badge badge-primary" style={{ fontSize: '11px', background: '#C2410C', color: '#FFF' }}>
-                              {phase.percentage_share || (idx === 1 ? 40 : 30)}% Share
-                            </span>
-                            <h5 style={{ fontSize: '14px', fontWeight: '800', color: isLocked ? 'var(--text-muted)' : 'var(--text-main)', margin: 0 }}>
-                              {phase.title}
-                            </h5>
-                          </div>
-                          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '0 0 6px 0', maxWidth: '650px' }}>
-                            {phase.description}
-                          </p>
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      background: isLocked ? '#F8FAFC' : '#FFFFFF',
+                      border: isCompleted 
+                        ? '1.5px solid var(--color-success-border)' 
+                        : isRejectedProof || isFundRejected
+                        ? '1.5px solid var(--color-danger-border)' 
+                        : isFundsTransferred
+                        ? '1.5px solid #86EFAC'
+                        : isApprovedForWork 
+                        ? '1.5px solid #FED7AA' 
+                        : '1px solid var(--border-color)',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '18px 20px',
+                      boxShadow: isLocked ? 'none' : 'var(--shadow-xs)',
+                      opacity: isLocked ? 0.7 : 1
+                    }}
+                  >
+                    {/* Phase Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '10px' }}>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                          <span className="badge badge-primary" style={{ fontSize: '11px', background: '#C2410C', color: '#FFF' }}>
+                            {phase.percentage_share || (idx === 1 ? 40 : 30)}% Share
+                          </span>
+                          <h5 style={{ fontSize: '14px', fontWeight: '800', color: isLocked ? 'var(--text-muted)' : 'var(--text-main)', margin: 0 }}>
+                            {phase.title}
+                          </h5>
                         </div>
-
-                        {/* Amount & Status Badge */}
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--color-success)' }}>
-                            {formatCurrency(phase.amount)}
-                          </div>
-                          <div style={{ marginTop: '4px' }}>
-                            {isCompleted && <span className="badge badge-success">✓ COMPLETED & DISBURSED</span>}
-                            {isRejected && <span className="badge badge-danger">⚠️ REJECTED BY DISTRICT</span>}
-                            {isSubmitted && <span className="badge badge-info">🔍 UNDER DISTRICT REVIEW</span>}
-                            {isApprovedForWork && <span className="badge badge-warning">🔨 WORK IN PROGRESS</span>}
-                            {isFundRequested && <span className="badge badge-info">⏳ FUND APPROVAL PENDING</span>}
-                            {isReadyForFund && <span className="badge badge-primary">⚡ UNLOCKED</span>}
-                            {isLocked && <span className="badge badge-secondary">🔒 LOCKED</span>}
-                          </div>
-                        </div>
+                        <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '0 0 6px 0', maxWidth: '650px' }}>
+                          {phase.description}
+                        </p>
                       </div>
 
-                      {/* Rejection Reason Alert if Rejected */}
-                      {isRejected && phase.rejection_reason && (
-                        <div style={{
-                          marginTop: '12px',
-                          padding: '10px 14px',
-                          background: 'var(--color-danger-bg)',
-                          border: '1px solid var(--color-danger-border)',
-                          borderRadius: 'var(--radius-sm)',
-                          fontSize: '12px',
-                          color: 'var(--color-danger)'
-                        }}>
-                          <strong>District Officer Rejection Reason:</strong> {phase.rejection_reason}
+                      {/* Amount & Status Badge */}
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--color-success)' }}>
+                          {formatCurrency(phase.amount)}
                         </div>
-                      )}
-
-                      {/* On-Chain Receipt if Completed */}
-                      {isCompleted && phase.blockchain_tx_hash && (
-                        <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>On-Chain Disbursal Tx:</span>
-                          <BlockchainBadge txHash={phase.blockchain_tx_hash} />
+                        <div style={{ marginTop: '4px' }}>
+                          {isCompleted && <span className="badge badge-success">✓ COMPLETED & AUDITED</span>}
+                          {isRejectedProof && <span className="badge badge-danger">⚠️ 17. RECTIFICATION REQUIRED</span>}
+                          {isFundRejected && <span className="badge badge-danger">⚠️ 9. FUND REQUEST REJECTED</span>}
+                          {isSubmitted && <span className="badge badge-info">16. UNDER DISTRICT VERIFICATION</span>}
+                          {isFundsTransferred && <span className="badge badge-success">13. FUNDS RECEIVED IN BANK</span>}
+                          {isApprovedForWork && <span className="badge badge-warning">14. EXECUTING WORK</span>}
+                          {isFundRequested && <span className="badge badge-info">8. FUND APPROVAL PENDING</span>}
+                          {isReadyForFund && <span className="badge badge-primary">⚡ UNLOCKED</span>}
+                          {isLocked && <span className="badge badge-secondary">🔒 LOCKED</span>}
                         </div>
-                      )}
+                      </div>
+                    </div>
 
-                      {/* Action Bar per Phase */}
+                    {/* Step 13/23/33: Received Funds Banner */}
+                    {isFundsTransferred && !isBankDeactivated && (
+                      <div style={{
+                        marginTop: '12px',
+                        padding: '12px 16px',
+                        background: '#F0FDF4',
+                        border: '1.5px solid #86EFAC',
+                        borderRadius: 'var(--radius-sm)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                        gap: '10px'
+                      }}>
+                        <div>
+                          <div style={{ fontWeight: '800', fontSize: '13px', color: '#166534' }}>
+                            ✓ Step {idx === 0 ? '13' : idx === 1 ? '23' : '33'}: Allocated Funds ({formatCurrency(phase.amount)}) Received in Bank Account
+                          </div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                            District Authority transferred mobilization funds to your registered bank account. Click below to acknowledge and start physical work (Step {idx === 0 ? '14' : idx === 1 ? '24' : '34'}).
+                          </div>
+                        </div>
+
+                        <button
+                          className="btn btn-success btn-sm"
+                          onClick={() => handleAcknowledgeFunds(phase.milestone_index)}
+                          disabled={submitting}
+                        >
+                          <CheckCircle2 size={13} />
+                          <span>{idx === 0 ? '14' : idx === 1 ? '24' : '34'}. Acknowledge & Start Execution</span>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Rejection Remarks Alert */}
+                    {isRejectedProof && phase.rejection_reason && (
+                      <div style={{
+                        marginTop: '12px',
+                        padding: '10px 14px',
+                        background: '#FEF2F2',
+                        border: '1px solid #FECACA',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: '12px',
+                        color: '#B91C1C'
+                      }}>
+                        <strong>District Officer Inspection Feedback:</strong> {phase.rejection_reason}
+                      </div>
+                    )}
+
+                    {isFundRejected && phase.fund_rejection_reason && (
+                      <div style={{
+                        marginTop: '12px',
+                        padding: '10px 14px',
+                        background: '#FEF2F2',
+                        border: '1px solid #FECACA',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: '12px',
+                        color: '#B91C1C'
+                      }}>
+                        <strong>Fund Request Rejection Reason:</strong> {phase.fund_rejection_reason}
+                      </div>
+                    )}
+
+                    {/* On-Chain Receipt if Completed */}
+                    {isCompleted && phase.blockchain_tx_hash && (
+                      <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>On-Chain Disbursal Tx:</span>
+                        <BlockchainBadge txHash={phase.blockchain_tx_hash} />
+                      </div>
+                    )}
+
+                    {/* Action Bar per Phase */}
+                    {!isBankDeactivated && (
                       <div style={{
                         marginTop: '14px',
                         paddingTop: '12px',
@@ -496,17 +620,18 @@ const MyProjects = () => {
                         gap: '10px'
                       }}>
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                          {isCompleted && 'Milestone approved and 100% escrow disbursed.'}
-                          {isSubmitted && 'Awaiting site verification & on-chain approval from District Officer.'}
-                          {isApprovedForWork && 'Funds approved. Proceed with construction and upload completion photos.'}
-                          {isFundRequested && 'Mobilization request submitted. Waiting for District Officer sign-off.'}
-                          {isReadyForFund && 'Step 1: Request phase mobilization funds from District Authority.'}
-                          {isRejected && 'Step 3: Upload revised photos and resubmit milestone deliverables.'}
+                          {isCompleted && 'Milestone verified and completed.'}
+                          {isSubmitted && 'Awaiting site verification from District Officer (Step 16/26/36).'}
+                          {isApprovedForWork && `Physical work in progress. Upload Material Bills, Photos, Videos & Docs (Step ${idx === 0 ? '15' : idx === 1 ? '25' : '35'}).`}
+                          {isFundsTransferred && `Step ${idx === 0 ? '13' : idx === 1 ? '23' : '33'}: Allocated funds in bank account.`}
+                          {isFundRequested && 'Mobilization fund request submitted. Waiting for District Officer approval.'}
+                          {isReadyForFund && `Step ${idx === 0 ? '12' : idx === 1 ? '18' : '28'}: Request phase mobilization funds from District Officer.`}
+                          {isRejectedProof && `Step ${idx === 0 ? '14 & 15' : idx === 1 ? '24 & 25' : '34 & 35'}: Rectify work and resubmit proof deliverables.`}
                           {isLocked && 'Complete preceding phases to unlock this phase.'}
                         </div>
 
                         <div style={{ display: 'flex', gap: '8px' }}>
-                          {/* Step 1: Request Funds */}
+                          {/* Step 12/18/28: Request Funds */}
                           {isReadyForFund && (
                             <button
                               className="btn btn-primary btn-sm"
@@ -514,68 +639,34 @@ const MyProjects = () => {
                               onClick={() => handleOpenFundRequest(phase)}
                             >
                               <Coins size={13} />
-                              <span>1. Request Phase Funds ({formatCurrency(phase.amount)})</span>
+                              <span>{idx === 0 ? '12' : idx === 1 ? '18' : '28'}. Request Phase Funds ({formatCurrency(phase.amount)})</span>
                             </button>
                           )}
 
-                          {/* Step 3: Upload Milestone / Resubmit */}
-                          {(isApprovedForWork || isRejected) && (
+                          {/* Step 15/25/35: Submit Completion Proof / Resubmit */}
+                          {(isApprovedForWork || isRejectedProof) && (
                             <button
                               className="btn btn-primary btn-sm"
                               style={{ background: '#0F766E', borderColor: '#0F766E' }}
                               onClick={() => handleOpenProgressUpload(phase)}
                             >
                               <Upload size={13} />
-                              <span>{isRejected ? 'Resubmit Milestone Evidence' : '3. Upload Milestone Evidence & Photos'}</span>
+                              <span>{isRejectedProof ? 'Resubmit Rectified Proof (Step 15)' : `${idx === 0 ? '15' : idx === 1 ? '25' : '35'}. Submit Completion Proof (Bills, Photos, Videos)`}</span>
                             </button>
                           )}
                         </div>
                       </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <div style={{
-                  padding: '32px 24px',
-                  textAlign: 'center',
-                  background: 'rgba(194, 65, 12, 0.04)',
-                  border: '2px dashed #FED7AA',
-                  borderRadius: 'var(--radius-sm)'
-                }}>
-                  <div style={{ fontSize: '15px', fontWeight: '800', color: '#C2410C', marginBottom: '6px' }}>
-                    ⚡ Project Assignment Awaiting 3-Phase Initialization
+                    )}
                   </div>
-                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', maxWidth: '600px', margin: '0 auto 18px auto', lineHeight: 1.5 }}>
-                    Click below to accept this project assignment and automatically generate the standardized 3-phase execution lifecycle (Phase 1: 30%, Phase 2: 40%, Phase 3: 30%).
-                  </p>
-                  <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                    <button
-                      className="btn btn-success"
-                      style={{ padding: '10px 22px', fontSize: '13px', fontWeight: '700' }}
-                      onClick={() => handleAcceptProject(selectedProject.project_id)}
-                      disabled={submitting}
-                    >
-                      <CheckCircle2 size={16} />
-                      <span>{submitting ? 'Initializing 3 Phases...' : 'Accept Assignment & Initialize 3 Phases (30%, 40%, 30%)'}</span>
-                    </button>
-                    <button
-                      className="btn btn-secondary"
-                      onClick={() => setShowRejectModal(true)}
-                      disabled={submitting}
-                    >
-                      <XCircle size={15} />
-                      <span>Decline Assignment</span>
-                    </button>
-                  </div>
-                </div>
-              )}
+                );
+              })}
             </div>
           </div>
 
-          {/* Off-Chain Photo Evidence with SHA-256 */}
+          {/* Off-Chain Photo & File Evidence with SHA-256 */}
           <div>
             <h4 style={{ fontSize: '14px', fontWeight: '700', color: 'var(--color-primary)', marginBottom: '12px' }}>
-              Uploaded Site Inspection Proofs & Cryptographic Digests
+              Uploaded Site Inspection Proofs & Cryptographic SHA-256 Digests
             </h4>
             {projectDetails?.documents?.length > 0 ? (
               projectDetails.documents.map((doc, idx) => (
@@ -591,8 +682,8 @@ const MyProjects = () => {
         </div>
       )}
 
-      {/* MODAL 1: Request Phase Funds */}
-      <Modal title={`Request Funds for Phase #${activePhaseIndex + 1}`} isOpen={showFundRequestModal} onClose={() => setShowFundRequestModal(false)}>
+      {/* MODAL 1: Request Phase Funds (Step 12/18/28) */}
+      <Modal title={`Request Funds for Phase #${activePhaseIndex + 1} (Step ${activePhaseIndex === 0 ? '12' : activePhaseIndex === 1 ? '18' : '28'})`} isOpen={showFundRequestModal} onClose={() => setShowFundRequestModal(false)}>
         <form onSubmit={handleSubmitFundRequest}>
           <div className="form-group">
             <label className="form-label">Phase Target</label>
@@ -605,7 +696,7 @@ const MyProjects = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Requested Amount (INR) — Max: {formatCurrency(milestones[activePhaseIndex]?.amount || 0)}</label>
+            <label className="form-label">Requested Amount (INR) — Max Limit: {formatCurrency(milestones[activePhaseIndex]?.amount || 0)}</label>
             <input
               type="number"
               className="form-control"
@@ -627,63 +718,145 @@ const MyProjects = () => {
             ></textarea>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+          <div style={{ background: 'var(--bg-subtle)', padding: '12px 14px', borderRadius: 'var(--radius-sm)', fontSize: '11px', marginBottom: '16px' }}>
+            Funds will be transferred directly by District Officer to your designated contractor bank account upon verification (Step 10 & 11).
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
             <button type="button" className="btn btn-secondary" onClick={() => setShowFundRequestModal(false)}>
               Cancel
             </button>
             <button type="submit" className="btn btn-primary" disabled={submitting} style={{ background: '#C2410C', borderColor: '#C2410C' }}>
               <Coins size={14} />
-              <span>{submitting ? 'Submitting Request...' : 'Submit Phase Fund Request'}</span>
+              <span>{submitting ? 'Submitting Request...' : `Submit Phase #${activePhaseIndex + 1} Fund Request`}</span>
             </button>
           </div>
         </form>
       </Modal>
 
-      {/* MODAL 2: Upload Milestone Completion Proof */}
-      <Modal title={`Upload Completion Proof: Phase #${activePhaseIndex + 1}`} isOpen={showProgressModal} onClose={() => setShowProgressModal(false)}>
+      {/* MODAL 2: Submit 4-Category Completion Proof (Step 15/25/35) */}
+      <Modal title={`Submit Phase #${activePhaseIndex + 1} Completion Proof (Step ${activePhaseIndex === 0 ? '15' : activePhaseIndex === 1 ? '25' : '35'})`} isOpen={showProgressModal} onClose={() => setShowProgressModal(false)} maxWidth="750px">
         <form onSubmit={handleUploadProgress}>
-          <div className="form-group">
-            <label className="form-label">Milestone Phase</label>
-            <input
-              type="text"
-              className="form-control"
-              value={milestones[activePhaseIndex]?.title || `Phase #${activePhaseIndex + 1}`}
-              disabled
-            />
+          
+          <div style={{ background: 'rgba(15, 118, 110, 0.06)', padding: '12px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid #CCFBF1', marginBottom: '16px', fontSize: '12px', color: '#0F766E' }}>
+            <strong>Flowchart Deliverables:</strong> Please provide proof across all 4 statutory categories: Material Bills, Progress Photos, Progress Videos, and Quality Test Documents.
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Execution Progress (%)</label>
-            <input
-              type="number"
-              className="form-control"
-              min="1"
-              max="100"
-              value={percentage}
-              onChange={(e) => setPercentage(e.target.value)}
-              required
-            />
+          {/* 1. Material Bills */}
+          <div style={{ background: 'var(--bg-subtle)', padding: '14px', borderRadius: 'var(--radius-sm)', marginBottom: '12px', border: '1px solid var(--border-color)' }}>
+            <div style={{ fontWeight: '800', fontSize: '13px', color: 'var(--text-main)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Receipt size={16} color="var(--color-primary)" />
+              <span>1. Material Bills & Vouchers</span>
+            </div>
+            <div className="grid-2">
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: '11px' }}>Upload Material Bills File (PDF/Image)</label>
+                <input
+                  type="file"
+                  className="form-control"
+                  onChange={(e) => setMaterialBillsFile(e.target.files[0])}
+                  required
+                />
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: '11px' }}>Bill Items & Invoice Numbers</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="e.g. Inv #8812 - 500 Bags UltraTech Cement, 10T TMT"
+                  value={materialBillsNotes}
+                  onChange={(e) => setMaterialBillsNotes(e.target.value)}
+                  required
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Upload Site Inspection Photo / Testing Certificate (JPEG/PNG/PDF)</label>
-            <input
-              type="file"
-              className="form-control"
-              onChange={(e) => setSelectedPhoto(e.target.files[0])}
-              required
-            />
+          {/* 2. Progress Photos */}
+          <div style={{ background: 'var(--bg-subtle)', padding: '14px', borderRadius: 'var(--radius-sm)', marginBottom: '12px', border: '1px solid var(--border-color)' }}>
+            <div style={{ fontWeight: '800', fontSize: '13px', color: 'var(--text-main)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Camera size={16} color="var(--color-primary)" />
+              <span>2. Progress Photos (Geotagged Site Images)</span>
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <input
+                type="file"
+                className="form-control"
+                accept="image/*"
+                onChange={(e) => setProgressPhotoFile(e.target.files[0])}
+                required
+              />
+            </div>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Quality Deliverables & Measurement Notes</label>
-            <textarea
-              className="form-control"
-              rows="3"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              required
-            ></textarea>
+          {/* 3. Progress Videos */}
+          <div style={{ background: 'var(--bg-subtle)', padding: '14px', borderRadius: 'var(--radius-sm)', marginBottom: '12px', border: '1px solid var(--border-color)' }}>
+            <div style={{ fontWeight: '800', fontSize: '13px', color: 'var(--text-main)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Video size={16} color="var(--color-primary)" />
+              <span>3. Progress Videos (Site Walkthrough / Footage)</span>
+            </div>
+            <div className="grid-2">
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: '11px' }}>Upload Video File (MP4/WebM/AVI)</label>
+                <input
+                  type="file"
+                  className="form-control"
+                  accept="video/*"
+                  onChange={(e) => setProgressVideoFile(e.target.files[0])}
+                />
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: '11px' }}>Or Video Stream / Cloud Link URL</label>
+                <input
+                  type="url"
+                  className="form-control"
+                  placeholder="https://drive.google.com/site-video-proof"
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* 4. Other Documents */}
+          <div style={{ background: 'var(--bg-subtle)', padding: '14px', borderRadius: 'var(--radius-sm)', marginBottom: '12px', border: '1px solid var(--border-color)' }}>
+            <div style={{ fontWeight: '800', fontSize: '13px', color: 'var(--text-main)', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <FileArchive size={16} color="var(--color-primary)" />
+              <span>4. Other Documents (Quality Lab Reports & Engineer Certificates)</span>
+            </div>
+            <div className="form-group" style={{ margin: 0 }}>
+              <input
+                type="file"
+                className="form-control"
+                onChange={(e) => setOtherDocFile(e.target.files[0])}
+              />
+            </div>
+          </div>
+
+          {/* Execution Notes & % */}
+          <div className="grid-2">
+            <div className="form-group">
+              <label className="form-label">Physical Execution Progress (%)</label>
+              <input
+                type="number"
+                className="form-control"
+                min="1"
+                max="100"
+                value={percentage}
+                onChange={(e) => setPercentage(e.target.value)}
+                required
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Site Measurement Summary & Notes</label>
+              <input
+                type="text"
+                className="form-control"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                required
+              />
+            </div>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
@@ -692,14 +865,14 @@ const MyProjects = () => {
             </button>
             <button type="submit" className="btn btn-primary" disabled={submitting} style={{ background: '#0F766E', borderColor: '#0F766E' }}>
               <Upload size={14} />
-              <span>{submitting ? 'Anchoring SHA-256...' : 'Upload & Submit for Verification'}</span>
+              <span>{submitting ? 'Anchoring SHA-256...' : 'Submit Phase Completion Proof (Step 15/25/35)'}</span>
             </button>
           </div>
         </form>
       </Modal>
 
-      {/* MODAL 3: Decline Project Assignment */}
-      <Modal title={`Decline Project Assignment: ${selectedProject?.name}`} isOpen={showRejectModal} onClose={() => setShowRejectModal(false)}>
+      {/* MODAL 3: Decline Project Assignment (Step 5) */}
+      <Modal title={`5. Reject Project Assignment: ${selectedProject?.name}`} isOpen={showRejectModal} onClose={() => setShowRejectModal(false)}>
         <div className="form-group">
           <label className="form-label">Reason for Declining</label>
           <textarea
@@ -717,7 +890,7 @@ const MyProjects = () => {
             Cancel
           </button>
           <button type="button" className="btn btn-danger" onClick={handleRejectProject} disabled={submitting}>
-            <span>Confirm Decline</span>
+            <span>Confirm Reject Project (End)</span>
           </button>
         </div>
       </Modal>

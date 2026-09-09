@@ -1,24 +1,28 @@
 import random
 import string
-from datetime import datetime
-from flask import Blueprint, request, jsonify, g
+from datetime import datetime, timezone
+from typing import Optional
+from fastapi import APIRouter, Request, Depends, status, Query
+from fastapi.responses import JSONResponse
 from bson import ObjectId
 from database import db, serialize_doc
-from auth_middleware import role_required
+from auth_middleware import require_roles
 import blockchain_service as bcs
 
-state_bp = Blueprint("state_bp", __name__)
+router = APIRouter()
+state_bp = router
 
 def generate_district_alloc_id(district_name):
     clean_dist = "".join(filter(str.isalnum, district_name))[:3].upper()
     rand_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
     return f"DIST-ALC-{clean_dist}-{rand_suffix}"
 
-@state_bp.route("/dashboard", methods=["GET"])
-@role_required(["STATE"])
-def dashboard():
-    user_state_code = g.current_user.get("state_code")
-    user_state_name = g.current_user.get("state_name")
+@router.get("/dashboard")
+async def dashboard(
+    current_user: dict = Depends(require_roles(["STATE"]))
+):
+    user_state_code = current_user.get("state_code")
+    user_state_name = current_user.get("state_name")
 
     query = {}
     if user_state_code:
@@ -26,7 +30,6 @@ def dashboard():
 
     received_funds = list(db.state_transfers.find(query).sort("created_at", -1))
     if not received_funds and user_state_code:
-        # Fallback to all transfers if user's specific state has none yet
         received_funds = list(db.state_transfers.find().sort("created_at", -1))
 
     total_received = sum(f.get("amount", 0) for f in received_funds)
@@ -36,7 +39,6 @@ def dashboard():
 
     remaining_state_balance = max(0, total_received - total_allocated_to_districts)
 
-    # Breakdown by district
     dist_pipeline = [
         {"$group": {"_id": "$district_name", "total_allocated": {"$sum": "$amount"}, "alloc_count": {"$sum": 1}}},
         {"$sort": {"total_allocated": -1}}
@@ -45,7 +47,7 @@ def dashboard():
 
     current_state_title = user_state_name or (received_funds[0].get("state_name") if received_funds else "State Treasury")
 
-    return jsonify({
+    return {
         "success": True,
         "state_code": user_state_code or (received_funds[0].get("state_code") if received_funds else "ALL"),
         "state_name": current_state_title,
@@ -58,59 +60,75 @@ def dashboard():
         },
         "recent_received_funds": serialize_doc(received_funds[:5]),
         "district_breakdown": serialize_doc(district_breakdown)
-    })
+    }
 
-@state_bp.route("/received-funds", methods=["GET"])
-@role_required(["STATE"])
-def received_funds():
-    user_state_code = g.current_user.get("state_code")
+@router.get("/received-funds")
+async def received_funds(
+    current_user: dict = Depends(require_roles(["STATE"]))
+):
+    user_state_code = current_user.get("state_code")
     query = {}
     if user_state_code:
         query["state_code"] = user_state_code
 
     funds = list(db.state_transfers.find(query).sort("created_at", -1))
     if not funds and user_state_code:
-        # Fallback to all state transfers
         funds = list(db.state_transfers.find().sort("created_at", -1))
 
-    return jsonify({"success": True, "received_funds": serialize_doc(funds)})
+    return {"success": True, "received_funds": serialize_doc(funds)}
 
-@state_bp.route("/districts", methods=["GET"])
-@role_required(["STATE", "SUPER_ADMIN", "DISTRICT", "FINANCE"])
-def get_districts():
-    state_code = request.args.get("state_code", "").strip().upper()
-    user_state = state_code or g.current_user.get("state_code")
+@router.get("/districts")
+async def get_districts(
+    state_code: Optional[str] = Query(None),
+    current_user: dict = Depends(require_roles(["STATE", "SUPER_ADMIN", "DISTRICT", "FINANCE"]))
+):
+    req_state_code = state_code.strip().upper() if state_code else ""
+    user_state = req_state_code or current_user.get("state_code")
     query = {"state_code": user_state} if user_state else {}
     dist_list = list(db.districts.find(query).sort("name", 1))
     if not dist_list and not user_state:
         dist_list = list(db.districts.find().sort("name", 1))
-    return jsonify({"success": True, "districts": serialize_doc(dist_list)})
+    return {"success": True, "districts": serialize_doc(dist_list)}
 
-@state_bp.route("/allocate-to-district", methods=["POST"])
-@role_required(["STATE"])
-def allocate_to_district():
-    data = request.get_json() or {}
+@router.post("/allocate-to-district", status_code=status.HTTP_201_CREATED)
+async def allocate_to_district(
+    request: Request,
+    current_user: dict = Depends(require_roles(["STATE"]))
+):
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
     transfer_id = data.get("transfer_id")
     district_name = data.get("district_name", "Pune")
     amount = float(data.get("amount", 0))
 
     if not transfer_id or amount <= 0:
-        return jsonify({"success": False, "message": "Transfer ID and valid allocation amount are required"}), 400
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Transfer ID and valid allocation amount are required"}
+        )
 
     trf = db.state_transfers.find_one({"transfer_id": transfer_id})
     if not trf:
-        return jsonify({"success": False, "message": "State transfer record not found"}), 404
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"success": False, "message": "State transfer record not found"}
+        )
 
-    # Balance check
     already_allocated = trf.get("allocated_to_districts", 0.0)
     total_transfer = trf.get("amount", 0.0)
     available_balance = total_transfer - already_allocated
 
     if amount > available_balance:
-        return jsonify({
-            "success": False,
-            "message": f"Requested amount (INR {amount:,.2f}) exceeds remaining state transfer balance (INR {available_balance:,.2f})"
-        }), 400
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "success": False,
+                "message": f"Requested amount (INR {amount:,.2f}) exceeds remaining state transfer balance (INR {available_balance:,.2f})"
+            }
+        )
 
     dist_alloc_id = generate_district_alloc_id(district_name)
 
@@ -156,10 +174,10 @@ def allocate_to_district():
         "state_code": trf.get("state_code"),
         "district_name": district_name,
         "amount": amount,
-        "allocated_by": g.current_user["name"],
+        "allocated_by": current_user["name"],
         "blockchain_tx_hash": tx_hash,
         "blockchain_block": block_num,
-        "created_at": datetime.utcnow()
+        "created_at": datetime.now(timezone.utc)
     }
     db.district_allocations.insert_one(dist_doc)
 
@@ -168,22 +186,29 @@ def allocate_to_district():
         {"transfer_id": transfer_id},
         {"$set": {
             "allocated_to_districts": already_allocated + amount,
-            "last_allocation_at": datetime.utcnow()
+            "last_allocation_at": datetime.now(timezone.utc)
         }}
     )
 
     # 4. Log to Global Blockchain Transactions Collection
     if tx_hash:
+        from_state = bcs.get_entity_wallet("STATE", trf.get("state_code"))
+        to_dist = bcs.get_entity_wallet("DISTRICT", district_name)
+        state_title = trf.get("state_name") or "State"
         db.blockchain_transactions.insert_one({
             "tx_hash": tx_hash,
             "block_number": block_num,
             "operation_type": "STATE_DISTRICT_ALLOCATION",
             "entity_id": dist_alloc_id,
-            "from_address": f"0xStateTreasury_{trf.get('state_code')}",
-            "to_address": f"0xDistrictAgency_{district_name}",
+            "from_address": from_state,
+            "to_address": to_dist,
+            "from_entity": f"{state_title} State Treasury",
+            "to_entity": f"{district_name} District Development Agency",
+            "transfer_tier": "STATE_TO_DISTRICT",
+            "flow_stage": f"3. {state_title} Treasury -> {district_name} District",
             "amount": amount,
-            "details": f"District Fund Sanction for {district_name} ({trf.get('scheme_name')})",
-            "timestamp": datetime.utcnow()
+            "details": f"District Fund Sanction: {state_title} Treasury -> {district_name} District Agency for {trf.get('scheme_name')}",
+            "timestamp": datetime.now(timezone.utc)
         })
 
     # 5. Notify District Collector
@@ -194,10 +219,10 @@ def allocate_to_district():
         "message": f"District Allocation {dist_alloc_id} for INR {amount:,.2f} under '{trf.get('scheme_name')}' received.",
         "link": f"/district/projects?district_alloc_id={dist_alloc_id}",
         "read": False,
-        "created_at": datetime.utcnow()
+        "created_at": datetime.now(timezone.utc)
     })
 
-    return jsonify({
+    return {
         "success": True,
         "message": f"Funds successfully allocated to {district_name} District and logged on blockchain",
         "allocation": serialize_doc(dist_doc),
@@ -205,11 +230,12 @@ def allocate_to_district():
             "tx_hash": tx_hash,
             "block_number": block_num
         }
-    }), 201
+    }
 
-@state_bp.route("/allocations", methods=["GET"])
-@role_required(["STATE"])
-def get_allocations():
-    state_code = g.current_user.get("state_code", "MH")
+@router.get("/allocations")
+async def get_allocations(
+    current_user: dict = Depends(require_roles(["STATE"]))
+):
+    state_code = current_user.get("state_code", "MH")
     allocations = list(db.district_allocations.find({"state_code": state_code}).sort("created_at", -1))
-    return jsonify({"success": True, "allocations": serialize_doc(allocations)})
+    return {"success": True, "allocations": serialize_doc(allocations)}
