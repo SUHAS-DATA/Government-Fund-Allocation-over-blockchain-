@@ -31,10 +31,10 @@ const HomePage = () => {
   useEffect(() => {
     API.get('/public/stats').then((res) => {
       if (res.success) setStats(res.stats);
-    });
+    }).catch(() => {});
     API.get('/public/hierarchy').then((res) => {
       if (res.success) setHierarchy(res);
-    });
+    }).catch(() => {});
   }, []);
 
   const handleSearch = (e) => {

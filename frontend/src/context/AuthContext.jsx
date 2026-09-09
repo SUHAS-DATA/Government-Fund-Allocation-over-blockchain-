@@ -21,7 +21,9 @@ export const AuthProvider = ({ children }) => {
           }
         })
         .catch(() => {
-          logout();
+          localStorage.removeItem('govtfund_token');
+          localStorage.removeItem('govtfund_user');
+          setUser(null);
         })
         .finally(() => setLoading(false));
     } else {
