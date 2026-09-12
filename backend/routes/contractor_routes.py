@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import APIRouter, Request, Depends, status
 from fastapi.responses import JSONResponse
 from bson import ObjectId
-from database import db, serialize_doc
+from database import db, serialize_doc, compute_project_progress
 from auth_middleware import require_roles
 import blockchain_service as bcs
 
@@ -664,6 +664,10 @@ async def handle_milestone_progress_submission(project_id: str, milestone_index:
             "rejection_reason": None
         }}
     )
+
+    # Recalculate parent project progress
+    calc_prog = compute_project_progress(proj)
+    db.projects.update_one({"project_id": project_id}, {"$set": {"progress_percentage": calc_prog}})
 
     if tx_hash:
         contractor_wallet = bcs.get_entity_wallet("CONTRACTOR", proj.get("contractor_name"))

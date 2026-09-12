@@ -53,7 +53,34 @@ const PublicProjectDetail = () => {
   const spentAmount = proj.released_amount || 0;
   const totalBudget = proj.total_budget || 0;
   const remainingBudget = Math.max(0, totalBudget - spentAmount);
-  const progressPercent = proj.progress_percentage || 0;
+
+  // Real-time calculated work progress percentage
+  const calculateProgress = () => {
+    if (proj.status === 'COMPLETED' || proj.status === 'FINAL_PROJECT_COMPLETED' || proj.status === 'CLOSED' || proj.is_closed) {
+      return 100;
+    }
+    if (proj.progress_percentage && proj.progress_percentage > 0) {
+      return proj.progress_percentage;
+    }
+    if (milestones && milestones.length > 0) {
+      const total = proj.total_budget || milestones.reduce((acc, m) => acc + (m.amount || 0), 0) || 1;
+      let weighted = 0;
+      milestones.forEach((m) => {
+        const weight = (m.amount || 0) / total;
+        let p = 0;
+        if (m.status === 'COMPLETED' || m.status === 'RELEASED') p = 100;
+        else if (m.status === 'SUBMITTED') p = m.progress_percentage || 100;
+        else if (m.status === 'APPROVED_FOR_WORK' || m.phase_status === 'EXECUTING_WORK') p = m.progress_percentage || 40;
+        else if (m.status === 'FUNDS_TRANSFERRED') p = m.progress_percentage || 15;
+        else p = m.progress_percentage || 0;
+        weighted += p * weight;
+      });
+      return Math.min(100, Math.round(weighted));
+    }
+    return 0;
+  };
+
+  const progressPercent = calculateProgress();
 
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '32px 20px' }}>
@@ -173,9 +200,14 @@ const PublicProjectDetail = () => {
                   <div style={{ fontWeight: '800', color: 'var(--color-primary)', fontSize: '14px' }}>
                     {formatCurrency(m.amount)}
                   </div>
-                  <span className={`badge ${m.status === 'RELEASED' ? 'badge-success' : 'badge-warning'}`} style={{ marginTop: '4px' }}>
-                    {m.status}
-                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px', marginTop: '4px' }}>
+                    <span className={`badge ${m.status === 'COMPLETED' || m.status === 'RELEASED' ? 'badge-success' : 'badge-warning'}`}>
+                      {m.status === 'COMPLETED' ? '✓ COMPLETED' : m.status?.replace(/_/g, ' ')}
+                    </span>
+                    <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                      Progress: {m.status === 'COMPLETED' ? '100%' : `${m.progress_percentage || 0}%`}
+                    </span>
+                  </div>
                 </div>
               </div>
             ))

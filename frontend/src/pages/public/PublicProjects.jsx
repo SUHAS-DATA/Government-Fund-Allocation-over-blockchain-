@@ -85,14 +85,18 @@ const PublicProjects = () => {
     {
       header: 'Released from Escrow',
       accessor: 'released_amount',
-      render: (row) => (
-        <div>
-          <span style={{ fontWeight: '700', color: 'var(--color-success)' }}>{formatCurrency(row.released_amount || 0)}</span>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-            Progress: {row.progress_percentage || 0}%
+      render: (row) => {
+        const isFinished = row.status === 'COMPLETED' || row.status === 'FINAL_PROJECT_COMPLETED' || row.status === 'CLOSED' || row.is_closed;
+        const prog = isFinished ? 100 : (row.progress_percentage || 0);
+        return (
+          <div>
+            <span style={{ fontWeight: '700', color: 'var(--color-success)' }}>{formatCurrency(row.released_amount || 0)}</span>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+              Progress: {prog}%
+            </div>
           </div>
-        </div>
-      )
+        );
+      }
     },
     {
       header: 'Status',

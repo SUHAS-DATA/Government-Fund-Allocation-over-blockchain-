@@ -116,5 +116,54 @@ def serialize_doc(doc):
         return result
     return doc
 
+def compute_project_progress(proj, milestones=None):
+    """
+    Calculate accurate real-time physical work progress percentage (0-100)
+    for a project based on lifecycle status, milestones, and submitted proofs.
+    """
+    if not proj:
+        return 0
+        
+    # Formally closed or completed projects are 100% complete
+    status = proj.get("status")
+    if status in ["COMPLETED", "FINAL_PROJECT_COMPLETED", "CLOSED"] or proj.get("is_closed"):
+        return 100
+        
+    project_id = proj.get("project_id")
+    if not project_id:
+        return int(proj.get("progress_percentage") or 0)
+        
+    if milestones is None:
+        milestones = list(db.milestones.find({"project_id": project_id}))
+        
+    if not milestones:
+        return int(proj.get("progress_percentage") or 0)
+        
+    total_budget = float(proj.get("total_budget") or sum(float(m.get("amount", 0.0)) for m in milestones) or 1.0)
+    
+    total_weighted_progress = 0.0
+    for m in milestones:
+        amount = float(m.get("amount") or 0.0)
+        weight = amount / total_budget if total_budget > 0 else (1.0 / len(milestones))
+        m_status = m.get("status")
+        phase_status = m.get("phase_status")
+        
+        if m_status in ["COMPLETED", "RELEASED"] or phase_status == "COMPLETED":
+            p = 100.0
+        elif m_status in ["SUBMITTED", "SUBMITTED_FOR_VERIFICATION"] or phase_status == "SUBMITTED_FOR_VERIFICATION":
+            p = float(m.get("progress_percentage") or 100.0)
+        elif m_status in ["APPROVED_FOR_WORK", "EXECUTING_WORK"] or phase_status == "EXECUTING_WORK":
+            p = float(m.get("progress_percentage") or 40.0)
+        elif m_status in ["FUNDS_TRANSFERRED"] or phase_status == "FUNDS_TRANSFERRED":
+            p = float(m.get("progress_percentage") or 15.0)
+        elif m_status in ["FUND_REQUESTED"] or phase_status == "FUND_REQUESTED":
+            p = float(m.get("progress_percentage") or 5.0)
+        else:
+            p = float(m.get("progress_percentage") or 0.0)
+            
+        total_weighted_progress += p * weight
+        
+    return min(100, max(0, int(round(total_weighted_progress))))
+
 # Initialize indexes when imported
 init_indexes()

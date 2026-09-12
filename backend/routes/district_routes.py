@@ -7,7 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, Request, Depends, status, Query
 from fastapi.responses import JSONResponse
 from bson import ObjectId
-from database import db, serialize_doc
+from database import db, serialize_doc, compute_project_progress
 from auth_middleware import require_roles
 import blockchain_service as bcs
 
@@ -1066,12 +1066,14 @@ async def handle_milestone_verification(project_id: str, milestone_index: int, r
 
     new_released_total = proj.get("released_amount", 0.0) + milestone_amount
     is_final_phase = (milestone_index >= 2)
+    calc_prog = compute_project_progress(proj)
 
     db.projects.update_one(
         {"project_id": project_id},
         {"$set": {
             "released_amount": new_released_total,
             "status": "FINAL_PROJECT_COMPLETED" if is_final_phase else "IN_PROGRESS",
+            "progress_percentage": 100 if is_final_phase else calc_prog,
             "current_active_phase": milestone_index + 2 if not is_final_phase else 3,
             "last_disbursal_at": datetime.now(timezone.utc)
         }}
@@ -1161,6 +1163,7 @@ async def close_project(
         {"$set": {
             "status": "CLOSED",
             "is_closed": True,
+            "progress_percentage": 100,
             "closed_at": datetime.now(timezone.utc),
             "closed_by": current_user["name"]
         }}
@@ -1169,7 +1172,7 @@ async def close_project(
     if proj.get("contractor_id"):
         db.notifications.insert_one({
             "recipient_user_id": proj.get("contractor_id"),
-            "title": f"38. Project {project_id} Formally Closed",
+            "title": f"Project {project_id} Formally Closed",
             "message": f"District Authority has completed quality audits and formally closed project {project_id}.",
             "link": f"/contractor/my-projects?project_id={project_id}",
             "read": False,

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Request, status, Query
 from fastapi.responses import JSONResponse
-from database import db, serialize_doc
+from database import db, serialize_doc, compute_project_progress
 
 router = APIRouter()
 public_bp = router
@@ -96,6 +96,12 @@ async def get_public_projects(
         ]
 
     projects = list(db.projects.find(query).sort("created_at", -1))
+    for p in projects:
+        calc_prog = compute_project_progress(p)
+        if p.get("progress_percentage") != calc_prog:
+            p["progress_percentage"] = calc_prog
+            db.projects.update_one({"project_id": p["project_id"]}, {"$set": {"progress_percentage": calc_prog}})
+
     return {"success": True, "projects": serialize_doc(projects)}
 
 @router.get("/projects/{project_id}")
@@ -110,6 +116,12 @@ async def get_public_project_detail(project_id: str):
     milestones = list(db.milestones.find({"project_id": project_id}).sort("milestone_index", 1))
     documents = list(db.documents.find({"entity_id": project_id}).sort("uploaded_at", -1))
     transactions = list(db.blockchain_transactions.find({"entity_id": project_id}).sort("timestamp", -1))
+
+    # Compute and persist real-time progress
+    calc_prog = compute_project_progress(proj, milestones)
+    proj["progress_percentage"] = calc_prog
+    if proj.get("progress_percentage") != calc_prog:
+        db.projects.update_one({"project_id": project_id}, {"$set": {"progress_percentage": calc_prog}})
 
     return {
         "success": True,
