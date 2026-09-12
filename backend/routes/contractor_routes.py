@@ -531,7 +531,7 @@ async def receive_allocated_funds(
 
     return {
         "success": True,
-        "message": f"Phase #{milestone_index + 1} allocated funds acknowledged in Contractor Bank Account. Phase execution initiated (Step 14/24/34)."
+        "message": f"Phase #{milestone_index + 1} allocated funds acknowledged in Contractor Bank Account. Phase execution initiated."
     }
 
 # --- Steps 15, 25, 35: Submit Completion Proof (Material Bills, Progress Photos, Videos, Documents) ---
@@ -689,7 +689,7 @@ async def handle_milestone_progress_submission(project_id: str, milestone_index:
         "recipient_role": "DISTRICT",
         "district_name": proj.get("district_name"),
         "title": f"Phase #{milestone_index + 1} Completion Proof Submitted",
-        "message": f"Contractor submitted Phase #{milestone_index + 1} proof deliverables (Material Bills, Photos, Videos, Test Docs) with cryptographic SHA-256 for {project_id}. Verification required (Step 16/26/36).",
+        "message": f"Contractor submitted Phase #{milestone_index + 1} proof deliverables (Material Bills, Photos, Videos, Test Docs) with cryptographic SHA-256 for {project_id}. Verification required.",
         "link": f"/district/projects?project_id={project_id}",
         "read": False,
         "created_at": datetime.now(timezone.utc)
@@ -697,7 +697,7 @@ async def handle_milestone_progress_submission(project_id: str, milestone_index:
 
     return {
         "success": True,
-        "message": f"Phase #{milestone_index + 1} completion proof submitted with cryptographic SHA-256 digests. Forwarded to District Officer for Step 16/26/36 verification.",
+        "message": f"Phase #{milestone_index + 1} completion proof submitted with cryptographic SHA-256 digests. Forwarded to District Officer for verification.",
         "proof_document_hash": primary_hash,
         "uploaded_proof_files": proof_files_saved,
         "blockchain": {

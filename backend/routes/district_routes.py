@@ -1178,7 +1178,7 @@ async def close_project(
 
     return {
         "success": True,
-        "message": f"Project {project_id} has been formally closed by District Authority (Step 38)."
+        "message": f"Project {project_id} has been formally closed by District Authority."
     }
 
 @router.post("/projects/{project_id}/deactivate-bank-account")
@@ -1224,7 +1224,7 @@ async def deactivate_contractor_bank_account(
     if proj.get("contractor_id"):
         db.notifications.insert_one({
             "recipient_user_id": proj.get("contractor_id"),
-            "title": "39. Contractor Project Bank Account Deactivated",
+            "title": "Contractor Project Bank Account Deactivated",
             "message": f"Project {project_id} bank account has been deactivated: Account Not Available to Contractor.",
             "link": f"/contractor/my-projects?project_id={project_id}",
             "read": False,
@@ -1233,7 +1233,7 @@ async def deactivate_contractor_bank_account(
 
     return {
         "success": True,
-        "message": f"Contractor bank account for project {project_id} deactivated successfully (Step 39). Status: Account Not Available to Contractor.",
+        "message": f"Contractor bank account for project {project_id} deactivated successfully. Status: Account Not Available to Contractor.",
         "bank_account_status": "DEACTIVATED"
     }
 

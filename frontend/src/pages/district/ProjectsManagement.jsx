@@ -212,7 +212,7 @@ const ProjectsManagement = () => {
     }
   };
 
-  // Step 3: Assign Contractor
+  // Assign Contractor
   const handleAssignContractor = async () => {
     if (!selectedProject || !assignContractorId) return;
     try {
@@ -220,7 +220,7 @@ const ProjectsManagement = () => {
         contractor_id: assignContractorId
       });
       if (res.success) {
-        setActionSuccess(res.message + " (Step 3 & 4 Notification Sent to Contractor)");
+        setActionSuccess(res.message + " (Notification Sent to Contractor)");
         setModalMode('');
         loadData();
       }
@@ -263,7 +263,7 @@ const ProjectsManagement = () => {
           )}
         </div>
       ) : (
-        <span style={{ color: 'var(--color-warning)', fontSize: '11px', fontWeight: '700' }}>3. Pending Assignment</span>
+        <span style={{ color: 'var(--color-warning)', fontSize: '11px', fontWeight: '700' }}>Pending Assignment</span>
       )
     },
     {
@@ -271,16 +271,16 @@ const ProjectsManagement = () => {
       accessor: 'status',
       render: (r) => {
         if (r.status === 'CLOSED') {
-          return <span className="badge badge-secondary">38. CLOSED</span>;
+          return <span className="badge badge-secondary">CLOSED</span>;
         }
         if (r.status === 'FINAL_PROJECT_COMPLETED') {
-          return <span className="badge badge-success">37. COMPLETED</span>;
+          return <span className="badge badge-success">COMPLETED</span>;
         }
         if (r.status === 'REJECTED_BY_CONTRACTOR' || r.status === 'PROJECT_REJECTED') {
-          return <span className="badge badge-danger">5. DECLINED</span>;
+          return <span className="badge badge-danger">DECLINED</span>;
         }
         if (r.status === 'ASSIGNED') {
-          return <span className="badge badge-warning">4. ASSIGNED</span>;
+          return <span className="badge badge-warning">ASSIGNED</span>;
         }
         return (
           <span className={`badge ${r.is_frozen ? 'badge-danger' : r.status === 'COMPLETED' ? 'badge-success' : 'badge-info'}`}>
@@ -306,7 +306,7 @@ const ProjectsManagement = () => {
               }}
             >
               <UserCheck size={12} />
-              <span>3. Assign Contractor</span>
+              <span>Assign Contractor</span>
             </button>
           )}
 
@@ -703,8 +703,8 @@ const ProjectsManagement = () => {
         </form>
       </Modal>
 
-      {/* MODAL 3: Assign Contractor (Step 3) */}
-      <Modal title={`3. Select & Assign Contractor to ${selectedProject?.project_id}`} isOpen={modalMode === 'ASSIGN' && !!selectedProject} onClose={() => setModalMode('')}>
+      {/* MODAL 3: Assign Contractor */}
+      <Modal title={`Select & Assign Contractor to ${selectedProject?.project_id}`} isOpen={modalMode === 'ASSIGN' && !!selectedProject} onClose={() => setModalMode('')}>
         <div className="form-group">
           <label className="form-label">Select KYC-Approved Contractor Enterprise</label>
           <select
@@ -732,7 +732,7 @@ const ProjectsManagement = () => {
           <div>Scheme: <strong>{selectedProject?.scheme_name}</strong></div>
           <div>Budget: <strong style={{ color: 'var(--color-success)' }}>{formatCurrency(selectedProject?.total_budget)}</strong></div>
           <div style={{ marginTop: '6px', color: 'var(--text-secondary)' }}>
-            * Assigning sends a real-time notification to the contractor to <strong>Accept or Reject</strong> the assignment (Step 4 & 5).
+            * Assigning sends a real-time notification to the contractor to <strong>Accept or Reject</strong> the assignment.
           </div>
         </div>
 
@@ -740,12 +740,12 @@ const ProjectsManagement = () => {
           <button className="btn btn-secondary" onClick={() => setModalMode('')}>Cancel</button>
           <button className="btn btn-primary" onClick={handleAssignContractor}>
             <UserCheck size={14} />
-            <span>3. Assign & Notify Contractor (Step 4)</span>
+            <span>Assign & Notify Contractor</span>
           </button>
         </div>
       </Modal>
 
-      {/* MODAL 4: Manage Project Details, Fund Requests, Verifications, and Closure (Steps 8-39) */}
+      {/* MODAL 4: Manage Project Details, Fund Requests, Verifications, and Closure */}
       {modalMode === 'DETAILS' && selectedProject && (
         <ProjectManageModal
           project={selectedProject}
@@ -776,7 +776,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh }) => {
     loadDetails();
   }, [project.project_id]);
 
-  // Steps 10 & 11, 21 & 22, 31 & 32: Allocate & Transfer Funds to Contractor Bank Account
+  // Allocate & Transfer Funds to Contractor Bank Account
   const handleApproveFundRequest = async (milestoneIndex) => {
     setSubmitting(true);
     setActionMsg('');
@@ -796,7 +796,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh }) => {
     }
   };
 
-  // Steps 9, 20, 30: Reject Fund Request
+  // Reject Fund Request
   const handleRejectFundRequest = async () => {
     if (fundRejectModalPhase === null) return;
     setSubmitting(true);
@@ -819,7 +819,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh }) => {
     }
   };
 
-  // Steps 16/17, 26/27, 36/37: Approve Milestone Proof Submission
+  // Approve Milestone Proof Submission
   const handleApproveProofSubmission = async (milestoneIndex) => {
     setSubmitting(true);
     setActionMsg('');
@@ -839,7 +839,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh }) => {
     }
   };
 
-  // Steps 17 (No), 27 (No), 37 (No): Reject Proof Submission -> Loops back to Execute Work
+  // Reject Proof Submission -> Loops back to Execute Work
   const handleRejectProofSubmission = async () => {
     if (proofRejectModalPhase === null) return;
     setSubmitting(true);
@@ -862,9 +862,9 @@ const ProjectManageModal = ({ project, onClose, onRefresh }) => {
     }
   };
 
-  // Step 38: Close Project
+  // Close Project
   const handleCloseProject = async () => {
-    if (!window.confirm("Are you sure you want to formally close this project? (Step 38)")) return;
+    if (!window.confirm("Are you sure you want to formally close this project?")) return;
     setSubmitting(true);
     try {
       const res = await API.post(`/district/projects/${project.project_id}/close-project`);
@@ -880,16 +880,16 @@ const ProjectManageModal = ({ project, onClose, onRefresh }) => {
     }
   };
 
-  // Step 39: Deactivate Contractor Bank Account
+  // Deactivate Contractor Bank Account
   const handleDeactivateBankAccount = async () => {
-    if (!window.confirm("Confirm deactivating contractor project bank account? Status will become: Account Not Available to Contractor. (Step 39)")) return;
+    if (!window.confirm("Confirm deactivating contractor project bank account? Status will become: Account Not Available to Contractor.")) return;
     setSubmitting(true);
     try {
       const res = await API.post(`/district/projects/${project.project_id}/deactivate-bank-account`, {
         reason: "Project closed and verified. Contractor project account closed."
       });
       if (res.success) {
-        setActionMsg("Step 39 Complete: Contractor Project Bank Account Deactivated! Account Not Available to Contractor.");
+        setActionMsg("Contractor Project Bank Account Deactivated! Account Not Available to Contractor.");
         loadDetails();
         onRefresh();
       }
@@ -969,7 +969,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh }) => {
         </div>
       )}
 
-      {/* 3-PHASE EXECUTION LIFECYCLE (Steps 8 to 37) */}
+      {/* 3-PHASE EXECUTION LIFECYCLE */}
       <div style={{ marginBottom: '24px' }}>
         <h4 style={{ fontSize: '14px', fontWeight: '800', color: 'var(--color-primary)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
           <span>Sequential 3-Phase Execution & Fund Disbursals</span>
@@ -994,7 +994,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh }) => {
                 border: isCompleted ? '1.5px solid var(--color-success-border)' : isRejectedProof || isFundRejected ? '1.5px solid var(--color-danger-border)' : '1px solid var(--border-color)',
                 opacity: isLocked ? 0.6 : 1
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'gap', gap: '8px', marginBottom: '8px' }}>
                   <div>
                     <div style={{ fontWeight: '800', fontSize: '14px', color: 'var(--text-main)' }}>
                       Phase #{idx + 1}: {m.title}
@@ -1010,22 +1010,22 @@ const ProjectManageModal = ({ project, onClose, onRefresh }) => {
                     </div>
                     <div style={{ marginTop: '4px' }}>
                       {isCompleted && <span className="badge badge-success">✓ COMPLETED</span>}
-                      {isSubmitted && <span className="badge badge-primary">16. VERIFICATION PENDING</span>}
-                      {isFundsTransferred && <span className="badge badge-success">11. FUNDS TRANSFERRED TO BANK</span>}
-                      {isWorkInProgress && <span className="badge badge-warning">14. EXECUTING WORK</span>}
-                      {isFundRequested && <span className="badge badge-info">8. FUND REQUEST RECEIVED</span>}
-                      {isFundRejected && <span className="badge badge-danger">9. FUND REQUEST REJECTED</span>}
-                      {isRejectedProof && <span className="badge badge-danger">17. RECTIFICATION REQUIRED</span>}
+                      {isSubmitted && <span className="badge badge-primary">VERIFICATION PENDING</span>}
+                      {isFundsTransferred && <span className="badge badge-success">FUNDS TRANSFERRED TO BANK</span>}
+                      {isWorkInProgress && <span className="badge badge-warning">EXECUTING WORK</span>}
+                      {isFundRequested && <span className="badge badge-info">FUND REQUEST RECEIVED</span>}
+                      {isFundRejected && <span className="badge badge-danger">FUND REQUEST REJECTED</span>}
+                      {isRejectedProof && <span className="badge badge-danger">RECTIFICATION REQUIRED</span>}
                       {isLocked && <span className="badge badge-secondary">LOCKED</span>}
                     </div>
                   </div>
                 </div>
 
-                {/* Fund Request Details (Step 8/19/29) */}
+                {/* Fund Request Details */}
                 {isFundRequested && (
                   <div style={{ background: '#EFF6FF', padding: '10px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid #BFDBFE', fontSize: '12px', margin: '10px 0' }}>
                     <div style={{ fontWeight: '700', color: '#1E40AF', marginBottom: '2px' }}>
-                      8. Contractor Fund Mobilization Request Received
+                      Contractor Fund Mobilization Request Received
                     </div>
                     <div>Requested Amount: <strong>{formatCurrency(m.fund_requested_amount || m.amount)}</strong></div>
                     <div>Justification Notes: <em>{m.fund_request_notes || 'Mobilization advance'}</em></div>
@@ -1033,12 +1033,12 @@ const ProjectManageModal = ({ project, onClose, onRefresh }) => {
                   </div>
                 )}
 
-                {/* Submitted Proof Inspection (Step 16/26/36) */}
+                {/* Submitted Proof Inspection */}
                 {isSubmitted && (
                   <div style={{ background: '#F0FDF4', padding: '12px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid #BBF7D0', margin: '10px 0', fontSize: '12px' }}>
                     <div style={{ fontWeight: '800', color: '#166534', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <FileCheck size={16} />
-                      <span>16. Verify Contractor Completion Proof Submission (Phase #{idx + 1})</span>
+                      <span>Verify Contractor Completion Proof Submission (Phase #{idx + 1})</span>
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginTop: '8px' }}>
@@ -1074,13 +1074,13 @@ const ProjectManageModal = ({ project, onClose, onRefresh }) => {
                 {/* Rejection Notes */}
                 {(isRejectedProof && m.rejection_reason) && (
                   <div style={{ background: '#FEF2F2', padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid #FECACA', color: '#B91C1C', fontSize: '12px', margin: '8px 0' }}>
-                    <strong>17. Inspection Rejection Reason:</strong> {m.rejection_reason} (Contractor executing rectification)
+                    <strong>Inspection Rejection Reason:</strong> {m.rejection_reason} (Contractor executing rectification)
                   </div>
                 )}
 
                 {/* Actions per Phase */}
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '10px', paddingTop: '8px', borderTop: '1px solid var(--border-color)' }}>
-                  {/* Step 9/10/11: Verify Fund Request */}
+                  {/* Verify Fund Request */}
                   {isFundRequested && (
                     <>
                       <button
@@ -1089,7 +1089,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh }) => {
                         disabled={submitting}
                       >
                         <Coins size={13} />
-                        <span>10 & 11. Allocate & Transfer Funds to Bank Account</span>
+                        <span>Allocate & Transfer Funds to Bank Account</span>
                       </button>
                       <button
                         className="btn btn-secondary btn-sm"
@@ -1098,12 +1098,12 @@ const ProjectManageModal = ({ project, onClose, onRefresh }) => {
                         disabled={submitting}
                       >
                         <XCircle size={13} />
-                        <span>9. Reject Request</span>
+                        <span>Reject Request</span>
                       </button>
                     </>
                   )}
 
-                  {/* Step 16/17: Verify Submission Proof */}
+                  {/* Verify Submission Proof */}
                   {isSubmitted && (
                     <>
                       <button
@@ -1112,7 +1112,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh }) => {
                         disabled={submitting}
                       >
                         <ShieldCheck size={13} />
-                        <span>17. Approve Submission (Phase #{idx + 1} Completed)</span>
+                        <span>Approve Submission (Phase #{idx + 1} Completed)</span>
                       </button>
                       <button
                         className="btn btn-secondary btn-sm"
@@ -1121,7 +1121,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh }) => {
                         disabled={submitting}
                       >
                         <XCircle size={13} />
-                        <span>17 (No). Reject & Require Rectification</span>
+                        <span>Reject & Require Rectification</span>
                       </button>
                     </>
                   )}
@@ -1139,7 +1139,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh }) => {
         </div>
       </div>
 
-      {/* FINAL COMPLETION, PROJECT CLOSURE & BANK DEACTIVATION (Steps 38 & 39) */}
+      {/* FINAL COMPLETION, PROJECT CLOSURE & BANK DEACTIVATION */}
       {(isAllPhasesCompleted || projData.status === 'FINAL_PROJECT_COMPLETED' || isProjectClosed) && (
         <div style={{
           background: isProjectClosed ? '#F8FAFC' : '#F0FDF4',
@@ -1151,10 +1151,10 @@ const ProjectManageModal = ({ project, onClose, onRefresh }) => {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
             <div>
               <div style={{ fontWeight: '800', fontSize: '15px', color: isProjectClosed ? 'var(--text-main)' : '#166534' }}>
-                {isProjectClosed ? '✓ Project Formally Closed (Step 38)' : '🎉 37. Final Project Completed!'}
+                {isProjectClosed ? '✓ Project Formally Closed' : '🎉 Final Project Completed!'}
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
-                {isBankDeactivated ? 'Step 39 Completed: Contractor Project Bank Account Deactivated (Account Not Available to Contractor).' : 'Proceed to Step 38 Close Project and Step 39 Deactivate Contractor Bank Account.'}
+                {isBankDeactivated ? 'Contractor Project Bank Account Deactivated (Account Not Available to Contractor).' : 'Proceed to Close Project and Deactivate Contractor Bank Account.'}
               </div>
             </div>
 
@@ -1162,14 +1162,14 @@ const ProjectManageModal = ({ project, onClose, onRefresh }) => {
               {!isProjectClosed && (
                 <button className="btn btn-primary btn-sm" onClick={handleCloseProject} disabled={submitting}>
                   <FolderKanban size={13} />
-                  <span>38. Close Project</span>
+                  <span>Close Project</span>
                 </button>
               )}
 
               {!isBankDeactivated && (
                 <button className="btn btn-danger btn-sm" onClick={handleDeactivateBankAccount} disabled={submitting}>
                   <PowerOff size={13} />
-                  <span>39. Deactivate Contractor Bank Account</span>
+                  <span>Deactivate Contractor Bank Account</span>
                 </button>
               )}
             </div>
@@ -1197,7 +1197,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh }) => {
       {fundRejectModalPhase !== null && (
         <Modal title={`Reject Phase #${fundRejectModalPhase + 1} Fund Request`} isOpen={true} onClose={() => setFundRejectModalPhase(null)}>
           <div className="form-group">
-            <label className="form-label">Fund Rejection Reason (Step 9/20/30)</label>
+            <label className="form-label">Fund Rejection Reason</label>
             <textarea
               className="form-control"
               rows="3"
@@ -1220,7 +1220,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh }) => {
       {proofRejectModalPhase !== null && (
         <Modal title={`Reject Phase #${proofRejectModalPhase + 1} Completion Proof`} isOpen={true} onClose={() => setProofRejectModalPhase(null)}>
           <div className="form-group">
-            <label className="form-label">Quality Inspection Deficiency Remarks (Step 17/27/37)</label>
+            <label className="form-label">Quality Inspection Deficiency Remarks</label>
             <textarea
               className="form-control"
               rows="3"
