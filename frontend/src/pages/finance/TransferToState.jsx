@@ -4,6 +4,7 @@ import { Send, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
 import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
+import FundAmountInput from '../../components/FundAmountInput';
 
 const TransferToState = () => {
   const [searchParams] = useSearchParams();
@@ -227,17 +228,14 @@ const TransferToState = () => {
                 </select>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">Disbursal Amount (INR)</label>
-                <input
-                  type="number"
-                  className="form-control"
-                  max={availableBalance}
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  required
-                />
-              </div>
+              <FundAmountInput
+                label="Disbursal Amount to State Treasury"
+                value={amount}
+                onChange={(val) => setAmount(val)}
+                max={availableBalance}
+                required={true}
+                helperText="Select or enter disbursement amount in Crores, Lakhs, or Thousands. Ex: 100 (Cr)."
+              />
             </div>
 
             <div className="form-group">

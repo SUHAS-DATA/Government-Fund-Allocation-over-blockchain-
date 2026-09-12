@@ -28,6 +28,7 @@ import BlockchainBadge from '../../components/BlockchainBadge';
 import DocumentHashViewer from '../../components/DocumentHashViewer';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
+import FundAmountInput from '../../components/FundAmountInput';
 import { useAuth } from '../../context/AuthContext';
 import StateDistrictSelector from '../../components/StateDistrictSelector';
 import { getAllStates, getDistrictsByState, getStateForDistrict, getState } from '../../config/statesDistrictsData';
@@ -388,28 +389,23 @@ const ProjectsManagement = () => {
             />
           </div>
 
-          <div className="grid-2">
-            <div className="form-group">
-              <label className="form-label">Total Contract Budget (INR)</label>
-              <input
-                type="number"
-                className="form-control"
-                value={createForm.total_budget}
-                onChange={(e) => setFormData({ ...createForm, total_budget: Number(e.target.value) })}
-                required
-              />
-            </div>
+          <FundAmountInput
+            label="Total Contract Budget"
+            value={createForm.total_budget}
+            onChange={(val) => setFormData({ ...createForm, total_budget: val })}
+            required={true}
+            helperText="Sanctioned project contract value in Crores, Lakhs, or Thousands. Ex: 100 (Cr)."
+          />
 
-            <div className="form-group">
-              <label className="form-label">Timeline (Months)</label>
-              <input
-                type="number"
-                className="form-control"
-                value={createForm.timeline_months}
-                onChange={(e) => setFormData({ ...createForm, timeline_months: Number(e.target.value) })}
-                required
-              />
-            </div>
+          <div className="form-group">
+            <label className="form-label">Timeline (Months)</label>
+            <input
+              type="number"
+              className="form-control"
+              value={createForm.timeline_months}
+              onChange={(e) => setFormData({ ...createForm, timeline_months: Number(e.target.value) })}
+              required
+            />
           </div>
 
           <div className="form-group">

@@ -4,6 +4,7 @@ import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
+import FundAmountInput from '../../components/FundAmountInput';
 
 const Schemes = () => {
   const [schemes, setSchemes] = useState([]);
@@ -104,16 +105,13 @@ const Schemes = () => {
             </select>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Target Ceiling Budget (INR)</label>
-            <input
-              type="number"
-              className="form-control"
-              value={formData.target_budget}
-              onChange={(e) => setFormData({ ...formData, target_budget: e.target.value })}
-              required
-            />
-          </div>
+          <FundAmountInput
+            label="Sanctioned Scheme Target Ceiling"
+            value={formData.target_budget}
+            onChange={(val) => setFormData({ ...formData, target_budget: val })}
+            required={true}
+            helperText="Sanctioned ceiling in Crores, Lakhs, or Thousands. Ex: 100 (Cr)."
+          />
 
           <div className="form-group">
             <label className="form-label">Scheme Objectives & Description</label>

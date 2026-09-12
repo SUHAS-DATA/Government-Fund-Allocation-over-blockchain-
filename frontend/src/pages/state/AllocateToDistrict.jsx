@@ -4,6 +4,7 @@ import { Send, CheckCircle2, AlertCircle, ShieldCheck } from 'lucide-react';
 import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
+import FundAmountInput from '../../components/FundAmountInput';
 
 import { getDistrictsByState, getState } from '../../config/statesDistrictsData';
 
@@ -213,17 +214,14 @@ const AllocateToDistrict = () => {
                 </select>
               </div>
 
-              <div className="form-group">
-                <label className="form-label">District Allocation Amount (INR)</label>
-                <input
-                  type="number"
-                  className="form-control"
-                  max={availableBalance}
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  required
-                />
-              </div>
+              <FundAmountInput
+                label="District Allocation Amount"
+                value={amount}
+                onChange={(val) => setAmount(val)}
+                max={availableBalance}
+                required={true}
+                helperText="Select or enter district sanction in Crores, Lakhs, or Thousands. Ex: 100 (Cr)."
+              />
             </div>
 
             <button type="submit" className="btn btn-primary btn-lg" style={{ width: '100%', marginTop: '10px' }} disabled={submitting || availableBalance <= 0}>

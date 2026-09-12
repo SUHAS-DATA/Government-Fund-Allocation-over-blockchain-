@@ -6,6 +6,7 @@ import { formatCurrency } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
+import FundAmountInput from '../../components/FundAmountInput';
 
 const BudgetAllocation = () => {
   const [allocations, setAllocations] = useState([]);
@@ -281,16 +282,13 @@ const BudgetAllocation = () => {
             </select>
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Sanctioned Allocation Amount (INR)</label>
-            <input
-              type="number"
-              className="form-control"
-              value={formData.amount}
-              onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) || 0 })}
-              required
-            />
-          </div>
+          <FundAmountInput
+            label="Sanctioned Scheme Allocation Amount"
+            value={formData.amount}
+            onChange={(val) => setFormData({ ...formData, amount: val })}
+            required={true}
+            helperText="Specify scheme allocation in Crores, Lakhs, or Thousands. Ex: 100 (Cr)."
+          />
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '24px' }}>
             <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>

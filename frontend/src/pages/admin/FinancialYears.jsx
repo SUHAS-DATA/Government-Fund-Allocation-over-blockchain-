@@ -5,6 +5,7 @@ import { formatCurrency } from '../../services/blockchain';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import StatCard from '../../components/StatCard';
+import FundAmountInput from '../../components/FundAmountInput';
 
 const FinancialYears = () => {
   const [fys, setFys] = useState([]);
@@ -320,16 +321,13 @@ const FinancialYears = () => {
             />
           </div>
 
-          <div className="form-group" style={{ marginBottom: '14px' }}>
-            <label className="form-label">Total Union Sanctioned Amount (INR)</label>
-            <input
-              type="number"
-              className="form-control"
-              value={formData.total_budget}
-              onChange={(e) => setFormData({ ...formData, total_budget: parseFloat(e.target.value) || 0 })}
-              required
-            />
-          </div>
+          <FundAmountInput
+            label="Total Union Sanctioned Budget Ceiling"
+            value={formData.total_budget}
+            onChange={(val) => setFormData({ ...formData, total_budget: val })}
+            required={true}
+            helperText="Total annual budgetary ceiling in Crores, Lakhs, or Thousands. Ex: 100 (Cr)."
+          />
 
           <div className="form-group" style={{ marginBottom: '20px' }}>
             <label className="form-label">Initial Status</label>
