@@ -24,15 +24,15 @@ def format_denomination(amount):
     if amt >= 10000000:
         cr_val = amt / 10000000
         val_str = f"{cr_val:.2f}".rstrip('0').rstrip('.') if not cr_val.is_integer() else f"{int(cr_val)}"
-        return f"{val_str} (Cr)"
+        return f"{val_str} Cr"
     elif amt >= 100000:
         lakh_val = amt / 100000
         val_str = f"{lakh_val:.2f}".rstrip('0').rstrip('.') if not lakh_val.is_integer() else f"{int(lakh_val)}"
-        return f"{val_str} (Lakh)"
+        return f"{val_str} Lakh"
     elif amt >= 1000:
         k_val = amt / 1000
         val_str = f"{k_val:.2f}".rstrip('0').rstrip('.') if not k_val.is_integer() else f"{int(k_val)}"
-        return f"{val_str} (k)"
+        return f"{val_str} k"
     else:
         return f"₹{amt:,.2f}"
 

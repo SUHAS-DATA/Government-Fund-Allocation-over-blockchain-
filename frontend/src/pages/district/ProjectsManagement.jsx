@@ -379,7 +379,7 @@ const ProjectsManagement = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">Project Title (Step 2)</label>
+            <label className="form-label">Project Title</label>
             <input
               type="text"
               className="form-control"
@@ -423,7 +423,7 @@ const ProjectsManagement = () => {
             <button type="button" className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>Cancel</button>
             <button type="submit" className="btn btn-primary">
               <Plus size={14} />
-              <span>Create Project (Step 2)</span>
+              <span>Create Project</span>
             </button>
           </div>
         </form>
