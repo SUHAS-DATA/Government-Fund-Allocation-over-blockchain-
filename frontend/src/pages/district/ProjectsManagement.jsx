@@ -50,6 +50,9 @@ const ProjectsManagement = () => {
   const [projects, setProjects] = useState([]);
   const [contractors, setContractors] = useState([]);
   const [schemes, setSchemes] = useState([]);
+  const [schemeBalances, setSchemeBalances] = useState([]);
+  const [districtFundSummary, setDistrictFundSummary] = useState({ total_received: 0, total_committed: 0, total_available: 0 });
+  const [submittingProject, setSubmittingProject] = useState(false);
   const [loading, setLoading] = useState(true);
 
   // Modals
@@ -59,19 +62,21 @@ const ProjectsManagement = () => {
 
   // Forms
   const [createForm, setFormData] = useState({
-    name: `${isDistrictOfficer ? assignedDistrict : initialDistrict} Rural Concrete Road & Drainage Network`,
-    scheme_code: 'PMGSY',
-    scheme_name: 'Pradhan Mantri Gram Sadak Yojana (All-Weather Rural Roads)',
-    department: 'Road Transport & Infrastructure',
+    name: '',
+    scheme_code: '',
+    scheme_name: '',
+    department: '',
     state_code: isDistrictOfficer ? assignedStateCode : initialDistrictState,
     district_name: isDistrictOfficer ? assignedDistrict : initialDistrict,
-    total_budget: 150000000, // 15 Crores
-    description: `Upgrading 35 kilometers of rural agrarian roads connecting 6 habitations to national highways in ${isDistrictOfficer ? assignedDistrict : initialDistrict} district.`,
+    total_budget: 0,
+    description: '',
     timeline_months: 12
   });
 
   const [assignContractorId, setAssignContractorId] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
+
+  const normalizeScheme = (s) => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
 
   const loadData = (district = selectedDistrict) => {
     setLoading(true);
@@ -81,6 +86,12 @@ const ProjectsManagement = () => {
     API.get(`/district/projects${query}`).then((res) => {
       if (res.success) {
         setProjects(res.projects || []);
+        if (res.scheme_balances) {
+          setSchemeBalances(res.scheme_balances);
+        }
+        if (res.summary) {
+          setDistrictFundSummary(res.summary);
+        }
       }
     }).finally(() => setLoading(false));
 
@@ -111,18 +122,93 @@ const ProjectsManagement = () => {
     setFormData((prev) => ({ ...prev, district_name: selectedDistrict }));
   }, [selectedDistrict]);
 
-  // Create Project under Scheme
+  // Merge schemeBalances and all known schemes so every scheme can be selected
+  const displaySchemes = React.useMemo(() => {
+    const list = [...schemeBalances];
+    schemes.forEach(sc => {
+      if (!list.some(sb => normalizeScheme(sb.scheme_name) === normalizeScheme(sc.name))) {
+        list.push({
+          scheme_name: sc.name,
+          scheme_code: sc.code,
+          department: sc.department,
+          total_received: 0,
+          committed_budget: 0,
+          available_balance: 0
+        });
+      }
+    });
+    // Sort so schemes that have allocated funds appear at the top
+    return list.sort((a, b) => (b.available_balance || 0) - (a.available_balance || 0));
+  }, [schemeBalances, schemes]);
+
+  // Current scheme info for active form
+  const currentSchemeData = React.useMemo(() => {
+    return schemeBalances.find(
+      sb => normalizeScheme(sb.scheme_name) === normalizeScheme(createForm.scheme_name)
+    ) || {
+      scheme_name: createForm.scheme_name,
+      total_received: 0,
+      committed_budget: 0,
+      available_balance: 0
+    };
+  }, [schemeBalances, createForm.scheme_name]);
+
+  // Open modal with smart pre-selection
+  const openCreateModal = () => {
+    const targetDist = isDistrictOfficer ? assignedDistrict : selectedDistrict;
+    const targetState = isDistrictOfficer ? assignedStateCode : selectedState;
+
+    // Find scheme with available balance first, or default to first display scheme
+    const topScheme = displaySchemes.find(sb => sb.available_balance > 0) || displaySchemes[0] || {
+      scheme_name: 'Education Upto 12 Grade',
+      scheme_code: 'MOE',
+      department: 'School Education & Literacy',
+      available_balance: 0
+    };
+
+    const sName = topScheme.scheme_name;
+    const sCode = topScheme.scheme_code || 'SCHEME';
+    const sDept = topScheme.department || 'Public Infrastructure';
+    const avail = topScheme.available_balance || 0;
+    const defaultBudget = avail > 0 ? Math.min(10000000, avail) : 0;
+
+    setFormData({
+      name: `${targetDist} ${sCode} Infrastructure Initiative`,
+      scheme_code: sCode,
+      scheme_name: sName,
+      department: sDept,
+      state_code: targetState,
+      district_name: targetDist,
+      total_budget: defaultBudget,
+      description: `Public works and community development implementation under ${sName} in ${targetDist} district.`,
+      timeline_months: 12
+    });
+    setShowCreateModal(true);
+  };
+
+  // Create Project under Scheme with strict balance validation
   const handleCreateProject = async (e) => {
     e.preventDefault();
+    if (currentSchemeData.available_balance <= 0) {
+      alert(`Cannot create project: No funds available for scheme '${createForm.scheme_name}' in ${isDistrictOfficer ? assignedDistrict : selectedDistrict}. Please request State Treasury allocation first.`);
+      return;
+    }
+    if (createForm.total_budget > currentSchemeData.available_balance) {
+      alert(`Project budget of ${formatCurrency(createForm.total_budget)} exceeds available district fund ceiling of ${formatCurrency(currentSchemeData.available_balance)} for '${createForm.scheme_name}'.`);
+      return;
+    }
+    setSubmittingProject(true);
     try {
       const res = await API.post('/district/projects', createForm);
       if (res.success) {
         setShowCreateModal(false);
-        setActionSuccess(`Project '${createForm.name}' created under scheme ${createForm.scheme_name}!`);
+        setActionSuccess(`Project '${createForm.name}' created successfully under scheme ${createForm.scheme_name}!`);
         loadData();
       }
     } catch (err) {
       alert(err.message || 'Error creating project');
+    } finally {
+      setSubmittingProject(false);
     }
   };
 
@@ -324,10 +410,106 @@ const ProjectsManagement = () => {
           )}
 
           {/* Create Project Button */}
-          <button className="btn btn-primary btn-sm" onClick={() => setShowCreateModal(true)}>
+          <button className="btn btn-primary btn-sm" onClick={openCreateModal}>
             <Plus size={14} />
             <span>Create Project under Scheme</span>
           </button>
+        </div>
+      </div>
+
+      {/* District Fund Ceiling & Allocation Overview Banner */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+        gap: '12px',
+        marginBottom: '20px'
+      }}>
+        <div className="card" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: 'var(--radius-sm)',
+            backgroundColor: 'rgba(30, 58, 138, 0.08)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <Coins size={20} color="var(--color-primary)" />
+          </div>
+          <div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>
+              State Sanction Received
+            </div>
+            <div style={{ fontSize: '18px', fontWeight: '800', color: 'var(--color-primary)' }}>
+              {formatCurrency(districtFundSummary.total_received)}
+            </div>
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: 'var(--radius-sm)',
+            backgroundColor: 'rgba(217, 119, 6, 0.08)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <CreditCard size={20} color="var(--color-warning)" />
+          </div>
+          <div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>
+              Committed to Projects
+            </div>
+            <div style={{ fontSize: '18px', fontWeight: '800', color: 'var(--color-warning)' }}>
+              {formatCurrency(districtFundSummary.total_committed)}
+            </div>
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: 'var(--radius-sm)',
+            backgroundColor: districtFundSummary.total_available > 0 ? 'rgba(5, 150, 105, 0.08)' : 'rgba(220, 38, 38, 0.08)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <ShieldCheck size={20} color={districtFundSummary.total_available > 0 ? 'var(--color-success)' : 'var(--color-danger)'} />
+          </div>
+          <div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>
+              District Available Balance
+            </div>
+            <div style={{ fontSize: '18px', fontWeight: '800', color: districtFundSummary.total_available > 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
+              {formatCurrency(districtFundSummary.total_available)}
+            </div>
+          </div>
+        </div>
+
+        <div className="card" style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            borderRadius: 'var(--radius-sm)',
+            backgroundColor: 'rgba(99, 102, 241, 0.08)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}>
+            <FolderKanban size={20} color="var(--color-accent)" />
+          </div>
+          <div>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600', textTransform: 'uppercase' }}>
+              Sanctioned Projects
+            </div>
+            <div style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-main)' }}>
+              {projects.length} Projects
+            </div>
+          </div>
         </div>
       </div>
 
@@ -358,25 +540,101 @@ const ProjectsManagement = () => {
       <Modal title={`Create Project in ${isDistrictOfficer ? assignedDistrict : selectedDistrict}`} isOpen={showCreateModal} onClose={() => setShowCreateModal(false)}>
         <form onSubmit={handleCreateProject}>
           <div className="form-group">
-            <label className="form-label">Select Government Scheme</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+              <label className="form-label" style={{ margin: 0 }}>Select Government Scheme</label>
+              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                {displaySchemes.filter(s => s.available_balance > 0).length} of {displaySchemes.length} Funded
+              </span>
+            </div>
             <select
               className="form-control form-select"
               value={createForm.scheme_name}
               onChange={(e) => {
-                const sc = schemes.find(s => s.name === e.target.value);
-                setFormData({
-                  ...createForm,
-                  scheme_name: e.target.value,
-                  scheme_code: sc ? sc.code : createForm.scheme_code,
-                  department: sc ? (sc.department || createForm.department) : createForm.department
-                });
+                const chosenName = e.target.value;
+                const matchScheme = displaySchemes.find(s => normalizeScheme(s.scheme_name || s.name) === normalizeScheme(chosenName));
+                const sCode = matchScheme ? (matchScheme.scheme_code || matchScheme.code || 'SCHEME') : 'SCHEME';
+                const sDept = matchScheme ? (matchScheme.department || 'Public Infrastructure') : 'Public Infrastructure';
+                const avail = matchScheme ? (matchScheme.available_balance || 0) : 0;
+                setFormData(prev => ({
+                  ...prev,
+                  scheme_name: chosenName,
+                  scheme_code: sCode,
+                  department: sDept,
+                  total_budget: avail > 0 ? Math.min(prev.total_budget || 10000000, avail) : 0
+                }));
               }}
+              required
             >
-              {schemes.map((s) => (
-                <option key={s.code} value={s.name}>{s.name} ({s.code})</option>
-              ))}
+              {displaySchemes.map((s, idx) => {
+                const sName = s.scheme_name || s.name;
+                const sCode = s.scheme_code || s.code;
+                const avail = s.available_balance || 0;
+                return (
+                  <option key={`${sName}-${idx}`} value={sName}>
+                    {sName} ({sCode}) — {avail > 0 ? `Available: ${formatCurrency(avail)}` : 'No State Allocation (₹0)'}
+                  </option>
+                );
+              })}
             </select>
           </div>
+
+          {/* Real-Time District Scheme Fund Pool Card */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: '8px',
+            padding: '12px',
+            backgroundColor: 'var(--bg-subtle)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 'var(--radius-sm)',
+            marginBottom: '14px'
+          }}>
+            <div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>State Sanction</div>
+              <div style={{ fontSize: '13px', fontWeight: '800', color: 'var(--color-primary)' }}>
+                {formatCurrency(currentSchemeData.total_received)}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>Committed</div>
+              <div style={{ fontSize: '13px', fontWeight: '800', color: 'var(--color-warning)' }}>
+                {formatCurrency(currentSchemeData.committed_budget)}
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: '10px', color: currentSchemeData.available_balance > 0 ? 'var(--color-success)' : 'var(--color-danger)', fontWeight: '700', textTransform: 'uppercase' }}>
+                District Available
+              </div>
+              <div style={{ fontSize: '13px', fontWeight: '800', color: currentSchemeData.available_balance > 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                {formatCurrency(currentSchemeData.available_balance)}
+              </div>
+            </div>
+          </div>
+
+          {/* Warning Banner if No Balance */}
+          {currentSchemeData.available_balance <= 0 && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 12px',
+              backgroundColor: 'var(--color-danger-bg)',
+              border: '1px solid var(--color-danger-border)',
+              borderRadius: 'var(--radius-xs)',
+              color: 'var(--color-danger)',
+              fontSize: '12px',
+              fontWeight: '600',
+              marginBottom: '14px'
+            }}>
+              <AlertCircle size={16} />
+              <span>
+                {currentSchemeData.total_received === 0 
+                  ? `No funds have been transferred by State Treasury to ${isDistrictOfficer ? assignedDistrict : selectedDistrict} for '${createForm.scheme_name}' yet.`
+                  : `100% of received funds for '${createForm.scheme_name}' in this district are already allocated to existing projects.`
+                }
+              </span>
+            </div>
+          )}
 
           <div className="form-group">
             <label className="form-label">Project Title</label>
@@ -393,8 +651,15 @@ const ProjectsManagement = () => {
             label="Total Contract Budget"
             value={createForm.total_budget}
             onChange={(val) => setFormData({ ...createForm, total_budget: val })}
+            max={currentSchemeData.available_balance}
+            maxLabel="District Available Ceiling"
             required={true}
-            helperText="Sanctioned project contract value in Crores, Lakhs, or Thousands. Ex: 100 (Cr)."
+            disabled={currentSchemeData.available_balance <= 0}
+            helperText={
+              currentSchemeData.available_balance > 0
+                ? `Contract budget must be within the district's available ceiling of ${formatCurrency(currentSchemeData.available_balance)}.`
+                : "Cannot allocate: Zero funds available under this scheme."
+            }
           />
 
           <div className="form-group">
@@ -421,9 +686,18 @@ const ProjectsManagement = () => {
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
             <button type="button" className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>Cancel</button>
-            <button type="submit" className="btn btn-primary">
+            <button 
+              type="submit" 
+              className="btn btn-primary"
+              disabled={
+                submittingProject || 
+                currentSchemeData.available_balance <= 0 || 
+                createForm.total_budget <= 0 || 
+                createForm.total_budget > currentSchemeData.available_balance
+              }
+            >
               <Plus size={14} />
-              <span>Create Project</span>
+              <span>{submittingProject ? 'Sanctioning Project...' : 'Create Project'}</span>
             </button>
           </div>
         </form>

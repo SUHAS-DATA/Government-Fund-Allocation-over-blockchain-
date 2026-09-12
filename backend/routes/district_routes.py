@@ -1,4 +1,5 @@
 import os
+import re
 import random
 import string
 from datetime import datetime, timezone
@@ -12,6 +13,11 @@ import blockchain_service as bcs
 
 router = APIRouter()
 district_bp = router
+
+def normalize_str(s: str) -> str:
+    if not s:
+        return ""
+    return re.sub(r'\s+', ' ', str(s).strip())
 
 def generate_project_id(district_name):
     clean_dist = "".join(filter(str.isalnum, district_name))[:3].upper()
@@ -246,12 +252,84 @@ async def get_projects(
     else:
         district_name = selected_dist or user_dist or "Belagavi"
 
+    norm_dist = normalize_str(district_name)
+    dist_regex = re.compile(r"^" + r"\s+".join(re.escape(w) for w in norm_dist.split()) + r"$", re.IGNORECASE) if norm_dist else re.compile(f"^{re.escape(district_name)}$", re.IGNORECASE)
+
+    # 1. All Projects in this District
     proj_list = list(db.projects.find({
         "$or": [
             {"district_name": district_name},
-            {"district_name": {"$regex": f"^{district_name}$", "$options": "i"}}
+            {"district_name": {"$regex": dist_regex}}
         ]
     }).sort("created_at", -1))
+
+    # 2. All Fund Allocations received by this District from State Treasury
+    received_allocs = list(db.district_allocations.find({
+        "$or": [
+            {"district_name": district_name},
+            {"district_name": {"$regex": dist_regex}}
+        ]
+    }).sort("created_at", -1))
+
+    # 3. Calculate Scheme-Level Fund Balances & Availability
+    schemes_dict = {}
+
+    # Seed with global schemes
+    try:
+        all_schemes = list(db.schemes.find().sort("name", 1))
+        for sc in all_schemes:
+            sc_name = normalize_str(sc.get("name", ""))
+            if sc_name:
+                schemes_dict[sc_name] = {
+                    "scheme_name": sc.get("name", sc_name),
+                    "scheme_code": sc.get("code", "SCHEME"),
+                    "department": sc.get("department", "Public Infrastructure"),
+                    "total_received": 0.0,
+                    "committed_budget": 0.0,
+                    "available_balance": 0.0
+                }
+    except Exception as e:
+        print(f"Warning fetching schemes for district breakdown: {e}")
+
+    # Add received funds per scheme
+    for a in received_allocs:
+        raw_sname = a.get("scheme_name") or "General Infrastructure Scheme"
+        s_name = normalize_str(raw_sname)
+        if s_name not in schemes_dict:
+            schemes_dict[s_name] = {
+                "scheme_name": raw_sname,
+                "scheme_code": a.get("scheme_code") or a.get("department") or "SCHEME",
+                "department": a.get("department") or "Public Works",
+                "total_received": 0.0,
+                "committed_budget": 0.0,
+                "available_balance": 0.0
+            }
+        schemes_dict[s_name]["total_received"] += float(a.get("amount", 0.0))
+
+    # Add committed project budgets per scheme
+    for p in proj_list:
+        if p.get("status") in ["CANCELLED", "REJECTED"]:
+            continue
+        raw_sname = p.get("scheme_name") or "General Infrastructure Scheme"
+        s_name = normalize_str(raw_sname)
+        if s_name not in schemes_dict:
+            schemes_dict[s_name] = {
+                "scheme_name": raw_sname,
+                "scheme_code": p.get("scheme_code") or "SCHEME",
+                "department": p.get("department") or "Public Works",
+                "total_received": 0.0,
+                "committed_budget": 0.0,
+                "available_balance": 0.0
+            }
+        schemes_dict[s_name]["committed_budget"] += float(p.get("total_budget", 0.0))
+
+    # Compute available balance for each scheme
+    for s_name, s_data in schemes_dict.items():
+        s_data["available_balance"] = max(0.0, s_data["total_received"] - s_data["committed_budget"])
+
+    total_received_sum = sum(float(a.get("amount", 0.0)) for a in received_allocs)
+    total_committed_sum = sum(float(p.get("total_budget", 0.0)) for p in proj_list if p.get("status") not in ["CANCELLED", "REJECTED"])
+    total_available_sum = max(0.0, total_received_sum - total_committed_sum)
 
     return {
         "success": True,
@@ -259,7 +337,14 @@ async def get_projects(
         "state_code": user_state,
         "state_name": user_state_name,
         "is_locked_district": (user_role == "DISTRICT"),
-        "projects": serialize_doc(proj_list)
+        "projects": serialize_doc(proj_list),
+        "received_allocations": serialize_doc(received_allocs),
+        "scheme_balances": list(schemes_dict.values()),
+        "summary": {
+            "total_received": total_received_sum,
+            "total_committed": total_committed_sum,
+            "total_available": total_available_sum
+        }
     }
 
 @router.post("/projects", status_code=status.HTTP_201_CREATED)
@@ -273,7 +358,7 @@ async def create_project(
         data = {}
 
     name = data.get("name", "").strip()
-    scheme_name = data.get("scheme_name", "Pradhan Mantri Gram Sadak Yojana (All-Weather Rural Roads)")
+    raw_scheme_name = data.get("scheme_name", "").strip()
     department = data.get("department", "Road Transport & Infrastructure")
     
     user_role = current_user.get("role")
@@ -295,20 +380,122 @@ async def create_project(
     else:
         target_district = req_district or user_dist or "Belagavi"
 
-    total_budget = float(data.get("total_budget", 150000000.0))
-
-    if not name or total_budget <= 0:
+    if not name:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content={"success": False, "message": "Project name and valid budget are required"}
+            content={"success": False, "message": "Project name is required"}
         )
+
+    if not raw_scheme_name:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Scheme selection is required"}
+        )
+
+    try:
+        total_budget = float(data.get("total_budget", 0))
+    except (ValueError, TypeError):
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Valid project budget is required"}
+        )
+
+    if total_budget <= 0:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Project total budget must be greater than 0"}
+        )
+
+    # Compile regexes with whitespace tolerance
+    norm_dist = normalize_str(target_district)
+    dist_regex = re.compile(r"^" + r"\s+".join(re.escape(w) for w in norm_dist.split()) + r"$", re.IGNORECASE) if norm_dist else re.compile(f"^{re.escape(target_district)}$", re.IGNORECASE)
+
+    norm_scheme = normalize_str(raw_scheme_name)
+    scheme_regex = re.compile(r"^" + r"\s+".join(re.escape(w) for w in norm_scheme.split()) + r"$", re.IGNORECASE) if norm_scheme else re.compile(f"^{re.escape(raw_scheme_name)}$", re.IGNORECASE)
+
+    # 1. Check District Allocations received from State Treasury for this Scheme
+    scheme_allocs = list(db.district_allocations.find({
+        "$and": [
+            {
+                "$or": [
+                    {"district_name": target_district},
+                    {"district_name": {"$regex": dist_regex}}
+                ]
+            },
+            {
+                "$or": [
+                    {"scheme_name": raw_scheme_name},
+                    {"scheme_name": {"$regex": scheme_regex}}
+                ]
+            }
+        ]
+    }))
+    total_scheme_received = sum(float(a.get("amount", 0.0)) for a in scheme_allocs)
+
+    # 2. Check Existing Project Budgets for this District & Scheme
+    existing_projects = list(db.projects.find({
+        "$and": [
+            {
+                "$or": [
+                    {"district_name": target_district},
+                    {"district_name": {"$regex": dist_regex}}
+                ]
+            },
+            {
+                "$or": [
+                    {"scheme_name": raw_scheme_name},
+                    {"scheme_name": {"$regex": scheme_regex}}
+                ]
+            },
+            {"status": {"$nin": ["CANCELLED", "REJECTED"]}}
+        ]
+    }))
+    already_committed = sum(float(p.get("total_budget", 0.0)) for p in existing_projects)
+    available_scheme_balance = max(0.0, total_scheme_received - already_committed)
+
+    # Strict Validation against District Fund Ceiling
+    if total_scheme_received <= 0:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "success": False,
+                "message": (
+                    f"Fund Allocation Error: No funds have been allocated by the State Treasury to {target_district} "
+                    f"district for scheme '{raw_scheme_name}'. Total received: ₹0. "
+                    f"Please allocate funds from State Treasury before creating projects under this scheme."
+                )
+            }
+        )
+
+    if total_budget > available_scheme_balance:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "success": False,
+                "message": (
+                    f"Budget Exceeded: Requested contract budget ₹{total_budget:,.2f} exceeds available district fund "
+                    f"balance of ₹{available_scheme_balance:,.2f} for scheme '{raw_scheme_name}' in {target_district} "
+                    f"(Total Received: ₹{total_scheme_received:,.2f}, Already Committed: ₹{already_committed:,.2f})."
+                )
+            }
+        )
+
+    # Look up scheme code if not passed
+    scheme_code = data.get("scheme_code")
+    if not scheme_code:
+        sc_doc = db.schemes.find_one({"$or": [{"name": raw_scheme_name}, {"name": {"$regex": scheme_regex}}]})
+        if sc_doc:
+            scheme_code = sc_doc.get("code")
+            if not department or department == "Road Transport & Infrastructure":
+                department = sc_doc.get("department", department)
 
     project_id = generate_project_id(target_district)
 
     doc = {
         "project_id": project_id,
         "name": name,
-        "scheme_name": scheme_name,
+        "scheme_code": scheme_code or "SCHEME",
+        "scheme_name": raw_scheme_name,
         "department": department,
         "state_code": data.get("state_code", user_state),
         "state_name": user_state_name,
@@ -332,8 +519,9 @@ async def create_project(
 
     return {
         "success": True,
-        "message": f"Project {project_id} created successfully for {target_district}",
-        "project": serialize_doc(doc)
+        "message": f"Project {project_id} created successfully for {target_district} under '{raw_scheme_name}'",
+        "project": serialize_doc(doc),
+        "available_balance": available_scheme_balance - total_budget
     }
 
 @router.get("/projects/{project_id}")
