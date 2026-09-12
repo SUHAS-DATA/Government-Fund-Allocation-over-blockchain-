@@ -26,7 +26,12 @@ const FinancialYears = () => {
     API.get('/admin/financial-years')
       .then((res) => {
         if (res.success) {
-          setFys(res.financial_years || []);
+          const list = res.financial_years || [];
+          setFys(list);
+          const activeItem = list.find((f) => String(f.status).toUpperCase() === 'ACTIVE');
+          if (activeItem?.year) {
+            window.dispatchEvent(new CustomEvent('active-fy-updated', { detail: { year: activeItem.year } }));
+          }
         }
       })
       .finally(() => setLoading(false));
@@ -34,6 +39,14 @@ const FinancialYears = () => {
 
   useEffect(() => {
     loadFYs();
+
+    const handleExternalFyChange = () => {
+      loadFYs();
+    };
+    window.addEventListener('active-fy-updated', handleExternalFyChange);
+    return () => {
+      window.removeEventListener('active-fy-updated', handleExternalFyChange);
+    };
   }, []);
 
   const openCreateModal = () => {
@@ -79,6 +92,9 @@ const FinancialYears = () => {
       if (res.success) {
         setActionMsg(`Financial Year ${formData.year} saved successfully!`);
         setShowModal(false);
+        if (formData.status === 'ACTIVE') {
+          window.dispatchEvent(new CustomEvent('active-fy-updated', { detail: { year: formData.year } }));
+        }
         loadFYs();
       }
     } catch (e) {
@@ -91,6 +107,7 @@ const FinancialYears = () => {
       const res = await API.put(`/admin/financial-years/${year}/activate`, {});
       if (res.success) {
         setActionMsg(`Financial Year ${year} is now set as the active budget cycle.`);
+        window.dispatchEvent(new CustomEvent('active-fy-updated', { detail: { year } }));
         loadFYs();
       }
     } catch (e) {
