@@ -6,9 +6,12 @@ def reset_all_transaction_data():
     print("  PURGING ALL FINANCIAL, FUND & BLOCKCHAIN DATA   ")
     print("==================================================")
 
-    # 1. Clear Financial Years & Fund Allocations
+    # 1. Clear Financial Years, Schemes & Fund Allocations
     r_fy = db.financial_years.delete_many({})
     print(f"[-] Deleted {r_fy.deleted_count} Financial Years")
+
+    r_schemes = db.schemes.delete_many({})
+    print(f"[-] Deleted {r_schemes.deleted_count} Schemes")
 
     r_alloc = db.budget_allocations.delete_many({})
     print(f"[-] Deleted {r_alloc.deleted_count} Central Budget Allocations")
@@ -18,6 +21,11 @@ def reset_all_transaction_data():
 
     r_dist_alloc = db.district_allocations.delete_many({})
     print(f"[-] Deleted {r_dist_alloc.deleted_count} District Allocations")
+
+    db.budgets.delete_many({})
+    db.fund_transfers.delete_many({})
+    db.state_allocations.delete_many({})
+    db.progress_updates.delete_many({})
 
     # 2. Clear Projects, Escrows & Milestones
     r_proj = db.projects.delete_many({})
@@ -35,6 +43,7 @@ def reset_all_transaction_data():
 
     r_audits = db.audit_reports.delete_many({})
     print(f"[-] Deleted {r_audits.deleted_count} Audit Reports")
+    db.audits.delete_many({})
 
     # 4. Clear Grievances & Blockchain Tx Logs
     r_comp = db.complaints.delete_many({})
@@ -42,6 +51,7 @@ def reset_all_transaction_data():
 
     r_tx = db.blockchain_transactions.delete_many({})
     print(f"[-] Deleted {r_tx.deleted_count} Blockchain Transaction Receipts")
+    db.blockchain_tx_logs.delete_many({})
 
     r_notif = db.notifications.delete_many({})
     print(f"[-] Deleted {r_notif.deleted_count} Notifications")

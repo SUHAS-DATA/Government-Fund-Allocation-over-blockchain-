@@ -62,7 +62,7 @@ const FinanceDashboard = () => {
         />
         <StatCard
           title="Supported States"
-          value={metrics?.states_supported || 5}
+          value={metrics?.states_supported ?? 0}
           icon={Building2}
           subtitle="Regional Treasury Networks"
         />

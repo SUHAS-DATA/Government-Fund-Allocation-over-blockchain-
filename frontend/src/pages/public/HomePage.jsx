@@ -124,95 +124,85 @@ const HomePage = () => {
       </div>
 
       {/* Running Active Schemes Marquee Ticker */}
-      <div className="schemes-marquee-wrapper">
-        <div className="schemes-marquee-badge">
-          <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981', boxShadow: '0 0 8px #10B981' }}></span>
-          <span>Active Schemes</span>
-        </div>
+      {hierarchy?.schemes && hierarchy.schemes.length > 0 && (
+        <div className="schemes-marquee-wrapper">
+          <div className="schemes-marquee-badge">
+            <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#10B981', boxShadow: '0 0 8px #10B981' }}></span>
+            <span>Active Schemes</span>
+          </div>
 
-        <div className="schemes-marquee-track-container">
-          <div className="schemes-marquee-track">
-            {((hierarchy?.schemes && hierarchy.schemes.length > 0) ? hierarchy.schemes : [
-              { code: 'PMGSY', name: 'Pradhan Mantri Gram Sadak Yojana (All-Weather Rural Roads)', department_name: 'Road Transport & Infrastructure', target_budget: 1200000000 },
-              { code: 'JAL-JEEVAN', name: 'National Jal Jeevan Mission (Functional Tap Water)', department_name: 'Jal Shakti & Rural Water Supply', target_budget: 1000000000 },
-              { code: 'NHIM', name: 'National Health Infrastructure Mission (Trauma Hospitals)', department_name: 'Health & Family Welfare', target_budget: 800000000 },
-              { code: 'SAMAGRA-SHIKSHA', name: 'Samagra Shiksha Digital Classroom Infrastructure', department_name: 'Primary & Secondary Education', target_budget: 500000000 },
-              { code: 'PM-KISAN-INFRA', name: 'Agriculture Infrastructure Fund & Cold Storage Mission', department_name: 'Agriculture & Farmer Welfare', target_budget: 450000000 }
-            ]).concat((hierarchy?.schemes && hierarchy.schemes.length > 0) ? hierarchy.schemes : [
-              { code: 'PMGSY', name: 'Pradhan Mantri Gram Sadak Yojana (All-Weather Rural Roads)', department_name: 'Road Transport & Infrastructure', target_budget: 1200000000 },
-              { code: 'JAL-JEEVAN', name: 'National Jal Jeevan Mission (Functional Tap Water)', department_name: 'Jal Shakti & Rural Water Supply', target_budget: 1000000000 },
-              { code: 'NHIM', name: 'National Health Infrastructure Mission (Trauma Hospitals)', department_name: 'Health & Family Welfare', target_budget: 800000000 },
-              { code: 'SAMAGRA-SHIKSHA', name: 'Samagra Shiksha Digital Classroom Infrastructure', department_name: 'Primary & Secondary Education', target_budget: 500000000 },
-              { code: 'PM-KISAN-INFRA', name: 'Agriculture Infrastructure Fund & Cold Storage Mission', department_name: 'Agriculture & Farmer Welfare', target_budget: 450000000 }
-            ]).map((scheme, idx) => (
-              <Link
-                key={idx}
-                to={`/public/projects?scheme=${encodeURIComponent(scheme.name)}`}
-                className="schemes-marquee-item"
-                title={`View active projects under ${scheme.name}`}
-              >
-                <span style={{
-                  fontSize: '10px',
-                  fontWeight: '800',
-                  padding: '2px 6px',
-                  borderRadius: '4px',
-                  backgroundColor: 'var(--color-primary-bg)',
-                  color: 'var(--color-primary)',
-                  border: '1px solid var(--color-primary-border)',
-                  fontFamily: 'monospace'
-                }}>
-                  {scheme.code}
-                </span>
+          <div className="schemes-marquee-track-container">
+            <div className="schemes-marquee-track">
+              {hierarchy.schemes.concat(hierarchy.schemes).map((scheme, idx) => (
+                <Link
+                  key={idx}
+                  to={`/public/projects?scheme=${encodeURIComponent(scheme.name)}`}
+                  className="schemes-marquee-item"
+                  title={`View active projects under ${scheme.name}`}
+                >
+                  <span style={{
+                    fontSize: '10px',
+                    fontWeight: '800',
+                    padding: '2px 6px',
+                    borderRadius: '4px',
+                    backgroundColor: 'var(--color-primary-bg)',
+                    color: 'var(--color-primary)',
+                    border: '1px solid var(--color-primary-border)',
+                    fontFamily: 'monospace'
+                  }}>
+                    {scheme.code}
+                  </span>
 
-                <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>
-                  {scheme.name}
-                </span>
+                  <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>
+                    {scheme.name}
+                  </span>
 
-                <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
-                  ({scheme.department_name || scheme.department_code || 'National'})
-                </span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
+                    ({scheme.department_name || scheme.department_code || 'National'})
+                  </span>
 
-                <span style={{
-                  fontSize: '11px',
-                  fontWeight: '700',
-                  color: 'var(--color-success)',
-                  backgroundColor: 'rgba(5, 150, 105, 0.08)',
-                  padding: '2px 6px',
-                  borderRadius: '4px'
-                }}>
-                  {formatCurrency(scheme.target_budget || scheme.budget_allocated || 1000000000)}
-                </span>
-              </Link>
-            ))}
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    color: 'var(--color-success)',
+                    backgroundColor: 'rgba(5, 150, 105, 0.08)',
+                    padding: '2px 6px',
+                    borderRadius: '4px'
+                  }}>
+                    {formatCurrency(scheme.target_budget || scheme.budget_allocated || 0)}
+                  </span>
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* KPI Stats Grid */}
       <div className="grid-4" style={{ marginBottom: '32px' }}>
         <StatCard
           title="Approved National Budget"
-          value={stats?.total_allocated_budget || 4000000000}
+          value={stats?.total_allocated_budget ?? 0}
           icon={Coins}
           isCurrency={true}
-          subtitle="FY 2026-27 Active Cycle"
+          subtitle="National Sanctions"
         />
         <StatCard
           title="Total Payments Released"
-          value={stats?.total_disbursed_funds || 1250000000}
+          value={stats?.total_disbursed_funds ?? 0}
           icon={TrendingUp}
           isCurrency={true}
           subtitle="Verified Blockchain Transfers"
         />
         <StatCard
           title="Active Local Projects"
-          value={stats?.total_projects_count || 12}
+          value={stats?.total_projects_count ?? 0}
           icon={Building2}
           subtitle="Community Infrastructure"
         />
         <StatCard
           title="Blockchain Transactions"
-          value={stats?.blockchain_transactions_count || 32}
+          value={stats?.blockchain_transactions_count ?? 0}
           icon={Activity}
           subtitle="100% Permanently Recorded"
         />

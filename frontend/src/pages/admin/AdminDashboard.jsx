@@ -101,28 +101,28 @@ const AdminDashboard = () => {
       <div className="grid-4" style={{ marginBottom: '24px' }}>
         <StatCard
           title="Sanctioned Union Ceiling"
-          value={metrics?.sanctioned_union_ceiling || 5000000000}
+          value={metrics?.sanctioned_union_ceiling ?? 0}
           icon={Coins}
           isCurrency={true}
           subtitle={`FY ${metrics?.selected_financial_year || '2026-27'} Total Ceiling`}
         />
         <StatCard
           title="Allocated to Schemes"
-          value={metrics?.allocated_to_schemes || 0}
+          value={metrics?.allocated_to_schemes ?? 0}
           icon={TrendingUp}
           isCurrency={true}
-          subtitle={`${metrics?.fy_allocations_count || 0} Schemes in FY ${metrics?.selected_financial_year || '2026-27'}`}
+          subtitle={`${metrics?.fy_allocations_count ?? 0} Schemes in FY ${metrics?.selected_financial_year || '2026-27'}`}
         />
         <StatCard
           title="Remaining Unallocated"
-          value={metrics?.remaining_unallocated_ceiling != null ? metrics.remaining_unallocated_ceiling : 5000000000}
+          value={metrics?.remaining_unallocated_ceiling ?? 0}
           icon={Coins}
           isCurrency={true}
           subtitle="Available Ceiling Pool"
         />
         <StatCard
           title="Total Disbursed to States"
-          value={metrics?.disbursed_to_states || 0}
+          value={metrics?.disbursed_to_states ?? 0}
           icon={Activity}
           isCurrency={true}
           subtitle="On-Chain State Releases"
@@ -135,7 +135,7 @@ const AdminDashboard = () => {
           <div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: '600' }}>GOVERNMENT SCHEMES</div>
             <div style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-main)', marginTop: '2px' }}>
-              {metrics?.schemes_count || 4} National Programs
+              {metrics?.schemes_count ?? 0} National Programs
             </div>
           </div>
           <Link to="/admin/schemes" className="btn btn-secondary btn-sm">Manage</Link>
