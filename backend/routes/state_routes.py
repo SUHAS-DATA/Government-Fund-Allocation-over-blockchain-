@@ -17,6 +17,27 @@ def generate_district_alloc_id(district_name):
     rand_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
     return f"DIST-ALC-{clean_dist}-{rand_suffix}"
 
+def format_denomination(amount):
+    try:
+        amt = float(amount)
+    except (TypeError, ValueError):
+        return str(amount)
+    
+    if amt >= 10000000:
+        cr_val = amt / 10000000
+        val_str = f"{cr_val:.2f}".rstrip('0').rstrip('.') if not cr_val.is_integer() else f"{int(cr_val)}"
+        return f"{val_str} (Cr)"
+    elif amt >= 100000:
+        lakh_val = amt / 100000
+        val_str = f"{lakh_val:.2f}".rstrip('0').rstrip('.') if not lakh_val.is_integer() else f"{int(lakh_val)}"
+        return f"{val_str} (Lakh)"
+    elif amt >= 1000:
+        k_val = amt / 1000
+        val_str = f"{k_val:.2f}".rstrip('0').rstrip('.') if not k_val.is_integer() else f"{int(k_val)}"
+        return f"{val_str} (k)"
+    else:
+        return f"₹{amt:,.2f}"
+
 @router.get("/dashboard")
 async def dashboard(
     current_user: dict = Depends(require_roles(["STATE"]))
@@ -216,7 +237,8 @@ async def allocate_to_district(
         "recipient_role": "DISTRICT",
         "recipient_district": district_name,
         "title": "District Fund Sanction Received",
-        "message": f"District Allocation {dist_alloc_id} for INR {amount:,.2f} under '{trf.get('scheme_name')}' received.",
+        "amount": amount,
+        "message": f"District Allocation {dist_alloc_id} for {format_denomination(amount)} under '{trf.get('scheme_name')}' received.",
         "link": f"/district/projects?district_alloc_id={dist_alloc_id}",
         "read": False,
         "created_at": datetime.now(timezone.utc)

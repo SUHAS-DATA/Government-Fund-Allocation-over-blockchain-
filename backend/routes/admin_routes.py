@@ -18,6 +18,27 @@ def generate_allocation_id(fy):
     rand_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
     return f"ALLOC-{fy}-{rand_suffix}"
 
+def format_denomination(amount):
+    try:
+        amt = float(amount)
+    except (TypeError, ValueError):
+        return str(amount)
+    
+    if amt >= 10000000:
+        cr_val = amt / 10000000
+        val_str = f"{cr_val:.2f}".rstrip('0').rstrip('.') if not cr_val.is_integer() else f"{int(cr_val)}"
+        return f"{val_str} (Cr)"
+    elif amt >= 100000:
+        lakh_val = amt / 100000
+        val_str = f"{lakh_val:.2f}".rstrip('0').rstrip('.') if not lakh_val.is_integer() else f"{int(lakh_val)}"
+        return f"{val_str} (Lakh)"
+    elif amt >= 1000:
+        k_val = amt / 1000
+        val_str = f"{k_val:.2f}".rstrip('0').rstrip('.') if not k_val.is_integer() else f"{int(k_val)}"
+        return f"{val_str} (k)"
+    else:
+        return f"₹{amt:,.2f}"
+
 @router.get("/dashboard")
 async def dashboard(
     fy: Optional[str] = Query(None),
@@ -560,7 +581,8 @@ async def send_to_finance(
     db.notifications.insert_one({
         "recipient_role": "FINANCE",
         "title": "New Budget Allocation Received",
-        "message": f"Central Allocation {alloc_id} for '{alloc.get('scheme_name')}' (INR {alloc.get('amount'):,.2f}) forwarded for State Treasury transfer.",
+        "amount": alloc.get("amount"),
+        "message": f"Central Allocation {alloc_id} for '{alloc.get('scheme_name')}' ({format_denomination(alloc.get('amount'))}) forwarded for State Treasury transfer.",
         "link": f"/finance/transfers?allocation_id={alloc_id}",
         "read": False,
         "created_at": datetime.now(timezone.utc)

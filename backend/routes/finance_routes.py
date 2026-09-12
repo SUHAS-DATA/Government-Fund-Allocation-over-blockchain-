@@ -15,6 +15,27 @@ def generate_transfer_id(state_code):
     rand_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
     return f"TRF-ST-{state_code}-{rand_suffix}"
 
+def format_denomination(amount):
+    try:
+        amt = float(amount)
+    except (TypeError, ValueError):
+        return str(amount)
+    
+    if amt >= 10000000:
+        cr_val = amt / 10000000
+        val_str = f"{cr_val:.2f}".rstrip('0').rstrip('.') if not cr_val.is_integer() else f"{int(cr_val)}"
+        return f"{val_str} (Cr)"
+    elif amt >= 100000:
+        lakh_val = amt / 100000
+        val_str = f"{lakh_val:.2f}".rstrip('0').rstrip('.') if not lakh_val.is_integer() else f"{int(lakh_val)}"
+        return f"{val_str} (Lakh)"
+    elif amt >= 1000:
+        k_val = amt / 1000
+        val_str = f"{k_val:.2f}".rstrip('0').rstrip('.') if not k_val.is_integer() else f"{int(k_val)}"
+        return f"{val_str} (k)"
+    else:
+        return f"₹{amt:,.2f}"
+
 @router.get("/dashboard")
 async def dashboard(
     current_user: dict = Depends(require_roles(["FINANCE"]))
@@ -237,7 +258,8 @@ async def approve_and_transfer(
         "recipient_role": "STATE",
         "recipient_state": state_code,
         "title": "Treasury Fund Transfer Received",
-        "message": f"Received INR {amount:,.2f} under '{alloc.get('scheme_name')}' (Transfer ID: {trf_id}). Ready for district allocation.",
+        "amount": amount,
+        "message": f"Received {format_denomination(amount)} under '{alloc.get('scheme_name')}' (Transfer ID: {trf_id}). Ready for district allocation.",
         "link": f"/state/allocations?transfer_id={trf_id}",
         "read": False,
         "created_at": datetime.now(timezone.utc)

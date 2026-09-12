@@ -2,6 +2,88 @@ import React from 'react';
 import { Bell, CheckCheck, Clock } from 'lucide-react';
 import { useNotifications } from '../../context/NotificationContext';
 
+// Convert numeric / raw INR amounts to Indian denomination units like 100 (Cr), 1 (Cr), 50 (Lakh)
+const formatRawAmountToDenomination = (str) => {
+  if (!str) return '';
+
+  // 1. Replace (INR X,XXX,XXX.XX) with (X (Cr))
+  let res = str.replace(/\(INR\s+([\d,]+(?:\.\d+)?)\)/gi, (match, valStr) => {
+    const val = parseFloat(valStr.replace(/,/g, ''));
+    if (isNaN(val)) return match;
+    if (val >= 10000000) {
+      const cr = val / 10000000;
+      const fmt = Number.isInteger(cr) ? cr : cr.toFixed(2).replace(/\.?0+$/, '');
+      return `(${fmt} (Cr))`;
+    }
+    if (val >= 100000) {
+      const l = val / 100000;
+      const fmt = Number.isInteger(l) ? l : l.toFixed(2).replace(/\.?0+$/, '');
+      return `(${fmt} (Lakh))`;
+    }
+    if (val >= 1000) {
+      const k = val / 1000;
+      const fmt = Number.isInteger(k) ? k : k.toFixed(2).replace(/\.?0+$/, '');
+      return `(${fmt} (k))`;
+    }
+    return `(₹${val.toLocaleString('en-IN')})`;
+  });
+
+  // 2. Replace INR X,XXX,XXX.XX with X (Cr)
+  res = res.replace(/INR\s+([\d,]+(?:\.\d+)?)/gi, (match, valStr) => {
+    const val = parseFloat(valStr.replace(/,/g, ''));
+    if (isNaN(val)) return match;
+    if (val >= 10000000) {
+      const cr = val / 10000000;
+      const fmt = Number.isInteger(cr) ? cr : cr.toFixed(2).replace(/\.?0+$/, '');
+      return `${fmt} (Cr)`;
+    }
+    if (val >= 100000) {
+      const l = val / 100000;
+      const fmt = Number.isInteger(l) ? l : l.toFixed(2).replace(/\.?0+$/, '');
+      return `${fmt} (Lakh)`;
+    }
+    if (val >= 1000) {
+      const k = val / 1000;
+      const fmt = Number.isInteger(k) ? k : k.toFixed(2).replace(/\.?0+$/, '');
+      return `${fmt} (k)`;
+    }
+    return `₹${val.toLocaleString('en-IN')}`;
+  });
+
+  return res;
+};
+
+// Render message text with highlighted denomination badges
+const renderMessageWithBadges = (msg) => {
+  const transformed = formatRawAmountToDenomination(msg);
+  const regex = /(\(?\d+(?:\.\d+)?\s*\((?:Cr|cr|Lakh|lakh|k)\)\)?)/g;
+  const parts = transformed.split(regex);
+
+  return parts.map((part, idx) => {
+    if (/^\(?\d+(?:\.\d+)?\s*\((?:Cr|cr|Lakh|lakh|k)\)\)?$/.test(part)) {
+      return (
+        <span
+          key={idx}
+          style={{
+            fontWeight: '800',
+            color: '#047857',
+            backgroundColor: 'rgba(5, 150, 105, 0.12)',
+            border: '1px solid rgba(5, 150, 105, 0.3)',
+            padding: '2px 7px',
+            borderRadius: '4px',
+            margin: '0 3px',
+            display: 'inline-block',
+            fontSize: '12px'
+          }}
+        >
+          {part}
+        </span>
+      );
+    }
+    return part;
+  });
+};
+
 const NotificationsPage = () => {
   const { notifications, markAsRead, markAllAsRead } = useNotifications();
 
@@ -45,9 +127,11 @@ const NotificationsPage = () => {
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                     {!n.read && <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--color-accent)' }} />}
-                    <strong style={{ fontSize: '13px', color: 'var(--text-main)' }}>{n.title}</strong>
+                    <strong style={{ fontSize: '13px', color: 'var(--text-main)' }}>{renderMessageWithBadges(n.title)}</strong>
                   </div>
-                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>{n.message}</p>
+                  <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px', lineHeight: '1.5' }}>
+                    {renderMessageWithBadges(n.message)}
+                  </p>
                 </div>
 
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
