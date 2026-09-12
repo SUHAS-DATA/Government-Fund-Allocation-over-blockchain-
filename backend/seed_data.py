@@ -323,47 +323,8 @@ def seed():
     for dist in districts:
         db.districts.update_one({"name": dist["name"]}, {"$set": dist}, upsert=True)
 
-    # 4. Seed Flagship National Schemes
-    schemes = [
-        {
-            "code": "PMGSY",
-            "name": "Pradhan Mantri Gram Sadak Yojana (All-Weather Rural Roads)",
-            "department_code": "INFRA",
-            "department_name": "Road Transport & Infrastructure",
-            "description": "Connecting unconnected habitations with all-weather motorable roads and high-load bridges.",
-            "target_budget": 1200000000.0,
-            "created_at": datetime.now(timezone.utc)
-        },
-        {
-            "code": "JAL-JEEVAN",
-            "name": "National Jal Jeevan Mission (Functional Tap Connections)",
-            "department_code": "WATER",
-            "department_name": "Jal Shakti & Rural Water Supply",
-            "description": "Providing safe and adequate drinking water through individual household tap connections to all rural homes.",
-            "target_budget": 1000000000.0,
-            "created_at": datetime.now(timezone.utc)
-        },
-        {
-            "code": "NHIM",
-            "name": "National Health Infrastructure Mission",
-            "department_code": "HEALTH",
-            "department_name": "Health & Family Welfare",
-            "description": "Upgrading district trauma hospitals, primary health centers, and diagnostic pathology networks.",
-            "target_budget": 800000000.0,
-            "created_at": datetime.now(timezone.utc)
-        },
-        {
-            "code": "SAMAGRA-SHIKSHA",
-            "name": "Samagra Shiksha Digital Classroom Infrastructure",
-            "department_code": "EDU",
-            "department_name": "Primary & Secondary Education",
-            "description": "Equipping rural higher secondary institutions with digital smart classrooms and computer laboratories.",
-            "target_budget": 500000000.0,
-            "created_at": datetime.now(timezone.utc)
-        }
-    ]
-    for sc in schemes:
-        db.schemes.update_one({"code": sc["code"]}, {"$set": sc}, upsert=True)
+    # 4. Flagship National Schemes (Cleared by user request - empty initially)
+    # Schemes will be created dynamically by Admin through the UI portal
 
     # 5. Seed Multi-Year Financial Cycles
     fys = [

@@ -18,8 +18,8 @@ async def get_public_stats():
     budget_stats = list(db.budget_allocations.aggregate([
         {"$group": {"_id": None, "total": {"$sum": "$amount"}, "disbursed": {"$sum": "$disbursed_amount"}}}
     ]))
-    total_allocated = budget_stats[0]["total"] if budget_stats else 4000000000.0
-    total_disbursed = budget_stats[0]["disbursed"] if budget_stats else 1250000000.0
+    total_allocated = budget_stats[0]["total"] if budget_stats else 0.0
+    total_disbursed = budget_stats[0]["disbursed"] if budget_stats else 0.0
 
     projects_count = db.projects.count_documents({})
     states_count = db.states.count_documents({})
@@ -31,10 +31,10 @@ async def get_public_stats():
         "stats": {
             "total_allocated_budget": total_allocated,
             "total_disbursed_funds": total_disbursed,
-            "total_projects_count": max(1, projects_count),
-            "states_supported": max(5, states_count),
-            "national_schemes_count": max(4, schemes_count),
-            "blockchain_transactions_count": max(18, tx_count)
+            "total_projects_count": projects_count,
+            "states_supported": states_count,
+            "national_schemes_count": schemes_count,
+            "blockchain_transactions_count": tx_count
         }
     }
 
