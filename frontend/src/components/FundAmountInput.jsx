@@ -66,6 +66,7 @@ const FundAmountInput = ({
   onChange,
   label = 'Fund Allocation Amount',
   max = null,
+  maxLabel = 'Available Ceiling',
   min = 0,
   required = true,
   disabled = false,
@@ -167,7 +168,7 @@ const FundAmountInput = ({
             borderRadius: '4px',
             border: `1px solid ${isExceedingMax ? 'var(--color-danger-border)' : 'var(--border-color)'}`
           }}>
-            Available Pool: <strong>{formatCurrency(max)}</strong>
+            {maxLabel}: <strong>{formatCurrency(max)}</strong>
           </span>
         )}
       </div>

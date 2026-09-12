@@ -38,10 +38,57 @@ const Schemes = () => {
   };
 
   const columns = [
-    { header: 'Scheme Code', accessor: 'code', render: (r) => <span className="badge badge-info">{r.code}</span> },
-    { header: 'Scheme Name', accessor: 'name', render: (r) => <strong style={{ color: 'var(--text-main)' }}>{r.name}</strong> },
-    { header: 'Parent Ministry', accessor: 'department_name' },
-    { header: 'Sanctioned Target Ceiling', accessor: 'target_budget', render: (r) => <span style={{ fontWeight: '700', color: 'var(--color-success)' }}>{formatCurrency(r.target_budget)}</span> }
+    { 
+      header: 'Scheme Code', 
+      accessor: 'code', 
+      render: (r) => <span className="badge badge-info" style={{ fontWeight: '700' }}>{r.code}</span> 
+    },
+    { 
+      header: 'Scheme Name', 
+      accessor: 'name', 
+      render: (r) => <strong style={{ color: 'var(--text-main)' }}>{r.name}</strong> 
+    },
+    { 
+      header: 'Parent Ministry', 
+      accessor: 'department_name' 
+    },
+    { 
+      header: 'Sanctioned Target Ceiling', 
+      accessor: 'target_budget', 
+      render: (r) => <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>{formatCurrency(r.target_budget || r.allocated_budget || 0)}</span> 
+    },
+    {
+      header: 'Allocated to Date',
+      accessor: 'allocated_amount',
+      render: (r) => <span style={{ fontWeight: '700', color: 'var(--color-warning)' }}>{formatCurrency(r.allocated_amount || 0)}</span>
+    },
+    {
+      header: 'Remaining Ceiling',
+      accessor: 'remaining_budget',
+      render: (r) => {
+        const rem = r.remaining_budget != null ? r.remaining_budget : ((r.target_budget || 0) - (r.allocated_amount || 0));
+        return (
+          <span style={{ fontWeight: '700', color: rem > 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
+            {formatCurrency(Math.max(0, rem))}
+          </span>
+        );
+      }
+    },
+    {
+      header: 'Allocation Status',
+      accessor: 'status',
+      render: (r) => {
+        const target = r.target_budget || r.allocated_budget || 1;
+        const alloc = r.allocated_amount || 0;
+        const pct = Math.min(100, Math.round((alloc / target) * 100));
+        const isFull = pct >= 100;
+        return (
+          <span className={`badge ${isFull ? 'badge-danger' : pct > 0 ? 'badge-info' : 'badge-success'}`}>
+            {isFull ? 'Ceiling Reached' : pct > 0 ? `${pct}% Allocated` : 'Active / Available'}
+          </span>
+        );
+      }
+    }
   ];
 
   return (

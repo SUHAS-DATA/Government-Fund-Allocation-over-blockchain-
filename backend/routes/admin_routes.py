@@ -1,6 +1,7 @@
 import os
 import random
 import string
+import re
 from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Request, Depends, status, Query
@@ -292,6 +293,28 @@ async def get_schemes(
     current_user: dict = Depends(require_roles(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR", "AUDITOR"]))
 ):
     sc_list = list(db.schemes.find().sort("name", 1))
+    for s in sc_list:
+        scheme_name = s.get("name", "")
+        target_budget = float(s.get("target_budget") or s.get("allocated_budget") or 0.0)
+        
+        # Calculate existing allocations made to this scheme
+        allocations = []
+        if scheme_name:
+            allocations = list(db.budget_allocations.find({
+                "$or": [
+                    {"scheme_name": scheme_name},
+                    {"scheme_name": {"$regex": f"^{re.escape(scheme_name.strip())}$", "$options": "i"}}
+                ]
+            }))
+        
+        total_allocated = sum(float(a.get("amount", 0.0)) for a in allocations)
+        total_disbursed = sum(float(a.get("disbursed_amount", 0.0)) for a in allocations)
+        
+        s["allocated_amount"] = total_allocated
+        s["disbursed_amount"] = total_disbursed
+        s["remaining_budget"] = max(0.0, target_budget - total_allocated)
+        s["target_budget"] = target_budget
+
     return {"success": True, "schemes": serialize_doc(sc_list)}
 
 @router.post("/schemes", status_code=status.HTTP_201_CREATED)
@@ -335,9 +358,9 @@ async def allocate_budget(
     except Exception:
         data = {}
 
-    fy = data.get("financial_year", "2026-27")
-    department = data.get("department", "Road Transport & Infrastructure")
-    scheme_name = data.get("scheme_name", "Pradhan Mantri Gram Sadak Yojana (All-Weather Rural Roads)")
+    fy = str(data.get("financial_year", "2026-27")).strip()
+    department = str(data.get("department", "")).strip()
+    scheme_name = str(data.get("scheme_name", "")).strip()
     amount = float(data.get("amount", 0))
 
     if amount <= 0:
@@ -345,6 +368,92 @@ async def allocate_budget(
             status_code=status.HTTP_400_BAD_REQUEST,
             content={"success": False, "message": "Allocation amount must be greater than zero"}
         )
+
+    if not scheme_name:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Scheme name is required for budget allocation"}
+        )
+
+    # 1. Scheme lookup & validation
+    clean_scheme = scheme_name.strip()
+    scheme = db.schemes.find_one({
+        "$or": [
+            {"name": clean_scheme},
+            {"name": {"$regex": f"^{re.escape(clean_scheme)}$", "$options": "i"}},
+            {"code": clean_scheme.upper()}
+        ]
+    })
+
+    if not scheme:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "success": False,
+                "message": f"Government Scheme '{scheme_name}' not found. Please select an active registered scheme."
+            }
+        )
+
+    canonical_scheme_name = scheme.get("name", scheme_name)
+    scheme_target = float(scheme.get("target_budget") or scheme.get("allocated_budget") or 0.0)
+
+    # Helper for Indian currency formatting
+    def fmt_inr(val):
+        if val >= 10000000:
+            return f"₹{val/10000000:.2f} Cr"
+        elif val >= 100000:
+            return f"₹{val/100000:.2f} Lakh"
+        else:
+            return f"₹{val:,.2f}"
+
+    # 2. Strict Scheme Ceiling Enforcement
+    existing_scheme_allocs = list(db.budget_allocations.find({
+        "$or": [
+            {"scheme_name": canonical_scheme_name},
+            {"scheme_name": clean_scheme},
+            {"scheme_name": {"$regex": f"^{re.escape(canonical_scheme_name.strip())}$", "$options": "i"}}
+        ]
+    }))
+    already_allocated_to_scheme = sum(float(a.get("amount", 0.0)) for a in existing_scheme_allocs)
+    remaining_scheme_ceiling = scheme_target - already_allocated_to_scheme
+
+    if amount > remaining_scheme_ceiling:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "success": False,
+                "message": (
+                    f"Requested allocation of {fmt_inr(amount)} exceeds the remaining sanctioned ceiling "
+                    f"({fmt_inr(max(0.0, remaining_scheme_ceiling))}) for scheme '{canonical_scheme_name}'. "
+                    f"Total scheme target ceiling is {fmt_inr(scheme_target)} with {fmt_inr(already_allocated_to_scheme)} already sanctioned."
+                )
+            }
+        )
+
+    # 3. Financial Year Ceiling Enforcement
+    fy_doc = db.financial_years.find_one({"year": fy})
+    if fy_doc:
+        fy_total = float(fy_doc.get("total_budget", 0.0))
+        if fy_total > 0:
+            fy_allocs = list(db.budget_allocations.find({"financial_year": fy}))
+            fy_already_allocated = sum(float(a.get("amount", 0.0)) for a in fy_allocs)
+            fy_remaining = fy_total - fy_already_allocated
+            if amount > fy_remaining:
+                return JSONResponse(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    content={
+                        "success": False,
+                        "message": (
+                            f"Requested allocation amount ({fmt_inr(amount)}) exceeds remaining Union Budget for FY {fy} "
+                            f"({fmt_inr(max(0.0, fy_remaining))} available out of {fmt_inr(fy_total)} total ceiling)."
+                        )
+                    }
+                )
+
+    # Use canonical scheme name and official parent department
+    scheme_dept = scheme.get("department_name") or department or "General Public Works"
+    scheme_name = canonical_scheme_name
+    department = scheme_dept
 
     alloc_id = generate_allocation_id(fy)
 

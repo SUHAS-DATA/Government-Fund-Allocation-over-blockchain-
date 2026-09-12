@@ -20,9 +20,9 @@ const BudgetAllocation = () => {
 
   const [formData, setFormData] = useState({
     financial_year: '2026-27',
-    department: 'Road Transport & Infrastructure',
-    scheme_name: 'Pradhan Mantri Gram Sadak Yojana (All-Weather Rural Roads)',
-    amount: 1000000000
+    department: '',
+    scheme_name: '',
+    amount: 10000000
   });
 
   const loadData = (fyFilter = selectedFY) => {
@@ -49,7 +49,19 @@ const BudgetAllocation = () => {
     });
 
     API.get('/admin/schemes').then((res) => {
-      if (res.success) setSchemes(res.schemes || []);
+      if (res.success && res.schemes?.length > 0) {
+        setSchemes(res.schemes);
+        setFormData((prev) => {
+          const match = res.schemes.find(s => s.name === prev.scheme_name) || res.schemes[0];
+          const rem = match ? Math.max(0, (match.target_budget || 0) - (match.allocated_amount || 0)) : 0;
+          return {
+            ...prev,
+            scheme_name: match.name,
+            department: match.department_name || prev.department || 'Education',
+            amount: rem > 0 ? Math.min(prev.amount || 10000000, rem) : 0
+          };
+        });
+      }
     });
   };
 
@@ -75,9 +87,15 @@ const BudgetAllocation = () => {
 
   const openAllocateModal = () => {
     const defaultFY = selectedFY !== 'ALL' ? selectedFY : (financialYears.find(f => f.status === 'ACTIVE')?.year || '2026-27');
+    const defaultScheme = schemes.find(s => s.name === formData.scheme_name) || schemes[0];
+    const rem = defaultScheme ? Math.max(0, (defaultScheme.target_budget || 0) - (defaultScheme.allocated_amount || 0)) : 0;
+
     setFormData((prev) => ({
       ...prev,
-      financial_year: defaultFY
+      financial_year: defaultFY,
+      scheme_name: defaultScheme ? defaultScheme.name : prev.scheme_name,
+      department: defaultScheme?.department_name || prev.department,
+      amount: rem > 0 ? Math.min(10000000, rem) : 0
     }));
     setShowModal(true);
   };
@@ -94,6 +112,24 @@ const BudgetAllocation = () => {
   const remainingCeilingInView = currentFYDoc 
     ? Math.max(0, currentFYDoc.total_budget - totalAllocatedInView) 
     : Math.max(0, totalSanctionedInView - totalAllocatedInView);
+
+  // Active selected scheme for modal & ceiling constraints
+  const selectedSchemeObj = schemes.find(s => s.name === formData.scheme_name) || schemes[0];
+  const schemeTargetCeiling = selectedSchemeObj ? (selectedSchemeObj.target_budget || selectedSchemeObj.allocated_budget || 0) : 0;
+  const schemeAllocatedAmount = selectedSchemeObj?.allocated_amount != null 
+    ? selectedSchemeObj.allocated_amount 
+    : allocations.filter(a => a.scheme_name === selectedSchemeObj?.name).reduce((sum, a) => sum + (a.amount || 0), 0);
+  const schemeRemainingCeiling = Math.max(0, schemeTargetCeiling - schemeAllocatedAmount);
+
+  // Selected FY for modal ceiling check
+  const formFYDoc = financialYears.find(f => f.year === formData.financial_year);
+  const formFYTotal = formFYDoc?.total_budget || 0;
+  const formFYAllocated = allocations.filter(a => a.financial_year === formData.financial_year).reduce((sum, a) => sum + (a.amount || 0), 0);
+  const formFYRemaining = Math.max(0, formFYTotal - formFYAllocated);
+
+  const isExceedingSchemeCeiling = formData.amount > schemeRemainingCeiling;
+  const isExceedingFYCeiling = formFYTotal > 0 && formData.amount > formFYRemaining;
+  const percentAllocated = schemeTargetCeiling > 0 ? Math.min(100, Math.round((schemeAllocatedAmount / schemeTargetCeiling) * 100)) : 0;
 
   const columns = [
     {
@@ -274,27 +310,123 @@ const BudgetAllocation = () => {
             <select
               className="form-control form-select"
               value={formData.scheme_name}
-              onChange={(e) => setFormData({ ...formData, scheme_name: e.target.value })}
+              onChange={(e) => {
+                const selName = e.target.value;
+                const found = schemes.find(s => s.name === selName);
+                const rem = found ? Math.max(0, (found.target_budget || 0) - (found.allocated_amount || 0)) : 0;
+                setFormData(prev => ({
+                  ...prev,
+                  scheme_name: selName,
+                  department: found?.department_name || prev.department,
+                  amount: rem > 0 && prev.amount > rem ? rem : prev.amount
+                }));
+              }}
             >
-              {schemes.map((s) => (
-                <option key={s.code} value={s.name}>{s.name}</option>
-              ))}
+              {schemes.map((s) => {
+                const rem = Math.max(0, (s.target_budget || s.allocated_budget || 0) - (s.allocated_amount || 0));
+                return (
+                  <option key={s.code} value={s.name}>
+                    {s.code} — {s.name} (Ceiling: {formatCurrency(s.target_budget || s.allocated_budget || 0)} | Available: {formatCurrency(rem)})
+                  </option>
+                );
+              })}
             </select>
           </div>
+
+          {/* Scheme Sanction Ceiling Live Information Card */}
+          {selectedSchemeObj && (
+            <div style={{
+              marginBottom: '16px',
+              padding: '12px 14px',
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: 'var(--bg-subtle)',
+              border: `1px solid ${schemeRemainingCeiling <= 0 ? 'var(--color-danger-border)' : 'var(--border-color)'}`
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span className="badge badge-info" style={{ fontWeight: '700' }}>{selectedSchemeObj.code}</span>
+                  <strong style={{ fontSize: '13px', color: 'var(--text-main)' }}>{selectedSchemeObj.name}</strong>
+                </div>
+                <span className={`badge ${schemeRemainingCeiling > 0 ? 'badge-success' : 'badge-danger'}`} style={{ fontWeight: '700' }}>
+                  {schemeRemainingCeiling > 0 ? `${percentAllocated}% Allocated` : '100% Fully Sanctioned'}
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '12px' }}>
+                <div style={{ padding: '6px 8px', backgroundColor: 'var(--bg-surface)', borderRadius: '4px' }}>
+                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10px' }}>Total Scheme Ceiling</span>
+                  <strong style={{ color: 'var(--text-main)', fontSize: '12px' }}>{formatCurrency(schemeTargetCeiling)}</strong>
+                </div>
+                <div style={{ padding: '6px 8px', backgroundColor: 'var(--bg-surface)', borderRadius: '4px' }}>
+                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10px' }}>Already Sanctioned</span>
+                  <strong style={{ color: 'var(--color-warning)', fontSize: '12px' }}>{formatCurrency(schemeAllocatedAmount)}</strong>
+                </div>
+                <div style={{ padding: '6px 8px', backgroundColor: 'var(--bg-surface)', borderRadius: '4px' }}>
+                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10px' }}>Remaining Allocatable</span>
+                  <strong style={{ color: schemeRemainingCeiling > 0 ? 'var(--color-success)' : 'var(--color-danger)', fontSize: '12px' }}>
+                    {formatCurrency(schemeRemainingCeiling)}
+                  </strong>
+                </div>
+              </div>
+
+              {schemeRemainingCeiling <= 0 && (
+                <div style={{ marginTop: '8px', color: 'var(--color-danger)', fontSize: '11px', fontWeight: '700' }}>
+                  ⚠️ Ceiling Reached: This scheme has received its full sanctioned budget ({formatCurrency(schemeTargetCeiling)}). No further funds can be allocated.
+                </div>
+              )}
+            </div>
+          )}
 
           <FundAmountInput
             label="Sanctioned Scheme Allocation Amount"
             value={formData.amount}
             onChange={(val) => setFormData({ ...formData, amount: val })}
+            max={schemeRemainingCeiling}
+            maxLabel="Scheme Ceiling"
             required={true}
-            helperText="Specify scheme allocation in Crores, Lakhs, or Thousands. Ex: 100 (Cr)."
+            disabled={schemeRemainingCeiling <= 0}
+            helperText={`Specify allocation within the remaining scheme ceiling of ${formatCurrency(schemeRemainingCeiling)}.`}
           />
+
+          {isExceedingSchemeCeiling && (
+            <div style={{
+              padding: '8px 12px',
+              borderRadius: 'var(--radius-xs)',
+              backgroundColor: 'var(--color-danger-bg)',
+              border: '1px solid var(--color-danger-border)',
+              color: 'var(--color-danger)',
+              fontSize: '12px',
+              fontWeight: '700',
+              marginBottom: '12px'
+            }}>
+              ❌ Cannot Allocate: The entered amount ({formatCurrency(formData.amount)}) exceeds the scheme's remaining ceiling of {formatCurrency(schemeRemainingCeiling)}.
+            </div>
+          )}
+
+          {isExceedingFYCeiling && !isExceedingSchemeCeiling && (
+            <div style={{
+              padding: '8px 12px',
+              borderRadius: 'var(--radius-xs)',
+              backgroundColor: 'var(--color-danger-bg)',
+              border: '1px solid var(--color-danger-border)',
+              color: 'var(--color-danger)',
+              fontSize: '12px',
+              fontWeight: '700',
+              marginBottom: '12px'
+            }}>
+              ❌ Exceeds FY Budget: Allocation exceeds the remaining budget for FY {formData.financial_year} ({formatCurrency(formFYRemaining)}).
+            </div>
+          )}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '24px' }}>
             <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>
               Cancel
             </button>
-            <button type="submit" className="btn btn-primary" disabled={submitting}>
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={submitting || formData.amount <= 0 || isExceedingSchemeCeiling || isExceedingFYCeiling || schemeRemainingCeiling <= 0}
+            >
               <ShieldCheck size={15} />
               <span>{submitting ? 'Executing On-Chain...' : 'Allocate on Blockchain'}</span>
             </button>
