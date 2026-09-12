@@ -6,7 +6,6 @@ import {
   MapPin, 
   ShieldCheck, 
   Activity, 
-  FileText, 
   MessageSquareWarning, 
   CheckCircle2, 
   Clock,
@@ -16,7 +15,6 @@ import {
 import API from '../../services/api';
 import { formatCurrency, formatTxHash } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
-import DocumentHashViewer from '../../components/DocumentHashViewer';
 
 const PublicProjectDetail = () => {
   const { id } = useParams();
@@ -47,7 +45,6 @@ const PublicProjectDetail = () => {
 
   const proj = data.project;
   const milestones = data.milestones || [];
-  const documents = data.documents || [];
   const transactions = data.transactions || [];
 
   const spentAmount = proj.released_amount || 0;
@@ -217,26 +214,6 @@ const PublicProjectDetail = () => {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Off-Chain Documents with SHA-256 Proofs */}
-      <div className="card" style={{ marginBottom: '24px' }}>
-        <div className="card-header">
-          <div className="card-title">
-            <FileText size={18} color="var(--color-primary)" />
-            <span>Inspection Documents & Blockchain Verification Hashes</span>
-          </div>
-        </div>
-
-        {documents.length > 0 ? (
-          documents.map((doc, idx) => (
-            <DocumentHashViewer key={idx} document={doc} showVerifyButton={true} />
-          ))
-        ) : (
-          <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>
-            Physical milestone inspection reports will be listed here with cryptographic hashes.
-          </div>
-        )}
       </div>
 
       {/* Blockchain Transactions Log */}
