@@ -1,6 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Building2, Coins, Send, TrendingUp, Activity, ArrowRight, ShieldCheck, FileSpreadsheet, History } from 'lucide-react';
+import { 
+  Building2, 
+  Coins, 
+  Send, 
+  TrendingUp, 
+  Activity, 
+  ArrowRight, 
+  ShieldCheck, 
+  FileSpreadsheet, 
+  History,
+  CheckCircle2,
+  Clock,
+  PieChart
+} from 'lucide-react';
 import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
 import StatCard from '../../components/StatCard';
@@ -32,41 +45,60 @@ const FinanceDashboard = () => {
 
   const metrics = data?.metrics;
 
+  // Calculate total pending amount
+  const pendingBudgets = data?.pending_budgets || [];
+  const pendingAmount = pendingBudgets.reduce((acc, b) => acc + ((b.amount || 0) - (b.disbursed_amount || 0)), 0);
+  const totalDisbursed = metrics?.total_disbursed || 0;
+  const totalVolume = pendingAmount + totalDisbursed;
+  const disbursedPct = totalVolume > 0 ? Math.min(100, Math.round((totalDisbursed / totalVolume) * 100)) : 0;
+
   return (
     <div>
-      {/* Institutional Hero Banner */}
-      <div className="gov-hero-banner" style={{ marginBottom: '20px' }}>
+      {/* Institutional Hero Banner with Finance Theme Accent */}
+      <div className="gov-hero-banner finance-hero">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px' }}>
           <div>
-            <div className="gov-hero-pill">
-              <ShieldCheck size={13} />
-              <span>Ministry of Finance • Disbursal Authority</span>
+            <div className="gov-hero-pill" style={{ background: 'rgba(20, 184, 166, 0.2)', borderColor: 'rgba(20, 184, 166, 0.4)' }}>
+              <ShieldCheck size={13} color="#99F6E4" />
+              <span style={{ color: '#CCFBF1' }}>Ministry of Finance • Disbursal Authority</span>
             </div>
             <h1 className="gov-hero-title">
               Finance Disbursal Authority Dashboard
             </h1>
-            <p className="gov-hero-subtitle">
+            <p className="gov-hero-subtitle" style={{ color: '#CCFBF1' }}>
               Sanction central budget allocations, execute state treasury transfers, and record multi-level fund movements on the immutable Ethereum ledger.
             </p>
           </div>
 
-          <button 
-            type="button"
-            onClick={() => setTab('release')}
-            className="btn btn-sm"
-            style={{ 
-              backgroundColor: '#F59E0B', 
-              color: '#0F172A', 
-              borderColor: '#F59E0B',
-              fontWeight: '800',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <Send size={14} />
-            <span>Transfer to State Treasury</span>
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <button 
+              type="button"
+              onClick={() => setTab('pending')}
+              className="btn btn-secondary btn-sm"
+              style={{ backgroundColor: 'rgba(255, 255, 255, 0.9)', borderColor: 'transparent', fontWeight: '700' }}
+            >
+              <Clock size={14} />
+              <span>Pending Approvals ({metrics?.pending_budgets_count || 0})</span>
+            </button>
+
+            <button 
+              type="button"
+              onClick={() => setTab('release')}
+              className="btn btn-sm"
+              style={{ 
+                backgroundColor: '#F59E0B', 
+                color: '#0F172A', 
+                borderColor: '#F59E0B',
+                fontWeight: '800',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}
+            >
+              <Send size={14} />
+              <span>Transfer to State Treasury</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -100,7 +132,7 @@ const FinanceDashboard = () => {
           }}
         >
           <Building2 size={15} />
-          <span>Budget Overview</span>
+          <span>Financial Overview</span>
         </button>
 
         <button
@@ -123,7 +155,7 @@ const FinanceDashboard = () => {
           }}
         >
           <Coins size={15} />
-          <span>Pending Budgets & Requests ({metrics?.pending_budgets_count || 0})</span>
+          <span>Pending Approvals & Budgets ({metrics?.pending_budgets_count || 0})</span>
         </button>
 
         <button
@@ -146,7 +178,7 @@ const FinanceDashboard = () => {
           }}
         >
           <Send size={15} />
-          <span>Fund Release & Disbursals</span>
+          <span>Fund Allocation & Disbursal</span>
         </button>
 
         <button
@@ -169,7 +201,7 @@ const FinanceDashboard = () => {
           }}
         >
           <History size={15} />
-          <span>Disbursal History & Ledger</span>
+          <span>Transactions & Disbursal History</span>
         </button>
       </div>
 
@@ -188,30 +220,73 @@ const FinanceDashboard = () => {
               value={metrics?.pending_budgets_count || 0}
               icon={Coins}
               color="orange"
-              subtitle="Awaiting Finance Sanction"
+              subtitle={`Pending Amount: ${formatCurrency(pendingAmount)}`}
+              progress={100 - disbursedPct}
             />
             <StatCard
               title="Total Disbursed to States"
               value={metrics?.total_disbursed || 0}
               icon={TrendingUp}
-              color="green"
+              color="teal"
               isCurrency={true}
               subtitle="Transferred via Ethereum Ledger"
+              progress={disbursedPct}
             />
             <StatCard
               title="Disbursal Transactions"
               value={metrics?.transfers_count || 0}
               icon={Activity}
-              color="teal"
+              color="blue"
               subtitle="On-Chain Confirmed"
             />
             <StatCard
               title="Supported States"
               value={metrics?.states_supported ?? 0}
               icon={Building2}
-              color="blue"
+              color="gold"
               subtitle="Regional Treasury Networks"
             />
+          </div>
+
+          {/* Visual Disbursal Progress Banner */}
+          <div className="analytics-progress-container">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <PieChart size={17} color="var(--color-primary)" />
+                <span style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-main)' }}>
+                  State Treasury Disbursal Progress
+                </span>
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                Total Processed Volume: <strong style={{ color: 'var(--text-main)' }}>{formatCurrency(totalVolume)}</strong>
+              </div>
+            </div>
+
+            <div className="analytics-progress-bar">
+              <div 
+                className="analytics-progress-segment" 
+                style={{ width: `${disbursedPct}%`, backgroundColor: '#0F766E' }} 
+                title={`Disbursed: ${formatCurrency(totalDisbursed)} (${disbursedPct}%)`}
+              />
+              <div 
+                className="analytics-progress-segment" 
+                style={{ width: `${100 - disbursedPct}%`, backgroundColor: '#F59E0B' }} 
+                title={`Pending Release: ${formatCurrency(pendingAmount)} (${100 - disbursedPct}%)`}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: '11px', fontWeight: '700' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '2px', backgroundColor: '#0F766E' }} />
+                <span style={{ color: 'var(--text-secondary)' }}>Released to State Treasuries:</span>
+                <strong style={{ color: 'var(--color-primary)' }}>{formatCurrency(totalDisbursed)} ({disbursedPct}%)</strong>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ width: '10px', height: '10px', borderRadius: '2px', backgroundColor: '#F59E0B' }} />
+                <span style={{ color: 'var(--text-secondary)' }}>Awaiting State Disbursal:</span>
+                <strong style={{ color: '#D97706' }}>{formatCurrency(pendingAmount)} ({100 - disbursedPct}%)</strong>
+              </div>
+            </div>
           </div>
 
           {/* 2-Column: Pending Budgets & State Breakdown */}
@@ -323,4 +398,3 @@ const FinanceDashboard = () => {
 };
 
 export default FinanceDashboard;
-

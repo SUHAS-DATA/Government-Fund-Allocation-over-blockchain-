@@ -1,15 +1,37 @@
-import React, { useState } from 'react';
-import { Search, X, FileText, Database } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Search, X, Database, ChevronLeft, ChevronRight } from 'lucide-react';
 
-const DataTable = ({ columns, data = [], searchKey, searchPlaceholder = 'Filter records...' }) => {
+const DataTable = ({ 
+  columns, 
+  data = [], 
+  searchKey, 
+  searchPlaceholder = 'Filter records...',
+  pageSize = 10 
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
-  const filteredData = data.filter((item) => {
-    if (!searchTerm || !searchKey) return true;
-    const val = item[searchKey];
-    if (!val) return false;
-    return String(val).toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  const filteredData = useMemo(() => {
+    if (!searchTerm || !searchKey) return data;
+    return data.filter((item) => {
+      const val = item[searchKey];
+      if (!val) return false;
+      return String(val).toLowerCase().includes(searchTerm.toLowerCase());
+    });
+  }, [data, searchTerm, searchKey]);
+
+  // Pagination calculation
+  const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
+  const paginatedData = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredData.slice(start, start + pageSize);
+  }, [filteredData, currentPage, pageSize]);
+
+  // Reset to page 1 when search changes
+  const handleSearchChange = (val) => {
+    setSearchTerm(val);
+    setCurrentPage(1);
+  };
 
   return (
     <div>
@@ -33,12 +55,13 @@ const DataTable = ({ columns, data = [], searchKey, searchPlaceholder = 'Filter 
               className="form-control"
               placeholder={searchPlaceholder}
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               style={{ paddingLeft: '36px', paddingRight: searchTerm ? '32px' : '12px' }}
             />
             {searchTerm && (
               <button
-                onClick={() => setSearchTerm('')}
+                type="button"
+                onClick={() => handleSearchChange('')}
                 style={{
                   position: 'absolute',
                   right: '10px',
@@ -81,8 +104,8 @@ const DataTable = ({ columns, data = [], searchKey, searchPlaceholder = 'Filter 
             </tr>
           </thead>
           <tbody>
-            {filteredData.length > 0 ? (
-              filteredData.map((row, rowIdx) => (
+            {paginatedData.length > 0 ? (
+              paginatedData.map((row, rowIdx) => (
                 <tr key={rowIdx}>
                   {columns.map((col, colIdx) => (
                     <td key={colIdx} style={col.tdStyle}>
@@ -120,6 +143,46 @@ const DataTable = ({ columns, data = [], searchKey, searchPlaceholder = 'Filter 
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Footer */}
+      {filteredData.length > pageSize && (
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginTop: '14px',
+          padding: '8px 4px',
+          fontSize: '12px',
+          color: 'var(--text-secondary)'
+        }}>
+          <div>
+            Page <strong style={{ color: 'var(--text-main)' }}>{currentPage}</strong> of <strong>{totalPages}</strong>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              style={{ padding: '4px 8px', height: '28px' }}
+            >
+              <ChevronLeft size={14} />
+              <span>Previous</span>
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              style={{ padding: '4px 8px', height: '28px' }}
+            >
+              <span>Next</span>
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,7 +1,7 @@
 /* ==========================================================================
    Government Fund Allocation Tracking System — Enterprise Design System
    Digital Governance & Public Financial Management Design Tokens
-   Inspired by Government of India / National Portals
+   Inspired by Government of India / National Portals (PFMS & Cabinet Secretariat)
    ========================================================================== */
 
 :root {
@@ -76,11 +76,22 @@
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.03);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.07), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 
   /* Layout Dimensions */
-  --sidebar-width: 260px;
+  --sidebar-width: 270px;
   --sidebar-collapsed-width: 72px;
   --navbar-height: 64px;
+}
+
+/* --- Finance Portal Theme Accent Override --- */
+.finance-theme {
+  --color-primary: #0F766E;
+  --color-primary-hover: #115E59;
+  --color-primary-light: #F0FDFA;
+  --color-primary-bg: #CCFBF1;
+  --color-primary-border: #99F6E4;
+  --bg-sidebar-active: #0F766E;
 }
 
 * {
@@ -95,11 +106,12 @@ body {
   color: var(--text-main);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 /* --- National Tricolor Stripe --- */
 .tricolor-stripe {
-  height: 3px;
+  height: 3.5px;
   width: 100%;
   background: linear-gradient(90deg, #FF9933 0%, #FF9933 33.3%, #FFFFFF 33.3%, #FFFFFF 66.6%, #138808 66.6%, #138808 100%);
 }
@@ -114,6 +126,7 @@ body {
 .portal-layout {
   display: flex;
   flex: 1;
+  position: relative;
 }
 
 .main-content {
@@ -122,16 +135,19 @@ body {
   background-color: var(--bg-app);
   min-height: calc(100vh - var(--navbar-height));
   margin-left: var(--sidebar-width);
-  transition: margin-left 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: margin-left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  width: calc(100% - var(--sidebar-width));
 }
 
 .main-content.sidebar-collapsed {
   margin-left: var(--sidebar-collapsed-width);
+  width: calc(100% - var(--sidebar-collapsed-width));
 }
 
 .public-content {
   flex: 1;
   background-color: var(--bg-app);
+  width: 100%;
 }
 
 /* --- Top Navigation Header --- */
@@ -158,8 +174,8 @@ body {
 }
 
 .navbar-emblem {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   background: linear-gradient(135deg, var(--color-gov-green-dark) 0%, var(--color-gov-green) 100%);
   color: #FFFFFF;
   border-radius: var(--radius-sm);
@@ -169,8 +185,8 @@ body {
   font-weight: 800;
   font-size: 13px;
   letter-spacing: 0.5px;
-  border: 1.5px solid rgba(245, 158, 11, 0.3);
-  box-shadow: 0 2px 4px rgba(6, 78, 59, 0.2);
+  border: 1.5px solid rgba(245, 158, 11, 0.4);
+  box-shadow: 0 2px 4px rgba(6, 78, 59, 0.25);
 }
 
 .navbar-title {
@@ -241,8 +257,8 @@ body {
   z-index: 40;
   display: flex;
   flex-direction: column;
-  transition: width 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.05);
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.06);
 }
 
 .sidebar.collapsed {
@@ -250,17 +266,20 @@ body {
 }
 
 .sidebar-header {
-  padding: 14px 20px 8px 20px;
+  padding: 14px 20px 6px 20px;
   font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 1.1px;
   color: #64748B;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .sidebar-menu {
   list-style: none;
-  padding: 8px 12px;
+  padding: 6px 12px;
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -270,7 +289,7 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 14px;
+  padding: 9px 14px;
   border-radius: var(--radius-sm);
   color: #94A3B8;
   text-decoration: none;
@@ -303,6 +322,33 @@ body {
   border-radius: 0 4px 4px 0;
 }
 
+.sidebar-badge {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  color: #FFFFFF;
+}
+
+/* Mobile Sidebar Drawer & Backdrop */
+.sidebar-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(3px);
+  z-index: 55;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.sidebar-mobile-header {
+  display: none;
+}
+
 /* --- Typography & Headings --- */
 .page-header {
   display: flex;
@@ -311,6 +357,8 @@ body {
   margin-bottom: 24px;
   padding-bottom: 16px;
   border-bottom: 1px solid var(--border-color);
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .page-title {
@@ -352,6 +400,8 @@ body {
   margin-bottom: 16px;
   padding-bottom: 14px;
   border-bottom: 1px solid var(--border-color);
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .card-title {
@@ -368,13 +418,18 @@ body {
 .gov-hero-banner {
   background: linear-gradient(135deg, #064E3B 0%, #0D5C3A 55%, #115E59 100%);
   border-radius: var(--radius-lg);
-  padding: 28px 32px;
+  padding: 26px 30px;
   color: #FFFFFF;
-  margin-bottom: 26px;
+  margin-bottom: 24px;
   position: relative;
   overflow: hidden;
   box-shadow: 0 8px 20px -4px rgba(6, 78, 59, 0.25);
   border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.gov-hero-banner.finance-hero {
+  background: linear-gradient(135deg, #042F2E 0%, #0F766E 55%, #0D5C3A 100%);
+  box-shadow: 0 8px 20px -4px rgba(15, 118, 110, 0.25);
 }
 
 .gov-hero-banner::after {
@@ -482,6 +537,29 @@ body {
   align-items: center;
   gap: 5px;
   font-weight: 500;
+}
+
+/* --- Analytics Progress Bar Component --- */
+.analytics-progress-container {
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 18px 20px;
+  margin-bottom: 24px;
+}
+
+.analytics-progress-bar {
+  height: 12px;
+  background-color: #E2E8F0;
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  margin: 12px 0 10px 0;
+}
+
+.analytics-progress-segment {
+  height: 100%;
+  transition: width 0.4s ease;
 }
 
 /* --- Tables --- */
@@ -729,7 +807,7 @@ body {
   max-width: 620px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-xl);
   animation: slideUp 0.2s ease-out;
 }
 
@@ -752,25 +830,7 @@ body {
   gap: 22px;
 }
 
-@media (max-width: 1024px) {
-  .grid-4 {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 768px) {
-  .grid-2, .grid-3, .grid-4 {
-    grid-template-columns: 1fr;
-  }
-  .main-content {
-    margin-left: 0;
-    padding: 16px;
-  }
-  .sidebar {
-    display: none;
-  }
-}
-
+/* --- Animations --- */
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -855,10 +915,78 @@ body {
 }
 
 @keyframes schemesMarqueeScroll {
-  0% {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+/* ==========================================================================
+   Responsive Breakpoints: Desktop, Laptop, Tablet, Mobile
+   ========================================================================== */
+
+@media (max-width: 1200px) {
+  .grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .main-content {
+    margin-left: 0;
+    width: 100%;
+    padding: 20px 24px;
+  }
+  .main-content.sidebar-collapsed {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  /* Sidebar becomes off-canvas mobile drawer */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 280px;
+    z-index: 60;
+    transform: translateX(-100%);
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.3);
+  }
+
+  .sidebar.mobile-open {
     transform: translateX(0);
   }
-  100% {
-    transform: translateX(-50%);
+
+  .sidebar-mobile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: rgba(0, 0, 0, 0.2);
+  }
+}
+
+@media (max-width: 768px) {
+  .grid-2, .grid-3, .grid-4 {
+    grid-template-columns: 1fr;
+  }
+  .main-content {
+    padding: 16px;
+  }
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .page-title {
+    font-size: 19px;
+  }
+  .gov-hero-banner {
+    padding: 20px;
+  }
+  .gov-hero-title {
+    font-size: 20px;
+  }
+  .stat-value {
+    font-size: 22px;
   }
 }

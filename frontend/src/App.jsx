@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
 
@@ -101,17 +101,49 @@ const ProtectedRoute = ({ allowedRoles, activePortal, children }) => {
   return children;
 };
 
-// Portal Layout Wrapper
+// Portal Layout Wrapper with Responsive Drawer & Finance Theme Support
 const PortalLayout = ({ children }) => {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const { user } = useAuth();
+  const location = useLocation();
+
+  // Automatically dismiss mobile drawer upon navigation
+  useEffect(() => {
+    setMobileSidebarOpen(false);
+  }, [location.pathname]);
+
+  const isFinance = user?.role === 'FINANCE';
 
   return (
-    <div className="app-container">
-      <Navbar onToggleSidebar={() => setSidebarOpen(!sidebarOpen)} />
+    <div className={`app-container ${isFinance ? 'finance-theme' : ''}`}>
+      <Navbar
+        onToggleSidebar={() => {
+          if (window.innerWidth <= 1024) {
+            setMobileSidebarOpen((prev) => !prev);
+          } else {
+            setSidebarCollapsed((prev) => !prev);
+          }
+        }}
+      />
       <div className="portal-layout">
-        {user && sidebarOpen && <Sidebar />}
-        <main className={user && sidebarOpen ? "main-content" : "public-content"}>
+        {/* Backdrop for mobile drawer */}
+        {user && mobileSidebarOpen && (
+          <div
+            className="sidebar-backdrop"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+        )}
+
+        {user && (
+          <Sidebar
+            collapsed={sidebarCollapsed}
+            mobileOpen={mobileSidebarOpen}
+            onCloseMobile={() => setMobileSidebarOpen(false)}
+          />
+        )}
+
+        <main className={user ? `main-content ${sidebarCollapsed ? 'sidebar-collapsed' : ''}` : "public-content"}>
           {children}
         </main>
       </div>
@@ -119,6 +151,7 @@ const PortalLayout = ({ children }) => {
     </div>
   );
 };
+
 
 function App() {
   const activePortal = getActivePortal();
