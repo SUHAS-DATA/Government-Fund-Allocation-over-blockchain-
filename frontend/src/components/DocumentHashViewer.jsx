@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, ShieldCheck, CheckCircle2, XCircle, RefreshCw, Copy, Check } from 'lucide-react';
+import { FileText, ShieldCheck, CheckCircle2, XCircle, RefreshCw, Copy, Check, Lock } from 'lucide-react';
 import { formatTxHash, copyToClipboard } from '../services/blockchain';
 import API from '../services/api';
 
@@ -37,30 +37,45 @@ const DocumentHashViewer = ({ document, showVerifyButton = true }) => {
     <div style={{
       background: '#FFFFFF',
       border: '1px solid var(--border-color)',
-      borderRadius: 'var(--radius-sm)',
-      padding: '12px 16px',
+      borderRadius: 'var(--radius-md)',
+      padding: '16px',
       display: 'flex',
       flexDirection: 'column',
-      gap: '8px',
+      gap: '10px',
       boxShadow: 'var(--shadow-xs)',
-      marginBottom: '10px'
+      marginBottom: '12px'
     }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <FileText size={16} color="var(--color-primary)" />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{
+            width: '36px',
+            height: '36px',
+            borderRadius: 'var(--radius-sm)',
+            backgroundColor: 'var(--color-primary-light)',
+            border: '1px solid var(--color-primary-border)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--color-primary)'
+          }}>
+            <FileText size={18} />
+          </div>
           <div>
-            <div style={{ fontWeight: '600', fontSize: '13px', color: 'var(--text-main)' }}>
+            <div style={{ fontWeight: '700', fontSize: '13px', color: 'var(--text-main)' }}>
               {document.file_name || document.document_id}
             </div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-              Type: {document.doc_type || 'OFF_CHAIN_FILE'} | Size: {(document.file_size ? (document.file_size / 1024).toFixed(1) + ' KB' : 'N/A')}
+              Type: <strong>{document.doc_type || 'OFF_CHAIN_FILE'}</strong> • Size: {(document.file_size ? (document.file_size / 1024).toFixed(1) + ' KB' : 'N/A')}
             </div>
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {document.blockchain_tx_hash ? (
-            <span className="badge badge-success">ANCHORED ON-CHAIN</span>
+            <span className="badge badge-success">
+              <ShieldCheck size={12} />
+              <span>ANCHORED ON-CHAIN</span>
+            </span>
           ) : (
             <span className="badge badge-warning">OFF-CHAIN</span>
           )}
@@ -70,9 +85,9 @@ const DocumentHashViewer = ({ document, showVerifyButton = true }) => {
               onClick={handleVerify}
               disabled={verifying}
               className="btn btn-secondary btn-sm"
-              style={{ fontSize: '11px', padding: '4px 8px' }}
+              style={{ fontSize: '11px', padding: '5px 10px' }}
             >
-              <RefreshCw size={11} className={verifying ? 'animate-spin' : ''} />
+              <RefreshCw size={12} className={verifying ? 'animate-spin' : ''} />
               <span>{verifying ? 'Verifying...' : 'Verify Hash'}</span>
             </button>
           )}
@@ -83,24 +98,37 @@ const DocumentHashViewer = ({ document, showVerifyButton = true }) => {
       <div style={{
         background: '#F8FAFC',
         border: '1px solid #E2E8F0',
-        borderRadius: 'var(--radius-xs)',
-        padding: '6px 10px',
+        borderRadius: 'var(--radius-sm)',
+        padding: '8px 12px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         fontSize: '11px',
-        fontFamily: 'monospace'
+        fontFamily: "'JetBrains Mono', monospace"
       }}>
-        <div>
-          <span style={{ color: 'var(--text-muted)', marginRight: '6px' }}>SHA-256:</span>
+        <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '10px' }}>
+          <span style={{ color: 'var(--text-muted)', marginRight: '6px', fontWeight: '700' }}>SHA-256:</span>
           <span style={{ color: 'var(--text-main)', fontWeight: '600' }}>{document.sha256_hash}</span>
         </div>
         <button
           onClick={handleCopyHash}
-          style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
+          style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--text-secondary)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            flexShrink: 0
+          }}
           title="Copy SHA-256 Digest"
         >
-          {copied ? <Check size={12} color="var(--color-success)" /> : <Copy size={12} />}
+          {copied ? (
+            <span style={{ color: 'var(--color-success)', fontWeight: '700', fontSize: '10px' }}>Copied!</span>
+          ) : (
+            <Copy size={13} />
+          )}
         </button>
       </div>
 
@@ -109,20 +137,20 @@ const DocumentHashViewer = ({ document, showVerifyButton = true }) => {
         <div style={{
           background: verificationResult.is_verified ? 'var(--color-success-bg)' : 'var(--color-danger-bg)',
           border: `1px solid ${verificationResult.is_verified ? 'var(--color-success-border)' : 'var(--color-danger-border)'}`,
-          borderRadius: 'var(--radius-xs)',
-          padding: '6px 10px',
+          borderRadius: 'var(--radius-sm)',
+          padding: '8px 12px',
           fontSize: '11px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           color: verificationResult.is_verified ? 'var(--color-success)' : 'var(--color-danger)',
-          fontWeight: '600'
+          fontWeight: '700'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {verificationResult.is_verified ? <CheckCircle2 size={13} /> : <XCircle size={13} />}
-            <span>{verificationResult.is_verified ? 'HASH MATCH: 100% Cryptographically Verified' : 'HASH MISMATCH / TAMPER DETECTED'}</span>
+            {verificationResult.is_verified ? <CheckCircle2 size={15} /> : <XCircle size={15} />}
+            <span>{verificationResult.is_verified ? 'HASH MATCH: 100% Cryptographically Verified on Blockchain' : 'HASH MISMATCH / TAMPER DETECTED'}</span>
           </div>
-          <span>Disk vs On-Chain Match</span>
+          <span style={{ fontSize: '10px', textTransform: 'uppercase', opacity: 0.9 }}>Disk vs On-Chain Match</span>
         </div>
       )}
     </div>

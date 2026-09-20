@@ -6,14 +6,17 @@ import {
   ShieldCheck, 
   ArrowRight, 
   Lock, 
-  ExternalLink,
-  Zap,
-  Layers,
-  ChevronRight,
-  Globe
+  Layers, 
+  Globe,
+  Landmark,
+  Building,
+  Briefcase,
+  Search,
+  CheckCircle2,
+  Zap
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { USER_ROLES_CONFIG } from './UserTypeSelector';
+import { PORTALS_DIRECTORY } from './UserTypeSelector';
 
 const RoleAccessModal = ({ isOpen, onClose }) => {
   const { login, user } = useAuth();
@@ -25,7 +28,7 @@ const RoleAccessModal = ({ isOpen, onClose }) => {
   const handleQuickLogin = async (roleObj) => {
     if (roleObj.isPublic) {
       onClose();
-      navigate('/public/projects');
+      navigate('/public');
       return;
     }
     setLoggingInRole(roleObj.id);
@@ -33,21 +36,21 @@ const RoleAccessModal = ({ isOpen, onClose }) => {
       const res = await login(roleObj.defaultEmail, roleObj.defaultPassword);
       onClose();
       if (res.success) {
-        navigate(roleObj.dashboardTarget);
+        navigate(roleObj.targetDashboard || roleObj.dashboardTarget);
       } else {
-        navigate(roleObj.loginTarget);
+        navigate(roleObj.portalUrl || roleObj.loginTarget);
       }
     } catch {
       onClose();
-      navigate(roleObj.loginTarget);
+      navigate(roleObj.portalUrl || roleObj.loginTarget);
     } finally {
       setLoggingInRole(null);
     }
   };
 
-  const handleManualLogin = (target) => {
+  const handleOpenPortal = (url) => {
     onClose();
-    navigate(target);
+    navigate(url);
   };
 
   return (
@@ -70,7 +73,7 @@ const RoleAccessModal = ({ isOpen, onClose }) => {
         style={{
           backgroundColor: '#FFFFFF',
           borderRadius: '16px',
-          maxWidth: '1150px',
+          maxWidth: '1100px',
           width: '100%',
           maxHeight: '92vh',
           display: 'flex',
@@ -82,6 +85,9 @@ const RoleAccessModal = ({ isOpen, onClose }) => {
         }}
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Tricolor Accent Stripe on Modal */}
+        <div className="tricolor-stripe" />
+
         {/* Modal Header */}
         <div style={{
           padding: '20px 28px',
@@ -96,20 +102,21 @@ const RoleAccessModal = ({ isOpen, onClose }) => {
               width: '40px',
               height: '40px',
               borderRadius: '10px',
-              backgroundColor: 'var(--color-primary-bg)',
+              backgroundColor: 'var(--color-primary-light)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: 'var(--color-primary)'
+              color: 'var(--color-primary)',
+              border: '1px solid var(--color-primary-border)'
             }}>
               <Layers size={22} />
             </div>
             <div>
               <h2 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-main)', margin: 0, letterSpacing: '-0.3px' }}>
-                Government Fund Portals & Role Access
+                5 Government Portals Directory
               </h2>
               <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
-                Select any administrative tier or citizen role below for instant 1-Click Access or credential login.
+                Direct entry points for each governance level. Each portal displays only its permitted roles.
               </p>
             </div>
           </div>
@@ -137,7 +144,7 @@ const RoleAccessModal = ({ isOpen, onClose }) => {
           </button>
         </div>
 
-        {/* Modal Body: Multi-column Role Cards */}
+        {/* Modal Body: 5 Portal Cards */}
         <div style={{
           padding: '24px 28px',
           overflowY: 'auto',
@@ -145,83 +152,66 @@ const RoleAccessModal = ({ isOpen, onClose }) => {
         }}>
           <div style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(310px, 1fr))',
             gap: '16px'
           }}>
-            {USER_ROLES_CONFIG.map((role) => {
-              const IconComp = role.icon;
-              const isCurrentRole = user && user.role === role.id;
-              const isLoggingThis = loggingInRole === role.id;
+            {PORTALS_DIRECTORY.map((portal) => {
+              const IconComp = portal.icon;
 
               return (
                 <div
-                  key={role.id}
+                  key={portal.id}
                   style={{
                     backgroundColor: '#FFFFFF',
-                    border: `1.5px solid ${isCurrentRole ? role.accentColor : 'var(--border-color)'}`,
+                    border: '1px solid var(--border-color)',
+                    borderTop: `4px solid ${portal.accentColor}`,
                     borderRadius: '12px',
                     padding: '18px',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
-                    boxShadow: isCurrentRole 
-                      ? `0 4px 12px ${role.lightBg || 'rgba(0,0,0,0.05)'}`
-                      : 'var(--shadow-sm)',
+                    boxShadow: 'var(--shadow-xs)',
                     position: 'relative',
                     transition: 'transform 0.15s ease, box-shadow 0.15s ease'
                   }}
                 >
-                  {/* Top Bar: Icon + Badge */}
                   <div>
+                    {/* Top Bar: Icon + Badge */}
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                       <div style={{
                         width: '38px',
                         height: '38px',
                         borderRadius: '10px',
-                        backgroundColor: role.lightBg || 'rgba(0,0,0,0.04)',
-                        border: `1px solid ${role.borderColor || '#E2E8F0'}`,
+                        backgroundColor: portal.lightBg,
+                        border: `1px solid ${portal.borderColor}`,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        color: role.accentColor
+                        color: portal.accentColor
                       }}>
                         <IconComp size={20} />
                       </div>
 
                       <span style={{
-                        fontSize: '11px',
+                        fontSize: '10px',
                         fontWeight: '700',
                         padding: '3px 8px',
                         borderRadius: '12px',
-                        backgroundColor: role.lightBg || '#F1F5F9',
-                        color: role.accentColor,
-                        border: `1px solid ${role.borderColor || '#E2E8F0'}`
+                        backgroundColor: portal.lightBg,
+                        color: portal.accentColor,
+                        border: `1px solid ${portal.borderColor}`
                       }}>
-                        {role.tier || role.badge}
+                        {portal.badge}
                       </span>
                     </div>
 
-                    {/* Role Title & Description */}
+                    {/* Portal Title & Description */}
                     <div style={{ marginBottom: '10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <h3 style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>
-                          {role.title}
-                        </h3>
-                        {isCurrentRole && (
-                          <span style={{
-                            fontSize: '10px',
-                            fontWeight: '800',
-                            backgroundColor: 'var(--color-success)',
-                            color: '#FFFFFF',
-                            padding: '1px 6px',
-                            borderRadius: '4px'
-                          }}>
-                            ACTIVE
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: '11px', fontWeight: '600', color: role.accentColor, marginTop: '2px' }}>
-                        {role.roleLabel}
+                      <h3 style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>
+                        {portal.portalName}
+                      </h3>
+                      <div style={{ fontSize: '11px', fontWeight: '700', color: portal.accentColor, marginTop: '2px' }}>
+                        {portal.portalUrl}
                       </div>
                       <p style={{
                         fontSize: '12px',
@@ -230,86 +220,103 @@ const RoleAccessModal = ({ isOpen, onClose }) => {
                         lineHeight: '1.45',
                         minHeight: '36px'
                       }}>
-                        {role.description}
+                        {portal.description}
                       </p>
                     </div>
 
-                    {/* Default Credentials Snippet (if non-public) */}
-                    {!role.isPublic && (
-                      <div style={{
-                        background: '#F8FAFC',
-                        borderRadius: '6px',
-                        padding: '6px 10px',
-                        fontSize: '11px',
-                        color: 'var(--text-muted)',
-                        marginBottom: '14px',
-                        fontFamily: 'monospace',
-                        display: 'flex',
-                        justifyContent: 'space-between'
-                      }}>
-                        <span>ID: <strong>{role.defaultEmail.split('@')[0]}</strong></span>
-                        <span>Pass: <strong>{role.defaultPassword}</strong></span>
+                    {/* Allowed Roles in Portal */}
+                    <div style={{
+                      background: '#F8FAFC',
+                      borderRadius: '6px',
+                      padding: '8px 10px',
+                      marginBottom: '14px',
+                      border: '1px solid var(--border-color)'
+                    }}>
+                      <div style={{ fontSize: '10px', fontWeight: '800', textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                        {portal.isPublic ? 'Public Features:' : 'Allowed Roles:'}
                       </div>
-                    )}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                        {portal.allowedRoles?.map((r) => (
+                          <div key={r.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-main)', fontWeight: '600' }}>
+                            <span>• {r.name}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleQuickLogin(r)}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: portal.accentColor,
+                                cursor: 'pointer',
+                                fontSize: '10px',
+                                fontWeight: '700',
+                                padding: '1px 4px',
+                                borderRadius: '3px'
+                              }}
+                              disabled={loggingInRole === r.id}
+                            >
+                              {loggingInRole === r.id ? 'Logging in...' : '1-Click'}
+                            </button>
+                          </div>
+                        ))}
+                        {portal.features?.slice(0, 3).map((f, i) => (
+                          <div key={i} style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                            • {f}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
 
-                  {/* Actions: 1-Click Login + Standard Link */}
-                  <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                    <button
-                      onClick={() => handleQuickLogin(role)}
-                      disabled={isLoggingThis}
-                      style={{
-                        flex: 1,
-                        backgroundColor: role.accentColor,
-                        color: '#FFFFFF',
-                        border: 'none',
-                        borderRadius: '8px',
-                        padding: '8px 12px',
-                        fontSize: '12px',
-                        fontWeight: '700',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                        cursor: 'pointer',
-                        transition: 'opacity 0.15s ease'
-                      }}
-                      onMouseOver={(e) => e.currentTarget.style.opacity = '0.9'}
-                      onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
-                    >
-                      <Zap size={14} fill="#FFFFFF" />
-                      <span>{isLoggingThis ? 'Accessing...' : role.isPublic ? 'Open Explorer' : '1-Click Login'}</span>
-                    </button>
-
-                    {!role.isPublic && (
-                      <button
-                        onClick={() => handleManualLogin(role.loginTarget)}
-                        style={{
-                          backgroundColor: '#FFFFFF',
-                          color: 'var(--text-main)',
-                          border: '1px solid var(--border-color)',
-                          borderRadius: '8px',
-                          padding: '8px 12px',
-                          fontSize: '12px',
-                          fontWeight: '600',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '4px',
-                          cursor: 'pointer'
-                        }}
-                        onMouseOver={(e) => e.currentTarget.style.borderColor = role.accentColor}
-                        onMouseOut={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}
-                        title="Open Custom Login Screen"
-                      >
-                        <Lock size={13} />
-                        <span>Portal</span>
-                      </button>
-                    )}
-                  </div>
+                  {/* Open Portal Link */}
+                  <button
+                    type="button"
+                    onClick={() => handleOpenPortal(portal.portalUrl)}
+                    className="btn btn-primary"
+                    style={{
+                      width: '100%',
+                      backgroundColor: portal.accentColor,
+                      borderColor: portal.accentColor,
+                      padding: '8px 12px',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <span>Open {portal.portalName}</span>
+                    <ArrowRight size={13} />
+                  </button>
                 </div>
               );
             })}
           </div>
+        </div>
+
+        {/* Modal Footer */}
+        <div style={{
+          padding: '14px 28px',
+          borderTop: '1px solid var(--border-color)',
+          backgroundColor: '#F8FAFC',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          fontSize: '12px',
+          color: 'var(--text-secondary)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <ShieldCheck size={16} color="var(--color-success)" />
+            <span>Strict Role-Based Routing & Session Isolation</span>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="btn btn-outline btn-sm"
+            style={{ fontSize: '12px' }}
+          >
+            Close
+          </button>
         </div>
       </div>
     </div>

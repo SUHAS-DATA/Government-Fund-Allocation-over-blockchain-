@@ -3,12 +3,15 @@ node_modules/
 */node_modules/
 venv/
 */venv/
+.venv/
+*/.venv/
 env/
 */env/
 
 # Python cache & compiled files
 __pycache__/
 */__pycache__/
+*.pyc
 *.py[cod]
 *$py.class
 *.so
@@ -45,11 +48,16 @@ dist/
 
 # Environment variables & secrets
 .env
+*/.env
 .env.local
+*/.env.local
+.env.*.local
+*/.env.*.local
 .env.development.local
 .env.test.local
 .env.production.local
 *.env
+*/*.env
 
 # Keep example env files
 !.env.example

@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 
-const Modal = ({ title, isOpen, onClose, children, maxWidth = '600px' }) => {
+const Modal = ({ title, isOpen, onClose, children, maxWidth = '620px' }) => {
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') onClose();
@@ -29,14 +29,37 @@ const Modal = ({ title, isOpen, onClose, children, maxWidth = '600px' }) => {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          marginBottom: '18px',
-          paddingBottom: '12px',
+          marginBottom: '20px',
+          paddingBottom: '14px',
           borderBottom: '1px solid var(--border-color)'
         }}>
-          <h3 style={{ fontSize: '16px', fontWeight: '700', color: 'var(--text-main)' }}>{title}</h3>
+          <h3 style={{
+            fontSize: '17px',
+            fontWeight: '800',
+            color: 'var(--text-main)',
+            letterSpacing: '-0.3px',
+            margin: 0
+          }}>
+            {title}
+          </h3>
           <button
             onClick={onClose}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}
+            style={{
+              background: '#F1F5F9',
+              border: 'none',
+              borderRadius: '6px',
+              width: '32px',
+              height: '32px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: 'var(--text-secondary)',
+              transition: 'all 0.15s ease'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#E2E8F0'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#F1F5F9'}
+            title="Close (Esc)"
           >
             <X size={18} />
           </button>

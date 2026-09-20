@@ -10,7 +10,11 @@ import {
   ArrowRight,
   TrendingUp,
   FileSpreadsheet,
-  Cpu
+  Cpu,
+  Lock,
+  CheckCircle2,
+  Layers,
+  Sparkles
 } from 'lucide-react';
 import API from '../../services/api';
 import { formatCurrency, formatAddress, getContractAddress } from '../../services/blockchain';
@@ -48,32 +52,33 @@ const HomePage = () => {
   };
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 20px' }}>
-      {/* Hero Banner */}
-      <div style={{
-        background: '#FFFFFF',
-        border: '1px solid var(--border-color)',
-        borderRadius: 'var(--radius-md)',
-        padding: '36px 32px',
-        marginBottom: '32px',
-        boxShadow: 'var(--shadow-sm)'
-      }}>
-        <div style={{ maxWidth: '800px', marginBottom: '24px' }}>
-          <h1 style={{ fontSize: '28px', fontWeight: '800', color: 'var(--color-primary)', letterSpacing: '-0.5px', margin: 0 }}>
-            National Public Financial Management & Blockchain Fund Allocation
+    <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '32px 20px' }}>
+      {/* Hero Banner with Official Government Aesthetic */}
+      <div className="gov-hero-banner" style={{ marginBottom: '32px', padding: '36px 36px 32px 36px' }}>
+        <div style={{ maxWidth: '850px', marginBottom: '24px' }}>
+          <div className="gov-hero-pill">
+            <ShieldCheck size={13} />
+            <span>Official Digital Governance Portal • Government of India</span>
+          </div>
+          <h1 className="gov-hero-title" style={{ fontSize: '30px', lineHeight: '1.2' }}>
+            National Public Financial Management & Blockchain Fund Allocation Ledger
           </h1>
+          <p className="gov-hero-subtitle" style={{ fontSize: '14px', marginTop: '8px' }}>
+            Transparent Allocation. Accountable Governance. Cryptographic Integrity. Trace every rupee sanctioned by the Union Ministry through State Treasuries and District Offices down to verified milestone releases.
+          </p>
         </div>
 
         {/* Multi-Tier Search Form */}
         <form onSubmit={handleSearch} style={{
-          background: 'var(--bg-subtle)',
-          border: '1px solid var(--border-color)',
-          borderRadius: 'var(--radius-sm)',
-          padding: '16px',
+          background: '#FFFFFF',
+          border: '1px solid rgba(255, 255, 255, 0.3)',
+          borderRadius: 'var(--radius-md)',
+          padding: '18px 20px',
           display: 'grid',
           gridTemplateColumns: 'repeat(4, 1fr) auto',
-          gap: '12px',
-          alignItems: 'center'
+          gap: '14px',
+          alignItems: 'center',
+          boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)'
         }}>
           <StateDistrictSelector
             selectedState={selectedState}
@@ -90,7 +95,7 @@ const HomePage = () => {
           />
 
           <div>
-            <label className="form-label" style={{ fontSize: '11px' }}>3. Ministry / Dept</label>
+            <label className="form-label" style={{ fontSize: '11px', color: 'var(--text-main)' }}>3. Ministry / Dept</label>
             <select
               className="form-control form-select"
               value={selectedDept}
@@ -104,7 +109,7 @@ const HomePage = () => {
           </div>
 
           <div>
-            <label className="form-label" style={{ fontSize: '11px' }}>4. Project Keyword</label>
+            <label className="form-label" style={{ fontSize: '11px', color: 'var(--text-main)' }}>4. Project Keyword</label>
             <input
               type="text"
               className="form-control"
@@ -115,7 +120,11 @@ const HomePage = () => {
           </div>
 
           <div style={{ alignSelf: 'flex-end' }}>
-            <button type="submit" className="btn btn-primary" style={{ height: '38px', padding: '0 20px' }}>
+            <button 
+              type="submit" 
+              className="btn btn-primary" 
+              style={{ height: '40px', padding: '0 24px', fontWeight: '800' }}
+            >
               <Search size={15} />
               <span>Search</span>
             </button>
@@ -148,7 +157,7 @@ const HomePage = () => {
                     backgroundColor: 'var(--color-primary-bg)',
                     color: 'var(--color-primary)',
                     border: '1px solid var(--color-primary-border)',
-                    fontFamily: 'monospace'
+                    fontFamily: "'JetBrains Mono', monospace"
                   }}>
                     {scheme.code}
                   </span>
@@ -163,7 +172,7 @@ const HomePage = () => {
 
                   <span style={{
                     fontSize: '11px',
-                    fontWeight: '700',
+                    fontWeight: '800',
                     color: 'var(--color-success)',
                     backgroundColor: 'rgba(5, 150, 105, 0.08)',
                     padding: '2px 6px',
@@ -184,26 +193,30 @@ const HomePage = () => {
           title="Approved National Budget"
           value={stats?.total_allocated_budget ?? 0}
           icon={Coins}
+          color="green"
           isCurrency={true}
-          subtitle="National Sanctions"
+          subtitle="National Sanctions Pool"
         />
         <StatCard
           title="Total Payments Released"
           value={stats?.total_disbursed_funds ?? 0}
           icon={TrendingUp}
+          color="teal"
           isCurrency={true}
-          subtitle="Verified Blockchain Transfers"
+          subtitle="Verified Blockchain Releases"
         />
         <StatCard
           title="Active Local Projects"
           value={stats?.total_projects_count ?? 0}
           icon={Building2}
+          color="blue"
           subtitle="Community Infrastructure"
         />
         <StatCard
           title="Blockchain Transactions"
           value={stats?.blockchain_transactions_count ?? 0}
           icon={Activity}
+          color="orange"
           subtitle="100% Permanently Recorded"
         />
       </div>
@@ -214,40 +227,56 @@ const HomePage = () => {
           <div className="card-header">
             <div className="card-title">
               <ShieldCheck size={18} color="var(--color-primary)" />
-              <span>Multi-Level Fund Flow</span>
+              <span>Multi-Level Fund Flow Architecture</span>
             </div>
           </div>
-          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '14px', lineHeight: '1.6' }}>
-            Funds flow step-by-step from the Central Ministry through State Treasuries and District Offices to project milestone payments:
+          <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.6' }}>
+            Funds flow step-by-step from the Central Ministry through State Treasuries and District Offices to project milestone payments, with every step cryptographically verified:
           </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px', fontWeight: '500' }}>
-            <div style={{ padding: '8px 12px', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-xs)', borderLeft: '3px solid var(--color-primary)' }}>
-              1. Central Admin → Approves scheme budget limits & national programs
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px', fontWeight: '600' }}>
+            <div style={{ padding: '10px 14px', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-sm)', borderLeft: '4px solid #0D5C3A' }}>
+              1. Central Super Admin → Approves scheme budget limits & national program ceilings
             </div>
-            <div style={{ padding: '8px 12px', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-xs)', borderLeft: '3px solid var(--color-accent)' }}>
-              2. Finance Ministry → Releases approved funds to State Treasuries
+            <div style={{ padding: '10px 14px', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-sm)', borderLeft: '4px solid #1D4ED8' }}>
+              2. Finance Ministry → Releases approved funds to State Treasuries on Ethereum ledger
             </div>
-            <div style={{ padding: '8px 12px', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-xs)', borderLeft: '3px solid var(--color-warning)' }}>
-              3. State Treasury → Sends funds to District Development Offices
+            <div style={{ padding: '10px 14px', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-sm)', borderLeft: '4px solid #EA580C' }}>
+              3. State Treasury → Disburses allocations to District Development Agencies
             </div>
-            <div style={{ padding: '8px 12px', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-xs)', borderLeft: '3px solid var(--color-success)' }}>
-              4. District Officer → Sets up projects, assigns contractors & approves milestone payments
+            <div style={{ padding: '10px 14px', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-sm)', borderLeft: '4px solid #059669' }}>
+              4. District Officer → Deploys local projects, verifies KYC & approves smart contract releases
             </div>
           </div>
         </div>
 
-        <div className="card">
+        <div className="card" style={{ display: 'flex', flexDirection: 'column' }}>
           <div className="card-header">
             <div className="card-title">
               <Cpu size={18} color="var(--color-primary)" />
-              <span>Public Tracking & Citizen Complaints</span>
+              <span>Public Tracking & Citizen Redressal</span>
             </div>
           </div>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.6' }}>
-            Citizens can track live project spending, view work photos, verify document records on the blockchain, and report any problems directly.
+            Citizens can track live project spending, inspect geo-tagged site evidence, verify document records on the blockchain, and report any anomalies directly to district vigilance officers.
           </p>
 
-          <div style={{ display: 'flex', gap: '10px', marginTop: 'auto' }}>
+          <div style={{
+            background: 'var(--color-primary-light)',
+            border: '1px solid var(--color-primary-border)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '14px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px'
+          }}>
+            <Lock size={20} color="var(--color-primary)" />
+            <div style={{ fontSize: '12px', color: 'var(--color-primary)', fontWeight: '600' }}>
+              All transactions are permanently etched onto the Ethereum blockchain ledger with zero possibility of retroactive tampering or falsification.
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px', marginTop: 'auto' }}>
             <Link to="/public/projects" className="btn btn-primary" style={{ flex: 1 }}>
               <span>Browse Public Projects</span>
               <ArrowRight size={14} />

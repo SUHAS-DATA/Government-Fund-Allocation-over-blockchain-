@@ -173,22 +173,21 @@ const LoginPage = () => {
         const role = res.user.role;
         switch (role) {
           case 'SUPER_ADMIN':
-            navigate('/admin/dashboard');
+            navigate('/admin');
             break;
           case 'FINANCE':
-            navigate('/finance/dashboard');
+            navigate('/finance');
             break;
           case 'STATE':
-            navigate('/state/dashboard');
-            break;
           case 'DISTRICT':
-            navigate('/district/dashboard');
+          case 'DEPARTMENT':
+            navigate('/department');
             break;
           case 'CONTRACTOR':
             navigate('/contractor/dashboard');
             break;
           case 'AUDITOR':
-            navigate('/auditor/dashboard');
+            navigate('/auditor');
             break;
           default:
             navigate('/');

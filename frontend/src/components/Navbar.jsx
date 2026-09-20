@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import API from '../services/api';
 import RoleAccessModal from './RoleAccessModal';
+import { getActivePortal, PORTAL_DETAILS } from '../config/portalConfig';
 
 const Navbar = ({ onToggleSidebar }) => {
   const { user, logout } = useAuth();
@@ -17,6 +18,7 @@ const Navbar = ({ onToggleSidebar }) => {
   const fyDropdownRef = useRef(null);
   const location = useLocation();
   const navigate = useNavigate();
+  const activePortal = getActivePortal();
 
   const fetchActiveFY = () => {
     API.get('/public/financial-years')
@@ -82,13 +84,29 @@ const Navbar = ({ onToggleSidebar }) => {
 
   const getDashboardPath = () => {
     if (!user) return '/';
+    if (activePortal === 'ADMIN') {
+      return user.role === 'FINANCE' ? '/finance' : '/admin';
+    }
+    if (activePortal === 'FIELD') {
+      return '/department';
+    }
+    if (activePortal === 'CONTRACTOR') {
+      return '/contractor/dashboard';
+    }
+    if (activePortal === 'AUDITOR') {
+      return '/auditor';
+    }
+    if (activePortal === 'PUBLIC') {
+      return '/public';
+    }
     switch (user.role) {
-      case 'SUPER_ADMIN': return '/admin/dashboard';
-      case 'FINANCE': return '/finance/dashboard';
-      case 'STATE': return '/state/dashboard';
-      case 'DISTRICT': return '/district/dashboard';
+      case 'SUPER_ADMIN': return '/admin';
+      case 'FINANCE': return '/finance';
+      case 'STATE':
+      case 'DISTRICT':
+      case 'DEPARTMENT': return '/department';
       case 'CONTRACTOR': return '/contractor/dashboard';
-      case 'AUDITOR': return '/auditor/dashboard';
+      case 'AUDITOR': return '/auditor';
       default: return '/';
     }
   };
@@ -102,27 +120,45 @@ const Navbar = ({ onToggleSidebar }) => {
 
   return (
     <>
+      <div className="tricolor-stripe" />
       <header className="navbar">
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           {user && (
             <button
               onClick={onToggleSidebar}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center' }}
+              style={{
+                background: '#F8FAFC',
+                border: '1px solid var(--border-color)',
+                borderRadius: 'var(--radius-sm)',
+                width: '36px',
+                height: '36px',
+                cursor: 'pointer',
+                color: 'var(--text-main)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.15s ease'
+              }}
+              onMouseOver={(e) => e.currentTarget.style.borderColor = 'var(--color-primary)'}
+              onMouseOut={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}
               title="Toggle Navigation Menu"
             >
-              <Menu size={20} />
+              <Menu size={18} />
             </button>
           )}
 
           <Link to={getDashboardPath()} className="navbar-brand">
-            <div className="navbar-emblem">GF</div>
+            <div className="navbar-emblem">
+              <span>GOV</span>
+            </div>
             <div>
-              <div className="navbar-title">Government Fund Allocation Tracking</div>
+              <div className="navbar-title">PFMS Fund Tracking Ledger</div>
+              <div className="navbar-subtitle">Government of India • Blockchain Verified</div>
             </div>
           </Link>
         </div>
 
-        <div className="navbar-right" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div className="navbar-right">
           {user && (
             <>
               {/* Active Financial Year Indicator & Quick Switcher */}
@@ -289,42 +325,45 @@ const Navbar = ({ onToggleSidebar }) => {
             </>
           )}
 
-          {/* Top-Right 3-Line Hamburger Menu Button to Access All Roles in Columns */}
-          <button
-            onClick={() => setShowRoleModal(true)}
-            style={{
-              background: '#FFFFFF',
-              border: '1.5px solid var(--border-color)',
-              borderRadius: '8px',
-              padding: '6px 12px',
-              cursor: 'pointer',
-              color: 'var(--color-primary)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontWeight: '700',
-              fontSize: '13px',
-              boxShadow: 'var(--shadow-sm)',
-              transition: 'all 0.15s ease'
-            }}
-            onMouseOver={(e) => {
-              e.currentTarget.style.borderColor = 'var(--color-primary)';
-              e.currentTarget.style.backgroundColor = 'var(--color-primary-bg)';
-            }}
-            onMouseOut={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border-color)';
-              e.currentTarget.style.backgroundColor = '#FFFFFF';
-            }}
-            title="Access All Roles & Portals"
-          >
-            <Menu size={20} strokeWidth={2.5} />
-            <span style={{ fontSize: '12px' }}>Portals</span>
-          </button>
+          {/* Top-Right 3-Line Hamburger Menu Button to Access All Roles in Columns (Only if no specific VITE_PORTAL deployment is active) */}
+          {!activePortal && (
+            <>
+              <button
+                onClick={() => setShowRoleModal(true)}
+                style={{
+                  background: '#FFFFFF',
+                  border: '1.5px solid var(--border-color)',
+                  borderRadius: '8px',
+                  padding: '6px 12px',
+                  cursor: 'pointer',
+                  color: 'var(--color-primary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontWeight: '700',
+                  fontSize: '13px',
+                  boxShadow: 'var(--shadow-sm)',
+                  transition: 'all 0.15s ease'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--color-primary)';
+                  e.currentTarget.style.backgroundColor = 'var(--color-primary-bg)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--border-color)';
+                  e.currentTarget.style.backgroundColor = '#FFFFFF';
+                }}
+                title="Access All Roles & Portals"
+              >
+                <Menu size={20} strokeWidth={2.5} />
+                <span style={{ fontSize: '12px' }}>Portals</span>
+              </button>
+              {/* Roles & Portals Mega-Modal */}
+              <RoleAccessModal isOpen={showRoleModal} onClose={() => setShowRoleModal(false)} />
+            </>
+          )}
         </div>
       </header>
-
-      {/* Roles & Portals Mega-Modal */}
-      <RoleAccessModal isOpen={showRoleModal} onClose={() => setShowRoleModal(false)} />
     </>
   );
 };

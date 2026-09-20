@@ -127,7 +127,7 @@ const DistrictLoginPage = () => {
         if (res.user.role !== 'DISTRICT' && res.user.role !== 'SUPER_ADMIN') {
           throw new Error('Access Denied: Only designated District Officers are permitted to log in via this portal.');
         }
-        navigate('/district/dashboard');
+        navigate('/department');
       }
     } catch (err) {
       setError(err.message || 'District Officer authentication failed. Please verify credentials.');

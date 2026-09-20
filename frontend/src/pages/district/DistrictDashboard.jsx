@@ -9,14 +9,14 @@ import {
   ShieldCheck, 
   TrendingUp,
   MapPin,
-  Building
+  Building,
+  Lock
 } from 'lucide-react';
 import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
 import StatCard from '../../components/StatCard';
 import BlockchainBadge from '../../components/BlockchainBadge';
 import { useAuth } from '../../context/AuthContext';
-
 import { getAllStates, getDistrictsByState, getStateForDistrict, getState } from '../../config/statesDistrictsData';
 
 const DistrictDashboard = () => {
@@ -66,106 +66,124 @@ const DistrictDashboard = () => {
 
   const metrics = data?.metrics;
   const availableDistricts = getDistrictsByState(selectedState);
+  const currentDistrictName = isDistrictOfficer ? assignedDistrict : (data?.district_name || selectedDistrict);
 
   return (
     <div>
-      <div className="page-header" style={{ alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '14px' }}>
-        <div>
-          <h1 className="page-title">
-            <FolderKanban size={24} color="var(--color-primary)" />
-            <span>District Development Authority Dashboard ({isDistrictOfficer ? assignedDistrict : (data?.district_name || selectedDistrict)})</span>
-          </h1>
-          <p className="page-subtitle">
-            Local project creation, contractor KYC verification, smart contract escrow funding, and milestone payment releases.
-          </p>
-        </div>
+      {/* Institutional Hero Banner */}
+      <div className="gov-hero-banner">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px' }}>
+          <div>
+            <div className="gov-hero-pill">
+              <MapPin size={13} />
+              <span>District Planning & Rural/Urban Infrastructure Cell</span>
+            </div>
+            <h1 className="gov-hero-title">
+              District Development Authority Dashboard ({currentDistrictName})
+            </h1>
+            <p className="gov-hero-subtitle">
+              Local project creation, contractor KYC verification, smart contract escrow funding, and milestone payment releases for {currentDistrictName} district.
+            </p>
+          </div>
 
-        {/* District Switcher & Action Buttons */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-          
-          {/* If District Officer: Show Locked Jurisdiction Badge */}
-          {isDistrictOfficer ? (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: 'rgba(124, 58, 237, 0.08)',
-              padding: '6px 14px',
-              borderRadius: 'var(--radius-sm)',
-              border: '1.5px solid #DDD6FE',
-              boxShadow: 'var(--shadow-xs)'
-            }}>
-              <MapPin size={16} color="#7C3AED" />
-              <div>
-                <div style={{ fontSize: '10px', fontWeight: '800', textTransform: 'uppercase', color: '#7C3AED' }}>
-                  Assigned District Jurisdiction
+          {/* District Switcher & Action Buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            {/* If District Officer: Show Locked Jurisdiction Badge */}
+            {isDistrictOfficer ? (
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: 'rgba(255, 255, 255, 0.95)',
+                padding: '6px 14px',
+                borderRadius: 'var(--radius-sm)',
+                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)'
+              }}>
+                <MapPin size={15} color="#0D5C3A" />
+                <div>
+                  <div style={{ fontSize: '10px', fontWeight: '800', textTransform: 'uppercase', color: '#0D5C3A' }}>
+                    Jurisdiction
+                  </div>
+                  <div style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-main)' }}>
+                    {assignedDistrict} ({assignedStateName})
+                  </div>
                 </div>
-                <div style={{ fontSize: '13px', fontWeight: '800', color: 'var(--text-main)' }}>
-                  {assignedDistrict} ({assignedStateName})
-                </div>
+                <span className="badge badge-success" style={{ fontSize: '10px', marginLeft: '4px' }}>
+                  <Lock size={10} /> Authorized
+                </span>
               </div>
-              <span className="badge badge-success" style={{ fontSize: '10px', marginLeft: '6px' }}>
-                🔒 Authorized
-              </span>
-            </div>
-          ) : (
-            /* Super Admin / Higher Authority Switcher */
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              background: '#FFFFFF',
-              padding: '4px 10px',
-              borderRadius: 'var(--radius-sm)',
-              border: '1px solid var(--border-color)',
-              boxShadow: 'var(--shadow-xs)'
-            }}>
-              <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)' }}>STATE:</span>
-              <select
-                className="form-control form-select"
-                style={{ width: 'auto', padding: '4px 8px', fontSize: '12px', fontWeight: '700', border: 'none', background: 'transparent' }}
-                value={selectedState}
-                onChange={(e) => {
-                  const newSt = e.target.value;
-                  setSelectedState(newSt);
-                  const dists = getDistrictsByState(newSt);
-                  if (dists.length > 0) {
-                    setSelectedDistrict(dists[0].name);
-                  }
-                }}
-              >
-                {getAllStates().map((s) => (
-                  <option key={s.code} value={s.code}>{s.name} ({s.code})</option>
-                ))}
-              </select>
+            ) : (
+              /* Super Admin / Higher Authority Switcher */
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                background: 'rgba(255, 255, 255, 0.95)',
+                padding: '4px 10px',
+                borderRadius: 'var(--radius-sm)',
+                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.1)'
+              }}>
+                <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-muted)' }}>STATE:</span>
+                <select
+                  className="form-control form-select"
+                  style={{ width: 'auto', height: '30px', padding: '2px 24px 2px 6px', fontSize: '12px', fontWeight: '700', border: 'none', background: 'transparent' }}
+                  value={selectedState}
+                  onChange={(e) => {
+                    const newSt = e.target.value;
+                    setSelectedState(newSt);
+                    const dists = getDistrictsByState(newSt);
+                    if (dists.length > 0) {
+                      setSelectedDistrict(dists[0].name);
+                    }
+                  }}
+                >
+                  {getAllStates().map((s) => (
+                    <option key={s.code} value={s.code}>{s.name} ({s.code})</option>
+                  ))}
+                </select>
 
-              <span style={{ color: 'var(--border-color)' }}>|</span>
+                <span style={{ color: 'var(--border-color)' }}>|</span>
 
-              <MapPin size={14} color="var(--color-primary)" />
-              <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)' }}>DISTRICT:</span>
-              <select
-                className="form-control form-select"
-                style={{ width: 'auto', padding: '4px 8px', fontSize: '12px', fontWeight: '700', border: 'none', background: 'transparent' }}
-                value={selectedDistrict}
-                onChange={(e) => setSelectedDistrict(e.target.value)}
-              >
-                {availableDistricts.map((d, idx) => (
-                  <option key={`${d.name}-${idx}`} value={d.name}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+                <MapPin size={14} color="var(--color-primary)" />
+                <span style={{ fontSize: '11px', fontWeight: '800', color: 'var(--text-muted)' }}>DISTRICT:</span>
+                <select
+                  className="form-control form-select"
+                  style={{ width: 'auto', height: '30px', padding: '2px 24px 2px 6px', fontSize: '12px', fontWeight: '700', border: 'none', background: 'transparent' }}
+                  value={selectedDistrict}
+                  onChange={(e) => setSelectedDistrict(e.target.value)}
+                >
+                  {availableDistricts.map((d, idx) => (
+                    <option key={`${d.name}-${idx}`} value={d.name}>
+                      {d.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
-          <Link to={`/district/projects`} className="btn btn-primary btn-sm">
-            <Plus size={14} />
-            <span>New Local Project</span>
-          </Link>
-          <Link to="/district/contractors" className="btn btn-secondary btn-sm">
-            <UserCheck size={14} />
-            <span>Review KYC</span>
-          </Link>
+            <Link 
+              to="/district/projects" 
+              className="btn btn-sm"
+              style={{ 
+                backgroundColor: '#F59E0B', 
+                color: '#0F172A', 
+                borderColor: '#F59E0B',
+                fontWeight: '800'
+              }}
+            >
+              <Plus size={14} />
+              <span>New Local Project</span>
+            </Link>
+
+            <Link 
+              to="/district/contractors" 
+              className="btn btn-secondary btn-sm"
+              style={{ backgroundColor: 'rgba(255, 255, 255, 0.9)', borderColor: 'transparent' }}
+            >
+              <UserCheck size={14} />
+              <span>Review KYC</span>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -175,26 +193,30 @@ const DistrictDashboard = () => {
           title="District Funds Received"
           value={metrics?.total_funds_received || 0}
           icon={Coins}
+          color="green"
           isCurrency={true}
-          subtitle={`Allocated to ${data?.district_name || selectedDistrict}`}
+          subtitle={`Allocated to ${currentDistrictName}`}
         />
         <StatCard
           title="Active Projects in District"
           value={metrics?.active_projects_count || 0}
           icon={FolderKanban}
-          subtitle={`${metrics?.total_projects_count || 0} Total Projects in ${data?.district_name || selectedDistrict}`}
+          color="blue"
+          subtitle={`${metrics?.total_projects_count || 0} Total in ${currentDistrictName}`}
         />
         <StatCard
           title="Milestones Released"
           value={metrics?.total_payments_released || 0}
           icon={TrendingUp}
+          color="teal"
           isCurrency={true}
-          subtitle="Smart Contract Escrow Releases"
+          subtitle="Smart Contract Escrows"
         />
         <StatCard
           title="Pending Contractor KYC"
           value={metrics?.pending_kyc_count || 0}
           icon={UserCheck}
+          color="orange"
           subtitle="Verification Required"
         />
       </div>
@@ -205,9 +227,9 @@ const DistrictDashboard = () => {
           <div className="card-header">
             <div className="card-title">
               <FolderKanban size={18} color="var(--color-primary)" />
-              <span>Active Projects in {data?.district_name || selectedDistrict}</span>
+              <span>Active Projects in {currentDistrictName}</span>
             </div>
-            <Link to={`/district/projects?district=${encodeURIComponent(selectedDistrict)}`} className="btn btn-secondary btn-sm">
+            <Link to={`/district/projects?district=${encodeURIComponent(currentDistrictName)}`} className="btn btn-secondary btn-sm">
               View All
             </Link>
           </div>
@@ -219,32 +241,35 @@ const DistrictDashboard = () => {
                   background: 'var(--bg-subtle)',
                   border: '1px solid var(--border-color)',
                   borderRadius: 'var(--radius-sm)',
-                  padding: '12px 16px',
+                  padding: '14px 16px',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'space-between'
+                  justifyContent: 'space-between',
+                  transition: 'all 0.15s ease'
                 }}>
                   <div>
-                    <div style={{ fontWeight: '600', fontSize: '13px', color: 'var(--text-main)' }}>{p.name}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                      ID: <span style={{ fontFamily: 'monospace' }}>{p.project_id}</span> | Scheme: {p.scheme_name}
+                    <div style={{ fontWeight: '700', fontSize: '13px', color: 'var(--text-main)' }}>{p.name}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      ID: <span style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--color-primary)', fontWeight: '600' }}>{p.project_id}</span> • Scheme: {p.scheme_name}
                     </div>
                   </div>
 
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontWeight: '700', color: 'var(--text-main)', fontSize: '14px' }}>
+                    <div style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '14px' }}>
                       {formatCurrency(p.total_budget)}
                     </div>
-                    {p.escrow_tx_hash && <BlockchainBadge txHash={p.escrow_tx_hash} />}
+                    <div style={{ marginTop: '3px' }}>
+                      {p.escrow_tx_hash && <BlockchainBadge txHash={p.escrow_tx_hash} />}
+                    </div>
                   </div>
                 </div>
               ))
             ) : (
-              <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
-                No projects created for {data?.district_name || selectedDistrict} yet.
-                <div style={{ marginTop: '8px' }}>
-                  <Link to={`/district/projects?district=${encodeURIComponent(selectedDistrict)}`} className="btn btn-primary btn-sm">
-                    Create Project for {data?.district_name || selectedDistrict}
+              <div style={{ textAlign: 'center', padding: '36px 20px', color: 'var(--text-muted)' }}>
+                No projects created for {currentDistrictName} yet.
+                <div style={{ marginTop: '12px' }}>
+                  <Link to={`/district/projects?district=${encodeURIComponent(currentDistrictName)}`} className="btn btn-primary btn-sm">
+                    Create Project for {currentDistrictName}
                   </Link>
                 </div>
               </div>
@@ -256,7 +281,7 @@ const DistrictDashboard = () => {
           <div className="card-header">
             <div className="card-title">
               <Coins size={18} color="var(--color-primary)" />
-              <span>Received State Allocations ({data?.district_name || selectedDistrict})</span>
+              <span>Received State Allocations ({currentDistrictName})</span>
             </div>
           </div>
 
@@ -267,28 +292,31 @@ const DistrictDashboard = () => {
                   background: 'var(--bg-subtle)',
                   border: '1px solid var(--border-color)',
                   borderRadius: 'var(--radius-sm)',
-                  padding: '12px 16px',
+                  padding: '14px 16px',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'space-between'
+                  justifyContent: 'space-between',
+                  transition: 'all 0.15s ease'
                 }}>
                   <div>
-                    <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '13px' }}>{f.scheme_name}</div>
-                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                      ID: <span style={{ fontFamily: 'monospace', color: 'var(--color-primary)' }}>{f.district_alloc_id}</span> | {f.department}
+                    <div style={{ fontWeight: '700', color: 'var(--text-main)', fontSize: '13px' }}>{f.scheme_name}</div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      ID: <span style={{ fontFamily: "'JetBrains Mono', monospace", color: 'var(--color-primary)', fontWeight: '600' }}>{f.district_alloc_id}</span> • {f.department}
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontWeight: '700', color: 'var(--color-success)', fontSize: '14px' }}>
+                    <div style={{ fontWeight: '800', color: 'var(--color-success)', fontSize: '14px' }}>
                       {formatCurrency(f.amount)}
                     </div>
-                    {f.blockchain_tx_hash && <BlockchainBadge txHash={f.blockchain_tx_hash} />}
+                    <div style={{ marginTop: '3px' }}>
+                      {f.blockchain_tx_hash && <BlockchainBadge txHash={f.blockchain_tx_hash} />}
+                    </div>
                   </div>
                 </div>
               ))
             ) : (
-              <div style={{ textAlign: 'center', padding: '30px', color: 'var(--text-muted)' }}>
-                No state treasury allocations found for {data?.district_name || selectedDistrict}.
+              <div style={{ textAlign: 'center', padding: '36px 20px', color: 'var(--text-muted)' }}>
+                No state treasury allocations found for {currentDistrictName}.
                 <div style={{ marginTop: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
                   State Finance Department can allocate funds via the State Treasury Portal.
                 </div>

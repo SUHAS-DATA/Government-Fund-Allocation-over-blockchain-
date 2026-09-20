@@ -1,28 +1,31 @@
 import React, { useState } from 'react';
-import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { NotificationProvider } from './context/NotificationContext';
+
+// Portal Configuration Helper & Error Screen
+import { getActivePortal, PORTAL_TYPES } from './config/portalConfig';
+import PortalConfigError from './components/PortalConfigError';
 
 // Shared Components
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import Footer from './components/Footer';
 
+// 5 Dedicated Frontend Portal Entry Pages
+import AdminPortalPage from './pages/portals/AdminPortalPage';
+import FieldPortalPage from './pages/portals/FieldPortalPage';
+import ContractorPortalPage from './pages/portals/ContractorPortalPage';
+import PublicPortalPage from './pages/portals/PublicPortalPage';
+import AuditorPortalPage from './pages/portals/AuditorPortalPage';
+
 // Public Pages
-import HomePage from './pages/public/HomePage';
 import PublicProjects from './pages/public/PublicProjects';
 import PublicProjectDetail from './pages/public/PublicProjectDetail';
 import PublicExplorer from './pages/public/PublicExplorer';
 import GrievancePortal from './pages/public/GrievancePortal';
 import GrievanceTrack from './pages/public/GrievanceTrack';
 import HowItWorks from './pages/public/HowItWorks';
-import SelectUserTypePage from './pages/public/SelectUserTypePage';
-
-// Auth Pages
-import LoginPage from './pages/auth/LoginPage';
-import RegisterPage from './pages/auth/RegisterPage';
-import DistrictLoginPage from './pages/auth/DistrictLoginPage';
-import ContractorLoginPage from './pages/auth/ContractorLoginPage';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -42,13 +45,12 @@ import TransferToState from './pages/finance/TransferToState';
 import FinanceHistory from './pages/finance/FinanceHistory';
 
 // State Pages
-import StateDashboard from './pages/state/StateDashboard';
 import StateReceivedFunds from './pages/state/StateReceivedFunds';
 import AllocateToDistrict from './pages/state/AllocateToDistrict';
 import StateHistory from './pages/state/StateHistory';
 
-// District Pages
-import DistrictDashboard from './pages/district/DistrictDashboard';
+// Department / District Pages
+import DepartmentDashboard from './pages/department/DepartmentDashboard';
 import ProjectsManagement from './pages/district/ProjectsManagement';
 import ContractorKYCReview from './pages/district/ContractorKYCReview';
 import GrievanceInbox from './pages/district/GrievanceInbox';
@@ -70,15 +72,31 @@ import SubmitAuditReport from './pages/auditor/SubmitAuditReport';
 // Common Pages
 import ProfilePage from './pages/common/ProfilePage';
 import NotificationsPage from './pages/common/NotificationsPage';
-import NotFoundPage from './pages/common/NotFoundPage';
 
-// Protected Route Guard Component
-const ProtectedRoute = ({ allowedRoles, children }) => {
+// Role Home Helper based on Active Portal
+const getRoleHome = (role, activePortal) => {
+  if (activePortal === PORTAL_TYPES.ADMIN) {
+    return role === 'FINANCE' ? '/finance' : '/admin';
+  }
+  if (activePortal === PORTAL_TYPES.FIELD) {
+    return '/department';
+  }
+  if (activePortal === PORTAL_TYPES.CONTRACTOR) {
+    return '/contractor/dashboard';
+  }
+  if (activePortal === PORTAL_TYPES.AUDITOR) {
+    return '/auditor';
+  }
+  return '/';
+};
+
+// Protected Route Guard Component with Portal-Specific Redirection
+const ProtectedRoute = ({ allowedRoles, activePortal, children }) => {
   const { user, loading } = useAuth();
   if (loading) return <div style={{ padding: '60px', textAlign: 'center' }}>Authenticating government session...</div>;
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/" replace />;
   if (allowedRoles && !allowedRoles.includes(user.role)) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={getRoleHome(user.role, activePortal)} replace />;
   }
   return children;
 };
@@ -103,84 +121,172 @@ const PortalLayout = ({ children }) => {
 };
 
 function App() {
+  const activePortal = getActivePortal();
+
+  // If VITE_PORTAL is missing or invalid: show configuration error screen (DO NOT show the 7 roles screen)
+  if (!activePortal || activePortal === 'INVALID') {
+    return <PortalConfigError detectedValue={import.meta.env.VITE_PORTAL} />;
+  }
+
   return (
     <AuthProvider>
       <NotificationProvider>
-        <HashRouter>
+        <BrowserRouter>
           <PortalLayout>
             <Routes>
-              {/* Public Routes */}
-              <Route path="/" element={<HomePage />} />
-              <Route path="/select-user-type" element={<SelectUserTypePage />} />
-              <Route path="/portals" element={<SelectUserTypePage />} />
-              <Route path="/public/projects" element={<PublicProjects />} />
-              <Route path="/public/projects/:id" element={<PublicProjectDetail />} />
-              <Route path="/public/explorer" element={<PublicExplorer />} />
-              <Route path="/public/grievance" element={<GrievancePortal />} />
-              <Route path="/public/grievance/track/:refId" element={<GrievanceTrack />} />
-              <Route path="/how-it-works" element={<HowItWorks />} />
+              {/* ========================================================= */}
+              {/* PORTAL 1 — ADMIN (VITE_PORTAL=ADMIN)                      */}
+              {/* Shows ONLY Super Admin and Finance Department             */}
+              {/* ========================================================= */}
+              {activePortal === PORTAL_TYPES.ADMIN && (
+                <>
+                  {/* Entry Point: Admin Portal Login */}
+                  <Route path="/" element={<AdminPortalPage />} />
+                  <Route path="/admin-portal" element={<AdminPortalPage />} />
+                  <Route path="/login" element={<AdminPortalPage />} />
 
-              {/* Auth Routes */}
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/district-login" element={<DistrictLoginPage />} />
-              <Route path="/auth/district-login" element={<DistrictLoginPage />} />
-              <Route path="/contractor-login" element={<ContractorLoginPage />} />
-              <Route path="/auth/contractor-login" element={<ContractorLoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
+                  {/* Super Admin Dashboards & Operations */}
+                  <Route path="/admin" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} activePortal={activePortal}><AdminDashboard /></ProtectedRoute>} />
+                  <Route path="/admin/dashboard" element={<Navigate to="/admin" replace />} />
+                  <Route path="/admin/financial-years" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} activePortal={activePortal}><FinancialYears /></ProtectedRoute>} />
+                  <Route path="/admin/departments" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} activePortal={activePortal}><Departments /></ProtectedRoute>} />
+                  <Route path="/admin/states-districts" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} activePortal={activePortal}><StatesDistricts /></ProtectedRoute>} />
+                  <Route path="/admin/schemes" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} activePortal={activePortal}><Schemes /></ProtectedRoute>} />
+                  <Route path="/admin/budget-allocation" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} activePortal={activePortal}><BudgetAllocation /></ProtectedRoute>} />
+                  <Route path="/admin/send-to-finance" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} activePortal={activePortal}><SendToFinance /></ProtectedRoute>} />
+                  <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} activePortal={activePortal}><UserManagement /></ProtectedRoute>} />
+                  <Route path="/admin/blockchain-explorer" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} activePortal={activePortal}><AuditExplorer /></ProtectedRoute>} />
+                  <Route path="/admin/audit-reports" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} activePortal={activePortal}><AuditReportsReview /></ProtectedRoute>} />
 
-              {/* Super Admin Routes */}
-              <Route path="/admin/dashboard" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><AdminDashboard /></ProtectedRoute>} />
-              <Route path="/admin/financial-years" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><FinancialYears /></ProtectedRoute>} />
-              <Route path="/admin/departments" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><Departments /></ProtectedRoute>} />
-              <Route path="/admin/states-districts" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><StatesDistricts /></ProtectedRoute>} />
-              <Route path="/admin/schemes" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><Schemes /></ProtectedRoute>} />
-              <Route path="/admin/budget-allocation" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><BudgetAllocation /></ProtectedRoute>} />
-              <Route path="/admin/send-to-finance" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><SendToFinance /></ProtectedRoute>} />
-              <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><UserManagement /></ProtectedRoute>} />
-              <Route path="/admin/blockchain-explorer" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><AuditExplorer /></ProtectedRoute>} />
-              <Route path="/admin/audit-reports" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']}><AuditReportsReview /></ProtectedRoute>} />
+                  {/* Finance Department Dashboards & Operations */}
+                  <Route path="/finance" element={<ProtectedRoute allowedRoles={['FINANCE']} activePortal={activePortal}><FinanceDashboard /></ProtectedRoute>} />
+                  <Route path="/finance/dashboard" element={<Navigate to="/finance" replace />} />
+                  <Route path="/finance/received-budgets" element={<ProtectedRoute allowedRoles={['FINANCE']} activePortal={activePortal}><ReceivedBudgets /></ProtectedRoute>} />
+                  <Route path="/finance/transfers" element={<ProtectedRoute allowedRoles={['FINANCE']} activePortal={activePortal}><TransferToState /></ProtectedRoute>} />
+                  <Route path="/finance/history" element={<ProtectedRoute allowedRoles={['FINANCE']} activePortal={activePortal}><FinanceHistory /></ProtectedRoute>} />
 
-              {/* Finance Routes */}
-              <Route path="/finance/dashboard" element={<ProtectedRoute allowedRoles={['FINANCE', 'SUPER_ADMIN']}><FinanceDashboard /></ProtectedRoute>} />
-              <Route path="/finance/received-budgets" element={<ProtectedRoute allowedRoles={['FINANCE', 'SUPER_ADMIN']}><ReceivedBudgets /></ProtectedRoute>} />
-              <Route path="/finance/transfers" element={<ProtectedRoute allowedRoles={['FINANCE', 'SUPER_ADMIN']}><TransferToState /></ProtectedRoute>} />
-              <Route path="/finance/history" element={<ProtectedRoute allowedRoles={['FINANCE', 'SUPER_ADMIN']}><FinanceHistory /></ProtectedRoute>} />
+                  {/* Common Authenticated Routes */}
+                  <Route path="/profile" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'FINANCE']} activePortal={activePortal}><ProfilePage /></ProtectedRoute>} />
+                  <Route path="/notifications" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'FINANCE']} activePortal={activePortal}><NotificationsPage /></ProtectedRoute>} />
 
-              {/* State Routes */}
-              <Route path="/state/dashboard" element={<ProtectedRoute allowedRoles={['STATE', 'SUPER_ADMIN']}><StateDashboard /></ProtectedRoute>} />
-              <Route path="/state/received-funds" element={<ProtectedRoute allowedRoles={['STATE', 'SUPER_ADMIN']}><StateReceivedFunds /></ProtectedRoute>} />
-              <Route path="/state/allocations" element={<ProtectedRoute allowedRoles={['STATE', 'SUPER_ADMIN']}><AllocateToDistrict /></ProtectedRoute>} />
-              <Route path="/state/history" element={<ProtectedRoute allowedRoles={['STATE', 'SUPER_ADMIN']}><StateHistory /></ProtectedRoute>} />
+                  {/* Catch-all: Redirect to Admin Portal Entry */}
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </>
+              )}
 
-              {/* District Routes */}
-              <Route path="/district/dashboard" element={<ProtectedRoute allowedRoles={['DISTRICT', 'SUPER_ADMIN']}><DistrictDashboard /></ProtectedRoute>} />
-              <Route path="/district/projects" element={<ProtectedRoute allowedRoles={['DISTRICT', 'SUPER_ADMIN']}><ProjectsManagement /></ProtectedRoute>} />
-              <Route path="/district/contractors" element={<ProtectedRoute allowedRoles={['DISTRICT', 'SUPER_ADMIN']}><ContractorKYCReview /></ProtectedRoute>} />
-              <Route path="/district/grievances" element={<ProtectedRoute allowedRoles={['DISTRICT', 'SUPER_ADMIN']}><GrievanceInbox /></ProtectedRoute>} />
+              {/* ========================================================= */}
+              {/* PORTAL 2 — FIELD (VITE_PORTAL=FIELD)                      */}
+              {/* Shows ONLY State Treasury and District Agency             */}
+              {/* ========================================================= */}
+              {activePortal === PORTAL_TYPES.FIELD && (
+                <>
+                  {/* Entry Point: Field Portal Login */}
+                  <Route path="/" element={<FieldPortalPage />} />
+                  <Route path="/field-portal" element={<FieldPortalPage />} />
+                  <Route path="/district-login" element={<FieldPortalPage />} />
 
-              {/* Contractor Routes */}
-              <Route path="/contractor/dashboard" element={<ProtectedRoute allowedRoles={['CONTRACTOR']}><ContractorDashboard /></ProtectedRoute>} />
-              <Route path="/contractor/my-projects" element={<ProtectedRoute allowedRoles={['CONTRACTOR']}><MyProjects /></ProtectedRoute>} />
-              <Route path="/contractor/kyc" element={<ProtectedRoute allowedRoles={['CONTRACTOR']}><ContractorKYC /></ProtectedRoute>} />
-              <Route path="/contractor/payments" element={<ProtectedRoute allowedRoles={['CONTRACTOR']}><MilestonePayments /></ProtectedRoute>} />
+                  {/* State & District Dashboards & Operations */}
+                  <Route path="/department" element={<ProtectedRoute allowedRoles={['STATE', 'DISTRICT', 'DEPARTMENT']} activePortal={activePortal}><DepartmentDashboard /></ProtectedRoute>} />
+                  <Route path="/state/dashboard" element={<Navigate to="/department" replace />} />
+                  <Route path="/district/dashboard" element={<Navigate to="/department" replace />} />
 
-              {/* Auditor Routes */}
-              <Route path="/auditor/dashboard" element={<ProtectedRoute allowedRoles={['AUDITOR', 'SUPER_ADMIN']}><AuditorDashboard /></ProtectedRoute>} />
-              <Route path="/auditor/blockchain-explorer" element={<ProtectedRoute allowedRoles={['AUDITOR', 'SUPER_ADMIN']}><AuditExplorer /></ProtectedRoute>} />
-              <Route path="/auditor/document-audit" element={<ProtectedRoute allowedRoles={['AUDITOR', 'SUPER_ADMIN']}><DocumentAudit /></ProtectedRoute>} />
-              <Route path="/auditor/anomalies" element={<ProtectedRoute allowedRoles={['AUDITOR', 'SUPER_ADMIN']}><AnomalyAnalytics /></ProtectedRoute>} />
-              <Route path="/auditor/fraud-freeze" element={<ProtectedRoute allowedRoles={['AUDITOR', 'SUPER_ADMIN']}><FraudFreeze /></ProtectedRoute>} />
-              <Route path="/auditor/submit-report" element={<ProtectedRoute allowedRoles={['AUDITOR', 'SUPER_ADMIN']}><SubmitAuditReport /></ProtectedRoute>} />
+                  {/* State Treasury Sub-Routes */}
+                  <Route path="/state/received-funds" element={<ProtectedRoute allowedRoles={['STATE', 'DEPARTMENT']} activePortal={activePortal}><StateReceivedFunds /></ProtectedRoute>} />
+                  <Route path="/state/allocations" element={<ProtectedRoute allowedRoles={['STATE', 'DEPARTMENT']} activePortal={activePortal}><AllocateToDistrict /></ProtectedRoute>} />
+                  <Route path="/state/history" element={<ProtectedRoute allowedRoles={['STATE', 'DEPARTMENT']} activePortal={activePortal}><StateHistory /></ProtectedRoute>} />
 
-              {/* Common Routes */}
-              <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-              <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
+                  {/* District Agency Sub-Routes */}
+                  <Route path="/district/projects" element={<ProtectedRoute allowedRoles={['DISTRICT', 'DEPARTMENT']} activePortal={activePortal}><ProjectsManagement /></ProtectedRoute>} />
+                  <Route path="/district/contractors" element={<ProtectedRoute allowedRoles={['DISTRICT', 'DEPARTMENT']} activePortal={activePortal}><ContractorKYCReview /></ProtectedRoute>} />
+                  <Route path="/district/grievances" element={<ProtectedRoute allowedRoles={['DISTRICT', 'DEPARTMENT']} activePortal={activePortal}><GrievanceInbox /></ProtectedRoute>} />
 
-              {/* 404 Route */}
-              <Route path="*" element={<NotFoundPage />} />
+                  {/* Common Authenticated Routes */}
+                  <Route path="/profile" element={<ProtectedRoute allowedRoles={['STATE', 'DISTRICT', 'DEPARTMENT']} activePortal={activePortal}><ProfilePage /></ProtectedRoute>} />
+                  <Route path="/notifications" element={<ProtectedRoute allowedRoles={['STATE', 'DISTRICT', 'DEPARTMENT']} activePortal={activePortal}><NotificationsPage /></ProtectedRoute>} />
+
+                  {/* Catch-all: Redirect to Field Portal Entry */}
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </>
+              )}
+
+              {/* ========================================================= */}
+              {/* PORTAL 3 — CONTRACTOR (VITE_PORTAL=CONTRACTOR)            */}
+              {/* Shows ONLY Contractor Registration, Login, & Dashboard    */}
+              {/* ========================================================= */}
+              {activePortal === PORTAL_TYPES.CONTRACTOR && (
+                <>
+                  {/* Entry Point: Contractor Portal (Login & Registration) */}
+                  <Route path="/" element={<ContractorPortalPage />} />
+                  <Route path="/contractor-portal" element={<ContractorPortalPage />} />
+                  <Route path="/contractor-login" element={<ContractorPortalPage />} />
+                  <Route path="/register" element={<ContractorPortalPage />} />
+
+                  {/* Contractor Dashboard & Operations */}
+                  <Route path="/contractor/dashboard" element={<ProtectedRoute allowedRoles={['CONTRACTOR']} activePortal={activePortal}><ContractorDashboard /></ProtectedRoute>} />
+                  <Route path="/contractor/my-projects" element={<ProtectedRoute allowedRoles={['CONTRACTOR']} activePortal={activePortal}><MyProjects /></ProtectedRoute>} />
+                  <Route path="/contractor/kyc" element={<ProtectedRoute allowedRoles={['CONTRACTOR']} activePortal={activePortal}><ContractorKYC /></ProtectedRoute>} />
+                  <Route path="/contractor/payments" element={<ProtectedRoute allowedRoles={['CONTRACTOR']} activePortal={activePortal}><MilestonePayments /></ProtectedRoute>} />
+
+                  {/* Common Authenticated Routes */}
+                  <Route path="/profile" element={<ProtectedRoute allowedRoles={['CONTRACTOR']} activePortal={activePortal}><ProfilePage /></ProtectedRoute>} />
+                  <Route path="/notifications" element={<ProtectedRoute allowedRoles={['CONTRACTOR']} activePortal={activePortal}><NotificationsPage /></ProtectedRoute>} />
+
+                  {/* Catch-all: Redirect to Contractor Portal Entry */}
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </>
+              )}
+
+              {/* ========================================================= */}
+              {/* PORTAL 4 — PUBLIC (VITE_PORTAL=PUBLIC)                    */}
+              {/* Shows ONLY Public / Citizen Interface (No Login Required) */}
+              {/* ========================================================= */}
+              {activePortal === PORTAL_TYPES.PUBLIC && (
+                <>
+                  {/* Entry Point: Public Portal */}
+                  <Route path="/" element={<PublicPortalPage />} />
+                  <Route path="/public" element={<PublicPortalPage />} />
+                  <Route path="/public/projects" element={<PublicProjects />} />
+                  <Route path="/public/projects/:id" element={<PublicProjectDetail />} />
+                  <Route path="/public/explorer" element={<PublicExplorer />} />
+                  <Route path="/public/grievance" element={<GrievancePortal />} />
+                  <Route path="/public/grievance/track/:refId" element={<GrievanceTrack />} />
+                  <Route path="/how-it-works" element={<HowItWorks />} />
+
+                  {/* Catch-all: Redirect to Public Portal Entry */}
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </>
+              )}
+
+              {/* ========================================================= */}
+              {/* PORTAL 5 — AUDITOR (VITE_PORTAL=AUDITOR)                  */}
+              {/* Shows ONLY Auditor Login, Dashboard, & Operations         */}
+              {/* ========================================================= */}
+              {activePortal === PORTAL_TYPES.AUDITOR && (
+                <>
+                  {/* Entry Point: Auditor Portal Login */}
+                  <Route path="/" element={<AuditorPortalPage />} />
+                  <Route path="/auditor-portal" element={<AuditorPortalPage />} />
+
+                  {/* Auditor Dashboard & Operations */}
+                  <Route path="/auditor" element={<ProtectedRoute allowedRoles={['AUDITOR']} activePortal={activePortal}><AuditorDashboard /></ProtectedRoute>} />
+                  <Route path="/auditor/dashboard" element={<Navigate to="/auditor" replace />} />
+                  <Route path="/auditor/blockchain-explorer" element={<ProtectedRoute allowedRoles={['AUDITOR']} activePortal={activePortal}><AuditExplorer /></ProtectedRoute>} />
+                  <Route path="/auditor/document-audit" element={<ProtectedRoute allowedRoles={['AUDITOR']} activePortal={activePortal}><DocumentAudit /></ProtectedRoute>} />
+                  <Route path="/auditor/anomalies" element={<ProtectedRoute allowedRoles={['AUDITOR']} activePortal={activePortal}><AnomalyAnalytics /></ProtectedRoute>} />
+                  <Route path="/auditor/fraud-freeze" element={<ProtectedRoute allowedRoles={['AUDITOR']} activePortal={activePortal}><FraudFreeze /></ProtectedRoute>} />
+                  <Route path="/auditor/submit-report" element={<ProtectedRoute allowedRoles={['AUDITOR']} activePortal={activePortal}><SubmitAuditReport /></ProtectedRoute>} />
+
+                  {/* Common Authenticated Routes */}
+                  <Route path="/profile" element={<ProtectedRoute allowedRoles={['AUDITOR']} activePortal={activePortal}><ProfilePage /></ProtectedRoute>} />
+                  <Route path="/notifications" element={<ProtectedRoute allowedRoles={['AUDITOR']} activePortal={activePortal}><NotificationsPage /></ProtectedRoute>} />
+
+                  {/* Catch-all: Redirect to Auditor Portal Entry */}
+                  <Route path="*" element={<Navigate to="/" replace />} />
+                </>
+              )}
             </Routes>
           </PortalLayout>
-        </HashRouter>
+        </BrowserRouter>
       </NotificationProvider>
     </AuthProvider>
   );
