@@ -179,26 +179,44 @@ async def allocate_to_district(
                     }}
                 )
 
-        tx_receipt = bcs.record_district_allocation_onchain(dist_alloc_id, transfer_id, district_name, amount)
+        to_dist = bcs.get_entity_wallet("DISTRICT", district_name)
+        from_state = bcs.get_entity_wallet("STATE", trf.get("state_code"))
+        state_title = trf.get("state_name") or "State"
+
+        tx_receipt = bcs.record_district_allocation_onchain(dist_alloc_id, transfer_id, district_name, amount, receiver_address=to_dist)
         if tx_receipt:
             tx_hash = tx_receipt["tx_hash"]
             block_num = tx_receipt["block_number"]
+            from_state = tx_receipt.get("from_address", from_state)
     except Exception as e:
         print(f"Warning executing district allocation on blockchain: {e}")
 
     # 2. Record District Allocation in MongoDB
+    now_utc = datetime.now(timezone.utc)
     dist_doc = {
         "district_alloc_id": dist_alloc_id,
         "transfer_id": transfer_id,
+        "project_id": dist_alloc_id,
+        "projectId": dist_alloc_id,
         "scheme_name": trf.get("scheme_name"),
         "department": trf.get("department"),
         "state_code": trf.get("state_code"),
         "district_name": district_name,
         "amount": amount,
         "allocated_by": current_user["name"],
+        "sender_address": from_state,
+        "senderAddress": from_state,
+        "receiver_address": to_dist,
+        "receiverAddress": to_dist,
+        "sender_department": f"{state_title} State Treasury",
+        "senderDepartment": f"{state_title} State Treasury",
+        "receiver_department": f"{district_name} District Implementing Agency",
+        "receiverDepartment": f"{district_name} District Implementing Agency",
         "blockchain_tx_hash": tx_hash,
+        "blockchainTxHash": tx_hash,
         "blockchain_block": block_num,
-        "created_at": datetime.now(timezone.utc)
+        "created_at": now_utc,
+        "timestamp": now_utc
     }
     db.district_allocations.insert_one(dist_doc)
 
@@ -207,29 +225,35 @@ async def allocate_to_district(
         {"transfer_id": transfer_id},
         {"$set": {
             "allocated_to_districts": already_allocated + amount,
-            "last_allocation_at": datetime.now(timezone.utc)
+            "last_allocation_at": now_utc
         }}
     )
 
     # 4. Log to Global Blockchain Transactions Collection
     if tx_hash:
-        from_state = bcs.get_entity_wallet("STATE", trf.get("state_code"))
-        to_dist = bcs.get_entity_wallet("DISTRICT", district_name)
-        state_title = trf.get("state_name") or "State"
         db.blockchain_transactions.insert_one({
             "tx_hash": tx_hash,
+            "blockchainTxHash": tx_hash,
             "block_number": block_num,
             "operation_type": "STATE_DISTRICT_ALLOCATION",
             "entity_id": dist_alloc_id,
+            "project_id": dist_alloc_id,
+            "projectId": dist_alloc_id,
             "from_address": from_state,
+            "senderAddress": from_state,
             "to_address": to_dist,
+            "receiverAddress": to_dist,
             "from_entity": f"{state_title} State Treasury",
             "to_entity": f"{district_name} District Development Agency",
+            "sender_department": f"{state_title} State Treasury",
+            "senderDepartment": f"{state_title} State Treasury",
+            "receiver_department": f"{district_name} District Implementing Agency",
+            "receiverDepartment": f"{district_name} District Implementing Agency",
             "transfer_tier": "STATE_TO_DISTRICT",
             "flow_stage": f"3. {state_title} Treasury -> {district_name} District",
             "amount": amount,
             "details": f"District Fund Sanction: {state_title} Treasury -> {district_name} District Agency for {trf.get('scheme_name')}",
-            "timestamp": datetime.now(timezone.utc)
+            "timestamp": now_utc
         })
 
     # 5. Notify District Collector

@@ -53,13 +53,14 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Configurable CORS
-cors_origins = os.getenv("CORS_ORIGINS", "*")
-origins = [o.strip() for o in cors_origins.split(",")] if cors_origins != "*" else ["*"]
+# Configurable CORS (Supports Vercel Deployments, localhost, and custom domains)
+cors_origins = os.getenv("CORS_ORIGINS", "")
+origins = [o.strip() for o in cors_origins.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins if origins != ["*"] else ["*"],
+    allow_origins=origins if (origins and "*" not in origins) else [],
+    allow_origin_regex=r"^https?://.*" if (not origins or "*" in origins) else None,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -103,6 +104,13 @@ async def health():
 
     bc_connected = bcs.is_blockchain_connected()
 
+    chain_id = int(os.getenv("CHAIN_ID", 5777))
+    if bc_connected:
+        try:
+            chain_id = bcs.w3.eth.chain_id
+        except Exception:
+            pass
+
     return {
         "status": "HEALTHY",
         "framework": "FastAPI",
@@ -111,7 +119,7 @@ async def health():
         "blockchain": {
             "connected": bc_connected,
             "contract_address": bcs.contract_address,
-            "chain_id": 31337
+            "chain_id": chain_id
         }
     }
 

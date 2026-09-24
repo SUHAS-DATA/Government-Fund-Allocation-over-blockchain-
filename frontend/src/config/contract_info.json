@@ -1,7 +1,7 @@
 {
   "contractAddress": "0x7A259d42d1F6e24cfF76aDDF89eEBDAC195E1c20",
   "network": "ganache",
-  "chainId": 1337,
+  "chainId": 5777,
   "deployer": "0x1622F9853bDFEc6ba1A40FBf9bba7Fd74e8B451B",
   "abi": [
     {
@@ -124,6 +124,55 @@
         }
       ],
       "name": "ForensicAuditReportSubmitted",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "receiver",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "senderDepartment",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "receiverDepartment",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "projectId",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        }
+      ],
+      "name": "FundTransferred",
       "type": "event"
     },
     {
@@ -415,6 +464,39 @@
       "inputs": [
         {
           "internalType": "string",
+          "name": "distAllocId",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "trfId",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "district",
+          "type": "string"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "receiverWallet",
+          "type": "address"
+        }
+      ],
+      "name": "allocateToDistrictWithReceiver",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
           "name": "docId",
           "type": "string"
         },
@@ -685,6 +767,60 @@
       "inputs": [
         {
           "internalType": "string",
+          "name": "",
+          "type": "string"
+        }
+      ],
+      "name": "fundTransferRecords",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "sender",
+          "type": "address"
+        },
+        {
+          "internalType": "address",
+          "name": "receiver",
+          "type": "address"
+        },
+        {
+          "internalType": "string",
+          "name": "senderDepartment",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "receiverDepartment",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "projectId",
+          "type": "string"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "exists",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
           "name": "projectId",
           "type": "string"
         }
@@ -866,6 +1002,44 @@
       "inputs": [
         {
           "internalType": "string",
+          "name": "transferKey",
+          "type": "string"
+        },
+        {
+          "internalType": "address",
+          "name": "receiver",
+          "type": "address"
+        },
+        {
+          "internalType": "string",
+          "name": "senderDept",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "receiverDept",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "projectId",
+          "type": "string"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "recordFundTransfer",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
           "name": "projectId",
           "type": "string"
         },
@@ -1025,6 +1199,44 @@
       "inputs": [
         {
           "internalType": "string",
+          "name": "transferId",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "projectId",
+          "type": "string"
+        },
+        {
+          "internalType": "address",
+          "name": "contractorWallet",
+          "type": "address"
+        },
+        {
+          "internalType": "string",
+          "name": "districtName",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "contractorName",
+          "type": "string"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "transferToContractor",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
           "name": "trfId",
           "type": "string"
         },
@@ -1045,6 +1257,39 @@
         }
       ],
       "name": "transferToState",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "trfId",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "allocId",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "state",
+          "type": "string"
+        },
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "receiverWallet",
+          "type": "address"
+        }
+      ],
+      "name": "transferToStateWithReceiver",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -1097,5 +1342,5 @@
       "type": "function"
     }
   ],
-  "deployedAt": "2026-08-09T05:02:50.082Z"
+  "deployedAt": "2026-09-22T00:00:00.000Z"
 }

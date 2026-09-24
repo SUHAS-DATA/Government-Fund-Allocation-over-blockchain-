@@ -2,6 +2,7 @@ import os
 from datetime import datetime, timezone
 from database import db
 from auth_middleware import hash_password
+import blockchain_service as bcs
 
 def seed():
     print("Starting automated database seeding for FUNDSYSTEM...")
@@ -246,6 +247,18 @@ def seed():
     ]
 
     for u in users_data:
+        # Dynamically ensure authoritative multi-department wallet address from Ganache
+        if u["role"] in ["SUPER_ADMIN", "FINANCE"]:
+            u["wallet_address"] = bcs.get_entity_wallet("FINANCE")
+        elif u["role"] == "STATE":
+            u["wallet_address"] = bcs.get_entity_wallet("STATE", u.get("state_code"))
+        elif u["role"] == "DISTRICT":
+            u["wallet_address"] = bcs.get_entity_wallet("DISTRICT", u.get("district_name"))
+        elif u["role"] == "CONTRACTOR":
+            u["wallet_address"] = bcs.get_entity_wallet("CONTRACTOR", u.get("company_name"))
+        elif u["role"] == "AUDITOR":
+            u["wallet_address"] = bcs.get_entity_wallet("AUDITOR")
+
         existing = db.users.find_one({"email": u["email"]})
         if not existing:
             res = db.users.insert_one(u)
@@ -369,6 +382,13 @@ def seed():
 def sync_multitier_transactions():
     import blockchain_service as bcs
     print("[*] Synchronizing multi-tier blockchain transaction addresses...")
+
+    # Synchronize all users' wallet addresses in MongoDB to Ganache accounts
+    db.users.update_many({"role": {"$in": ["SUPER_ADMIN", "super_admin", "FINANCE", "finance"]}}, {"$set": {"wallet_address": bcs.get_entity_wallet("FINANCE")}})
+    db.users.update_many({"role": {"$in": ["STATE", "state"]}}, {"$set": {"wallet_address": bcs.get_entity_wallet("STATE")}})
+    db.users.update_many({"role": {"$in": ["DISTRICT", "district"]}}, {"$set": {"wallet_address": bcs.get_entity_wallet("DISTRICT")}})
+    db.users.update_many({"role": {"$in": ["CONTRACTOR", "contractor"]}}, {"$set": {"wallet_address": bcs.get_entity_wallet("CONTRACTOR")}})
+
     txs = list(db.blockchain_transactions.find())
     for t in txs:
         op = t.get("operation_type", "")
@@ -420,6 +440,16 @@ def sync_multitier_transactions():
             updates["to_entity"] = f"{c_name} (Contractor)"
             updates["transfer_tier"] = "ESCROW_TO_CONTRACTOR"
             updates["flow_stage"] = f"5. Smart Contract Escrow -> {c_name}"
+        elif op == "DISTRICT_CONTRACTOR_TRANSFER":
+            proj = db.projects.find_one({"project_id": ent_id})
+            d_name = proj.get("district_name", "Belagavi") if proj else "Belagavi"
+            c_name = proj.get("contractor_name", "Apex Infrastructure") if proj else "Apex Infrastructure"
+            updates["from_address"] = bcs.get_entity_wallet("DISTRICT", d_name)
+            updates["to_address"] = bcs.get_entity_wallet("CONTRACTOR", c_name)
+            updates["from_entity"] = f"{d_name} District Development Agency"
+            updates["to_entity"] = f"{c_name} (Contractor)"
+            updates["transfer_tier"] = "DISTRICT_TO_CONTRACTOR"
+            updates["flow_stage"] = f"4. {d_name} District -> {c_name}"
         elif op == "PROJECT_FROZEN":
             updates["from_address"] = bcs.get_entity_wallet("AUDITOR")
             updates["to_address"] = bcs.get_entity_wallet("ESCROW")

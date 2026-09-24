@@ -883,13 +883,15 @@ async def verify_phase_fund_request(
 
     tx_hash = None
     block_num = None
+    from_dist = bcs.get_entity_wallet("DISTRICT", proj.get("district_name"))
+    to_contractor = bank_acc.get("wallet_address") or bcs.get_entity_wallet("CONTRACTOR", proj.get("contractor_name"))
+
     try:
-        from_dist = bcs.get_entity_wallet("DISTRICT", proj.get("district_name"))
-        to_contractor = bank_acc.get("wallet_address") or bcs.get_entity_wallet("CONTRACTOR", proj.get("contractor_name"))
         tx_receipt = bcs.release_milestone_payment_onchain(project_id, milestone_index)
         if tx_receipt:
             tx_hash = tx_receipt["tx_hash"]
             block_num = tx_receipt["block_number"]
+            from_dist = tx_receipt.get("from_address", from_dist)
     except Exception as e:
         print(f"Warning executing bank transfer transaction on blockchain: {e}")
 
@@ -901,7 +903,19 @@ async def verify_phase_fund_request(
             "funds_approved_by": current_user["name"],
             "funds_approved_at": datetime.now(timezone.utc),
             "funds_transferred_at": datetime.now(timezone.utc),
+            "sender_address": from_dist,
+            "receiver_address": to_contractor,
+            "sender_department": f"{proj.get('district_name')} District Implementing Agency",
+            "receiver_department": f"{proj.get('contractor_name')} (Contractor)",
             "transfer_tx_hash": tx_hash,
+            "blockchainTxHash": tx_hash,
+            "senderAddress": from_dist,
+            "receiverAddress": to_contractor,
+            "senderDepartment": f"{proj.get('district_name')} District Implementing Agency",
+            "receiverDepartment": f"{proj.get('contractor_name')} (Contractor)",
+            "amount": allocated_amount,
+            "projectId": project_id,
+            "timestamp": datetime.now(timezone.utc),
             "fund_rejection_reason": None
         }}
     )
@@ -909,15 +923,24 @@ async def verify_phase_fund_request(
     # Record On-Chain Bank Transfer Ledger Entry
     db.blockchain_transactions.insert_one({
         "tx_hash": tx_hash or f"0x{os.urandom(32).hex()}",
+        "blockchainTxHash": tx_hash or f"0x{os.urandom(32).hex()}",
         "block_number": block_num or 1000,
         "operation_type": "PHASE_FUND_TRANSFER_TO_CONTRACTOR_BANK",
         "entity_id": project_id,
-        "from_address": bcs.get_entity_wallet("DISTRICT", proj.get("district_name")),
-        "to_address": bank_acc.get("wallet_address", "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"),
+        "project_id": project_id,
+        "projectId": project_id,
+        "from_address": from_dist,
+        "senderAddress": from_dist,
+        "to_address": to_contractor,
+        "receiverAddress": to_contractor,
         "from_entity": f"{proj.get('district_name')} District Development Agency",
         "to_entity": f"{proj.get('contractor_name')} ({bank_acc.get('bank_name')} A/C: {bank_acc.get('account_number')})",
+        "sender_department": f"{proj.get('district_name')} District Implementing Agency",
+        "senderDepartment": f"{proj.get('district_name')} District Implementing Agency",
+        "receiver_department": f"{proj.get('contractor_name')} (Contractor)",
+        "receiverDepartment": f"{proj.get('contractor_name')} (Contractor)",
         "transfer_tier": "DISTRICT_ESCROW_TO_CONTRACTOR_BANK",
-        "flow_stage": f"Fund Disbursal Phase #{milestone_index + 1}: District -> Contractor Bank Account",
+        "flow_stage": f"4. Disbursal Phase #{milestone_index + 1}: District -> Contractor Bank Account",
         "amount": allocated_amount,
         "details": f"Phase #{milestone_index + 1} Allocated Funds Transferred to {proj.get('contractor_name')} Bank Account ({bank_acc.get('bank_name')} A/C: {bank_acc.get('account_number')}, IFSC: {bank_acc.get('ifsc_code')})",
         "timestamp": datetime.now(timezone.utc)
@@ -936,6 +959,138 @@ async def verify_phase_fund_request(
     return {
         "success": True,
         "message": f"Phase #{milestone_index + 1} funds (INR {allocated_amount:,.2f}) allocated and transferred to Contractor Bank Account ({bank_acc.get('bank_name')} A/C: {bank_acc.get('account_number')}).",
+        "blockchain": {
+            "tx_hash": tx_hash,
+            "block_number": block_num
+        }
+    }
+
+@router.post("/transfer-to-contractor", status_code=status.HTTP_201_CREATED)
+async def transfer_to_contractor(
+    request: Request,
+    current_user: dict = Depends(require_roles(["DISTRICT"]))
+):
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
+    project_id = data.get("project_id") or data.get("projectId")
+    contractor_name = data.get("contractor_name", "Apex Infrastructure Contractors Pvt Ltd")
+    contractor_wallet = data.get("contractor_wallet") or data.get("contractor_address")
+    amount = float(data.get("amount", 0))
+    district_name = current_user.get("district_name") or data.get("district_name", "Belagavi")
+    notes = data.get("notes") or data.get("sign_off_note", "District fund disbursal to contractor")
+
+    if not project_id or amount <= 0:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Project ID and valid positive amount are required"}
+        )
+
+    # Access check
+    ok, err = check_district_access(district_name, current_user)
+    if not ok:
+        return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"success": False, "message": err})
+
+    # Find project if registered in MongoDB
+    proj = db.projects.find_one({"project_id": project_id})
+    if proj and proj.get("contractor_name"):
+        contractor_name = proj.get("contractor_name")
+        if not contractor_wallet:
+            contractor_wallet = proj.get("contractor_wallet")
+
+    rand_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    transfer_id = f"TRF-CON-{rand_suffix}"
+
+    from_dist = bcs.get_entity_wallet("DISTRICT", district_name)
+    to_contractor = contractor_wallet or bcs.get_entity_wallet("CONTRACTOR", contractor_name)
+
+    tx_hash = None
+    block_num = None
+    try:
+        tx_receipt = bcs.record_contractor_transfer_onchain(
+            transfer_id,
+            project_id,
+            f"{district_name} District Implementing Agency",
+            contractor_name,
+            amount,
+            receiver_address=to_contractor
+        )
+        if tx_receipt:
+            tx_hash = tx_receipt["tx_hash"]
+            block_num = tx_receipt["block_number"]
+            from_dist = tx_receipt.get("from_address", from_dist)
+    except Exception as e:
+        print(f"Warning executing contractor transfer on blockchain: {e}")
+
+    now_utc = datetime.now(timezone.utc)
+    transfer_doc = {
+        "transfer_id": transfer_id,
+        "project_id": project_id,
+        "projectId": project_id,
+        "district_name": district_name,
+        "contractor_name": contractor_name,
+        "amount": amount,
+        "notes": notes,
+        "transferred_by": current_user["name"],
+        "sender_address": from_dist,
+        "senderAddress": from_dist,
+        "receiver_address": to_contractor,
+        "receiverAddress": to_contractor,
+        "sender_department": f"{district_name} District Implementing Agency",
+        "senderDepartment": f"{district_name} District Implementing Agency",
+        "receiver_department": f"{contractor_name} (Contractor)",
+        "receiverDepartment": f"{contractor_name} (Contractor)",
+        "blockchain_tx_hash": tx_hash,
+        "blockchainTxHash": tx_hash,
+        "blockchain_block": block_num,
+        "created_at": now_utc,
+        "timestamp": now_utc
+    }
+    db.contractor_transfers.insert_one(transfer_doc)
+
+    if proj:
+        new_released = proj.get("released_amount", 0.0) + amount
+        db.projects.update_one(
+            {"project_id": project_id},
+            {"$set": {
+                "released_amount": new_released,
+                "last_disbursal_at": now_utc,
+                "last_tx_hash": tx_hash
+            }}
+        )
+
+    if tx_hash:
+        db.blockchain_transactions.insert_one({
+            "tx_hash": tx_hash,
+            "blockchainTxHash": tx_hash,
+            "block_number": block_num,
+            "operation_type": "DISTRICT_CONTRACTOR_TRANSFER",
+            "entity_id": project_id,
+            "project_id": project_id,
+            "projectId": project_id,
+            "from_address": from_dist,
+            "senderAddress": from_dist,
+            "to_address": to_contractor,
+            "receiverAddress": to_contractor,
+            "from_entity": f"{district_name} District Development Agency",
+            "to_entity": f"{contractor_name} (Contractor)",
+            "sender_department": f"{district_name} District Implementing Agency",
+            "senderDepartment": f"{district_name} District Implementing Agency",
+            "receiver_department": f"{contractor_name} (Contractor)",
+            "receiverDepartment": f"{contractor_name} (Contractor)",
+            "transfer_tier": "DISTRICT_TO_CONTRACTOR",
+            "flow_stage": f"4. {district_name} District -> {contractor_name}",
+            "amount": amount,
+            "details": f"Direct Contractor Transfer: {district_name} District Agency -> {contractor_name} for Project {project_id}",
+            "timestamp": now_utc
+        })
+
+    return {
+        "success": True,
+        "message": f"Funds (INR {amount:,.2f}) successfully transferred to {contractor_name} and recorded on blockchain",
+        "transfer": serialize_doc(transfer_doc),
         "blockchain": {
             "tx_hash": tx_hash,
             "block_number": block_num

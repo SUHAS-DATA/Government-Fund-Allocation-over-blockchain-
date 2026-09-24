@@ -151,7 +151,7 @@ async def kyc_submit(
 
             tx_hash = None
             try:
-                tx_receipt = bcs.anchor_document_hash_onchain(doc_id, sha256_digest, doc_type, user_id)
+                tx_receipt = bcs.anchor_document_hash_onchain(doc_id, sha256_digest, doc_type, user_id, role="CONTRACTOR")
                 if tx_receipt:
                     tx_hash = tx_receipt["tx_hash"]
             except Exception as e:
@@ -620,7 +620,7 @@ async def handle_milestone_progress_submission(project_id: str, milestone_index:
             primary_hash = sha256_digest
 
             try:
-                bcs.anchor_document_hash_onchain(doc_id, sha256_digest, f"PHASE_{milestone_index + 1}_{doc_type}", project_id)
+                bcs.anchor_document_hash_onchain(doc_id, sha256_digest, f"PHASE_{milestone_index + 1}_{doc_type}", project_id, role="CONTRACTOR")
             except Exception as e:
                 print(f"Warning anchoring {doc_type} proof on blockchain: {e}")
 

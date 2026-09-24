@@ -196,17 +196,24 @@ async def approve_and_transfer(
                     "timestamp": datetime.now(timezone.utc)
                 })
 
-        tx_receipt = bcs.record_state_transfer_onchain(trf_id, alloc_id, state_name, amount)
+        to_state = bcs.get_entity_wallet("STATE", state_code)
+        from_fin = bcs.get_entity_wallet("FINANCE")
+        
+        tx_receipt = bcs.record_state_transfer_onchain(trf_id, alloc_id, state_name, amount, receiver_address=to_state)
         if tx_receipt:
             tx_hash = tx_receipt["tx_hash"]
             block_num = tx_receipt["block_number"]
+            from_fin = tx_receipt.get("from_address", from_fin)
     except Exception as e:
         print(f"Warning executing state transfer on blockchain: {e}")
 
     # 2. Record Transfer in MongoDB
+    now_utc = datetime.now(timezone.utc)
     transfer_doc = {
         "transfer_id": trf_id,
         "allocation_id": alloc_id,
+        "project_id": alloc_id,
+        "projectId": alloc_id,
         "scheme_name": alloc.get("scheme_name"),
         "department": alloc.get("department"),
         "state_code": state_code,
@@ -215,9 +222,19 @@ async def approve_and_transfer(
         "allocated_to_districts": 0.0,
         "sign_off_note": sign_off_note,
         "transferred_by": current_user["name"],
+        "sender_address": from_fin,
+        "senderAddress": from_fin,
+        "receiver_address": to_state,
+        "receiverAddress": to_state,
+        "sender_department": "Ministry of Finance",
+        "senderDepartment": "Ministry of Finance",
+        "receiver_department": f"{state_name} State Treasury",
+        "receiverDepartment": f"{state_name} State Treasury",
         "blockchain_tx_hash": tx_hash,
+        "blockchainTxHash": tx_hash,
         "blockchain_block": block_num,
-        "created_at": datetime.now(timezone.utc)
+        "created_at": now_utc,
+        "timestamp": now_utc
     }
     db.state_transfers.insert_one(transfer_doc)
 
@@ -229,28 +246,35 @@ async def approve_and_transfer(
         {"$set": {
             "disbursed_amount": new_disbursed,
             "status": status_val,
-            "last_transfer_at": datetime.now(timezone.utc)
+            "last_transfer_at": now_utc
         }}
     )
 
     # 4. Log to Global Blockchain Transactions Collection
     if tx_hash:
-        from_fin = bcs.get_entity_wallet("FINANCE")
-        to_state = bcs.get_entity_wallet("STATE", state_code)
         db.blockchain_transactions.insert_one({
             "tx_hash": tx_hash,
+            "blockchainTxHash": tx_hash,
             "block_number": block_num,
             "operation_type": "FINANCE_STATE_TRANSFER",
             "entity_id": trf_id,
+            "project_id": alloc_id,
+            "projectId": alloc_id,
             "from_address": from_fin,
+            "senderAddress": from_fin,
             "to_address": to_state,
+            "receiverAddress": to_state,
             "from_entity": "Ministry of Finance (Public Fund Authority)",
             "to_entity": f"{state_name} State Treasury",
+            "sender_department": "Ministry of Finance",
+            "senderDepartment": "Ministry of Finance",
+            "receiver_department": f"{state_name} State Treasury",
+            "receiverDepartment": f"{state_name} State Treasury",
             "transfer_tier": "FINANCE_TO_STATE",
             "flow_stage": f"2. Finance Dept -> {state_name} Treasury",
             "amount": amount,
             "details": f"State Treasury Disbursal: Finance Dept -> {state_name} Treasury for {alloc.get('scheme_name')}",
-            "timestamp": datetime.now(timezone.utc)
+            "timestamp": now_utc
         })
 
     # 5. Notify State Officer

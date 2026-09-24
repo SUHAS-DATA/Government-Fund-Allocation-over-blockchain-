@@ -1,7 +1,7 @@
 import contractInfo from '../config/contract_info.json';
 
 export const getContractAddress = () => {
-  return contractInfo?.contractAddress || '0x825A248BdC512e02e77445B3D76Ab01eBC46A22B';
+  return contractInfo?.contractAddress || '0x7A259d42d1F6e24cfF76aDDF89eEBDAC195E1c20';
 };
 
 export const formatTxHash = (hash, start = 8, end = 6) => {
@@ -42,6 +42,42 @@ export const copyToClipboard = async (text) => {
 
 // Authoritative Directory of Multi-Tier Government Wallets & Concessionaires
 export const KNOWN_ENTITIES = {
+  // Ganache Multi-Tier Administrative Wallets
+  '0x1622F9853bDFEc6ba1A40FBf9bba7Fd74e8B451B': {
+    name: 'Ministry of Finance (Central Disbursal Authority)',
+    shortName: 'Finance Dept',
+    tier: 'Tier 1: Finance Authority',
+    color: '#0369A1',
+    bg: '#E0F2FE'
+  },
+  '0x3bE9Fb1473BcAEe6790dBb9556A8C9637eCC54bC': {
+    name: 'Karnataka State Treasury Department',
+    shortName: 'State Treasury',
+    tier: 'Tier 2: State Treasury',
+    color: '#4338CA',
+    bg: '#EEF2FF'
+  },
+  '0x2Db964805531b2cc0Cb6961AF0f7d7489F1e4Aa9': {
+    name: 'Belagavi District Implementing Agency',
+    shortName: 'District Agency',
+    tier: 'Tier 3: District Agency',
+    color: '#B45309',
+    bg: '#FEF3C7'
+  },
+  '0xd49155782d0C91e4fF69024ACf6F7811467800C2': {
+    name: 'Apex Infrastructure Contractors Pvt Ltd',
+    shortName: 'Contractor',
+    tier: 'Tier 4: Contractor Escrow',
+    color: '#15803D',
+    bg: '#DCFCE7'
+  },
+  '0x7A259d42d1F6e24cfF76aDDF89eEBDAC195E1c20': {
+    name: 'Government Fund Tracking Smart Contract Escrow',
+    shortName: 'Smart Contract Escrow',
+    tier: 'Smart Contract Vault',
+    color: '#6D28D9',
+    bg: '#EDE9FE'
+  },
   // Central Apex
   '0x1E3A8A93FD0b4c8A9bE14c46f1F0A84D63A50001': {
     name: 'Central Secretariat',
@@ -206,7 +242,7 @@ export const getKnownEntity = (address, fallbackName = null) => {
   }
   
   const contract = getContractAddress().toLowerCase();
-  if (target === contract) return KNOWN_ENTITIES['0x825A248BdC512e02e77445B3D76Ab01eBC46A22B'];
+  if (target === contract) return KNOWN_ENTITIES['0x7A259d42d1F6e24cfF76aDDF89eEBDAC195E1c20'] || KNOWN_ENTITIES['0x825A248BdC512e02e77445B3D76Ab01eBC46A22B'];
 
   return {
     name: fallbackName || `Verified Account (${formatAddress(address)})`,

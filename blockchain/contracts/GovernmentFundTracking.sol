@@ -82,6 +82,17 @@ contract GovernmentFundTracking {
         bool exists;
     }
 
+    struct FundTransferRecord {
+        address sender;
+        address receiver;
+        string senderDepartment;
+        string receiverDepartment;
+        string projectId;
+        uint256 amount;
+        uint256 timestamp;
+        bool exists;
+    }
+
     // --- State Storage ---
     mapping(string => BudgetAllocation) public budgetAllocations;
     mapping(string => StateTransfer) public stateTransfers;
@@ -90,6 +101,7 @@ contract GovernmentFundTracking {
     mapping(string => mapping(uint256 => Milestone)) public projectMilestones;
     mapping(string => DocumentHashRecord) public documentHashRecords;
     mapping(string => AuditReportRecord) public auditReports;
+    mapping(string => FundTransferRecord) public fundTransferRecords;
 
     // --- Events ---
     event CentralBudgetAllocated(string indexed allocationId, string schemeName, string departmentName, uint256 amount, uint256 timestamp);
@@ -102,6 +114,17 @@ contract GovernmentFundTracking {
     event ProjectEscrowFrozen(string indexed projectId, string reason, uint256 timestamp);
     event ProjectEscrowUnfrozen(string indexed projectId, uint256 timestamp);
     event ForensicAuditReportSubmitted(string indexed auditId, string indexed projectId, string auditorName, uint256 complianceScore, string verdict, uint256 timestamp);
+
+    // Multi-tier Administrative Fund Transfer Event
+    event FundTransferred(
+        address indexed sender,
+        address indexed receiver,
+        string senderDepartment,
+        string receiverDepartment,
+        string projectId,
+        uint256 amount,
+        uint256 timestamp
+    );
 
     constructor() {
         superAdmin = msg.sender;
@@ -137,6 +160,26 @@ contract GovernmentFundTracking {
         string calldata state,
         uint256 amount
     ) external {
+        _executeTransferToState(trfId, allocId, state, amount, address(0));
+    }
+
+    function transferToStateWithReceiver(
+        string calldata trfId,
+        string calldata allocId,
+        string calldata state,
+        uint256 amount,
+        address receiverWallet
+    ) external {
+        _executeTransferToState(trfId, allocId, state, amount, receiverWallet);
+    }
+
+    function _executeTransferToState(
+        string calldata trfId,
+        string calldata allocId,
+        string calldata state,
+        uint256 amount,
+        address receiverWallet
+    ) internal {
         require(budgetAllocations[allocId].exists, "Central allocation does not exist");
         require(!stateTransfers[trfId].exists, "Transfer ID already registered on blockchain");
         require(
@@ -156,7 +199,19 @@ contract GovernmentFundTracking {
             exists: true
         });
 
+        fundTransferRecords[trfId] = FundTransferRecord({
+            sender: msg.sender,
+            receiver: receiverWallet,
+            senderDepartment: "Finance Department",
+            receiverDepartment: state,
+            projectId: allocId,
+            amount: amount,
+            timestamp: block.timestamp,
+            exists: true
+        });
+
         emit FundsTransferredToState(trfId, allocId, state, amount, block.timestamp);
+        emit FundTransferred(msg.sender, receiverWallet, "Finance Department", state, allocId, amount, block.timestamp);
     }
 
     // --- 3. State: Allocate to District ---
@@ -166,6 +221,26 @@ contract GovernmentFundTracking {
         string calldata district,
         uint256 amount
     ) external {
+        _executeAllocateToDistrict(distAllocId, trfId, district, amount, address(0));
+    }
+
+    function allocateToDistrictWithReceiver(
+        string calldata distAllocId,
+        string calldata trfId,
+        string calldata district,
+        uint256 amount,
+        address receiverWallet
+    ) external {
+        _executeAllocateToDistrict(distAllocId, trfId, district, amount, receiverWallet);
+    }
+
+    function _executeAllocateToDistrict(
+        string calldata distAllocId,
+        string calldata trfId,
+        string calldata district,
+        uint256 amount,
+        address receiverWallet
+    ) internal {
         require(stateTransfers[trfId].exists, "State transfer record does not exist");
         require(!districtAllocations[distAllocId].exists, "District allocation ID already registered");
         require(
@@ -185,7 +260,19 @@ contract GovernmentFundTracking {
             exists: true
         });
 
+        fundTransferRecords[distAllocId] = FundTransferRecord({
+            sender: msg.sender,
+            receiver: receiverWallet,
+            senderDepartment: "State Treasury",
+            receiverDepartment: district,
+            projectId: distAllocId,
+            amount: amount,
+            timestamp: block.timestamp,
+            exists: true
+        });
+
         emit FundsAllocatedToDistrict(distAllocId, trfId, district, amount, block.timestamp);
+        emit FundTransferred(msg.sender, receiverWallet, "State Treasury", district, distAllocId, amount, block.timestamp);
     }
 
     // --- 4. District: Create Project Smart Contract Escrow ---
@@ -275,6 +362,18 @@ contract GovernmentFundTracking {
         m.releaseTimestamp = block.timestamp;
         projectEscrows[projectId].releasedAmount += m.amount;
 
+        string memory phaseKey = string(abi.encodePacked(projectId, "_PHASE_", _uint2str(milestoneIndex + 1)));
+        fundTransferRecords[phaseKey] = FundTransferRecord({
+            sender: msg.sender,
+            receiver: projectEscrows[projectId].contractor,
+            senderDepartment: "District Implementing Agency",
+            receiverDepartment: "Contractor Escrow Account",
+            projectId: projectId,
+            amount: m.amount,
+            timestamp: block.timestamp,
+            exists: true
+        });
+
         emit MilestonePaymentReleased(
             projectId,
             milestoneIndex,
@@ -282,6 +381,83 @@ contract GovernmentFundTracking {
             projectEscrows[projectId].contractor,
             block.timestamp
         );
+
+        emit FundTransferred(
+            msg.sender,
+            projectEscrows[projectId].contractor,
+            "District Implementing Agency",
+            "Contractor Escrow Account",
+            projectId,
+            m.amount,
+            block.timestamp
+        );
+    }
+
+    // Direct Multi-Tier Transfer Logger
+    function recordFundTransfer(
+        string calldata transferKey,
+        address receiver,
+        string calldata senderDept,
+        string calldata receiverDept,
+        string calldata projectId,
+        uint256 amount
+    ) external {
+        fundTransferRecords[transferKey] = FundTransferRecord({
+            sender: msg.sender,
+            receiver: receiver,
+            senderDepartment: senderDept,
+            receiverDepartment: receiverDept,
+            projectId: projectId,
+            amount: amount,
+            timestamp: block.timestamp,
+            exists: true
+        });
+
+        emit FundTransferred(msg.sender, receiver, senderDept, receiverDept, projectId, amount, block.timestamp);
+    }
+
+    // --- District to Contractor Direct Transfer ---
+    function transferToContractor(
+        string calldata transferId,
+        string calldata projectId,
+        address contractorWallet,
+        string calldata districtName,
+        string calldata contractorName,
+        uint256 amount
+    ) external {
+        require(contractorWallet != address(0), "Invalid contractor wallet address");
+        require(amount > 0, "Transfer amount must be greater than zero");
+
+        fundTransferRecords[transferId] = FundTransferRecord({
+            sender: msg.sender,
+            receiver: contractorWallet,
+            senderDepartment: districtName,
+            receiverDepartment: contractorName,
+            projectId: projectId,
+            amount: amount,
+            timestamp: block.timestamp,
+            exists: true
+        });
+
+        emit FundTransferred(msg.sender, contractorWallet, districtName, contractorName, projectId, amount, block.timestamp);
+    }
+
+    function _uint2str(uint256 _i) internal pure returns (string memory str) {
+        if (_i == 0) return "0";
+        uint256 j = _i;
+        uint256 length;
+        while (j != 0) {
+            length++;
+            j /= 10;
+        }
+        bytes memory bstr = new bytes(length);
+        uint256 k = length;
+        j = _i;
+        while (j != 0) {
+            bstr[--k] = bytes1(uint8(48 + j % 10));
+            j /= 10;
+        }
+        str = string(bstr);
     }
 
     // --- 6. Document Hash Anchoring & Real-time Verification ---
