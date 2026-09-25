@@ -139,8 +139,9 @@ def check_ganache_accounts(wait_seconds=2):
             print(f"    Ganache Match  : {'[OK] YES (Matched in active workspace)' if in_node else '[!] NO (Account not in active workspace)'}")
 
             # Crypto Signature Test
+            from eth_account.messages import encode_defunct
             test_msg = "HealthCheckValidation"
-            encoded_msg = w3.eth.account.messages.encode_defunct(text=test_msg)
+            encoded_msg = encode_defunct(text=test_msg)
             signed = acc.sign_message(encoded_msg)
             recovered = w3.eth.account.recover_message(encoded_msg, signature=signed.signature)
             

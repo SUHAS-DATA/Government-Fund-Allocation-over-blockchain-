@@ -6,10 +6,29 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+import urllib.parse
+
 MONGO_URI = os.getenv("MONGODB_URI", "mongodb://127.0.0.1:27017")
 DB_NAME = os.getenv("MONGODB_DB_NAME", "FUNDSYSTEM")
 
-client = MongoClient(MONGO_URI)
+def _sanitize_mongo_uri(uri: str) -> str:
+    """Safely escapes usernames and passwords containing special characters (like @) per RFC 3986."""
+    try:
+        if "://" in uri and "@" in uri:
+            prefix, rest = uri.split("://", 1)
+            if "@" in rest:
+                userinfo, hostinfo = rest.rsplit("@", 1)
+                if ":" in userinfo:
+                    user, pwd = userinfo.split(":", 1)
+                    # Unquote first to prevent double-encoding, then quote
+                    user_clean = urllib.parse.quote_plus(urllib.parse.unquote_plus(user))
+                    pwd_clean = urllib.parse.quote_plus(urllib.parse.unquote_plus(pwd))
+                    return f"{prefix}://{user_clean}:{pwd_clean}@{hostinfo}"
+    except Exception:
+        pass
+    return uri
+
+client = MongoClient(_sanitize_mongo_uri(MONGO_URI), serverSelectionTimeoutMS=5000)
 db = client[DB_NAME]
 
 def init_indexes():
