@@ -1,26 +1,30 @@
 /* ==========================================================================
-   Super Admin Control Hub — Premium Government Financial Control Center
-   Design Principles:
-   - Restrained official government aesthetic
-   - Monochrome & single dark government green (#064E3B) accent
-   - No colorful cards, no multi-color badges
-   - Spacious layout (max-width: 1240px, 32-40px padding)
-   - Visual hierarchy:
-     1. Large primary financial overview panel
-     2. Spacious 3x3 operations grid (Fund Allocation visually dominant)
-     3. Government Fund Flow process visualization
-     4. Recent Government Activity timeline
-   - Absolutely NO sidebar, NO top navbar, NO bottom navbar
+   Super Admin Control Hub — National Government Financial Control Center
+   Design Architecture:
+   - Primary: Dark Government Green #006B4F
+   - Secondary: Deep Navy #102A43
+   - Accent: Royal Blue #2563EB
+   - Highlight / Status: Warm Gold #D99A00
+   - Background: Very light gray #F5F7F9 with ambient soft gradients
+   - Strict 1300px max width centered layout
+   - Exactly 3 cards per row on desktop (~390px wide, 230-260px high)
+   - 3px colored top borders & 48px × 48px tinted icon containers
+   - Zero sidebars, zero top navigation, zero bottom navigation
    ========================================================================== */
 
 /* Root standalone layout for Super Admin */
 .super-admin-root-layout {
   min-height: 100vh;
   width: 100%;
-  background-color: #F8FAFC;
-  color: #0F172A;
+  background-color: #F5F7F9;
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(0, 107, 79, 0.05) 0%, transparent 50%),
+    radial-gradient(circle at 10% 40%, rgba(37, 99, 235, 0.025) 0%, transparent 45%),
+    radial-gradient(circle at 90% 70%, rgba(217, 154, 0, 0.02) 0%, transparent 45%);
+  background-attachment: fixed;
+  color: #102A43;
   margin: 0;
-  padding: 40px 24px 72px;
+  padding: 36px 28px 72px;
   box-sizing: border-box;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   display: flex;
@@ -28,21 +32,23 @@
   align-items: center;
 }
 
-/* Centered container constrained to 1240px */
+/* Centered container constrained to 1300px */
 .super-admin-hub-container {
   width: 100%;
-  max-width: 1240px;
+  max-width: 1300px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
 }
 
-/* Top Meta Row (Subtle Operational Status & Officer Session) */
+/* ==========================================================================
+   Top Meta Row (Live Status & Officer Session)
+   ========================================================================== */
 .super-admin-top-meta {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 32px;
+  margin-bottom: 28px;
   padding: 0 4px;
 }
 
@@ -51,37 +57,38 @@
   align-items: center;
   gap: 8px;
   background-color: #FFFFFF;
-  border: 1px solid #E2E8F0;
-  color: #064E3B;
+  border: 1px solid #D9E2EC;
+  color: #006B4F;
   font-size: 11px;
   font-weight: 700;
-  padding: 5px 14px;
+  padding: 6px 14px;
   border-radius: 9999px;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.6px;
   text-transform: uppercase;
+  box-shadow: 0 1px 3px rgba(16, 42, 67, 0.04);
 }
 
 .live-pulse-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background-color: #064E3B;
-  box-shadow: 0 0 0 0 rgba(6, 78, 59, 0.6);
-  animation: pulseDarkGreen 2.5s infinite;
+  background-color: #006B4F;
+  box-shadow: 0 0 0 0 rgba(0, 107, 79, 0.6);
+  animation: pulseGovGreen 2.5s infinite;
 }
 
-@keyframes pulseDarkGreen {
+@keyframes pulseGovGreen {
   0% {
     transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(6, 78, 59, 0.6);
+    box-shadow: 0 0 0 0 rgba(0, 107, 79, 0.6);
   }
   70% {
     transform: scale(1);
-    box-shadow: 0 0 0 6px rgba(6, 78, 59, 0);
+    box-shadow: 0 0 0 6px rgba(0, 107, 79, 0);
   }
   100% {
     transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(6, 78, 59, 0);
+    box-shadow: 0 0 0 0 rgba(0, 107, 79, 0);
   }
 }
 
@@ -90,66 +97,120 @@
   align-items: center;
   gap: 14px;
   background-color: #FFFFFF;
-  border: 1px solid #E2E8F0;
-  padding: 5px 14px;
+  border: 1px solid #D9E2EC;
+  padding: 6px 16px;
   border-radius: 9999px;
+  box-shadow: 0 1px 3px rgba(16, 42, 67, 0.04);
 }
 
 .super-admin-user-name {
   font-size: 12px;
-  font-weight: 600;
-  color: #334155;
+  font-weight: 700;
+  color: #102A43;
 }
 
 .super-admin-logout-btn {
   background: transparent;
   border: none;
-  color: #64748B;
+  color: #627D98;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
-  padding: 2px 6px;
+  padding: 3px 6px;
   border-radius: 4px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  transition: color 0.15s ease;
+  transition: all 0.15s ease;
 }
 
 .super-admin-logout-btn:hover {
-  color: #0F172A;
+  color: #DC2626;
+  background-color: #FEE2E2;
 }
 
-/* Minimalist Center Header */
+/* ==========================================================================
+   Header (Visually Impressive with Green Glow & Decorative Element)
+   ========================================================================== */
 .super-admin-center-header {
+  position: relative;
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 36px;
+  padding: 16px 20px;
+}
+
+.super-admin-center-header::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 520px;
+  height: 180px;
+  background: radial-gradient(circle, rgba(0, 107, 79, 0.07) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.gov-official-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #FFFFFF;
+  border: 1px solid #D9E2EC;
+  color: #006B4F;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  padding: 4px 14px;
+  border-radius: 9999px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 2px rgba(16, 42, 67, 0.04);
+  position: relative;
+  z-index: 1;
 }
 
 .super-admin-badge-eyebrow {
-  display: inline-block;
-  font-size: 12px;
+  display: block;
+  font-size: 13px;
   font-weight: 800;
-  letter-spacing: 2.5px;
+  letter-spacing: 3px;
   text-transform: uppercase;
-  color: #064E3B;
-  margin-bottom: 8px;
+  color: #006B4F;
+  margin-bottom: 6px;
+  position: relative;
+  z-index: 1;
 }
 
 .super-admin-main-title {
-  font-size: 30px;
+  font-size: 32px;
   font-weight: 800;
-  color: #0F172A;
+  color: #102A43;
   letter-spacing: -0.5px;
-  margin: 0 0 8px 0;
+  margin: 0 0 6px 0;
   line-height: 1.25;
+  position: relative;
+  z-index: 1;
 }
 
 .super-admin-sub-title {
-  font-size: 14px;
-  color: #475569;
+  font-size: 15px;
+  color: #486581;
   font-weight: 500;
-  margin: 0 0 14px 0;
+  margin: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.header-green-divider {
+  width: 56px;
+  height: 3px;
+  background-color: #006B4F;
+  border-radius: 2px;
+  margin: 14px auto 16px;
+  position: relative;
+  z-index: 1;
 }
 
 .super-admin-fy-pill {
@@ -157,35 +218,61 @@
   align-items: center;
   gap: 8px;
   background-color: #FFFFFF;
-  border: 1px solid #E2E8F0;
-  color: #064E3B;
+  border: 1px solid #D9E2EC;
+  color: #006B4F;
   font-size: 12px;
   font-weight: 700;
-  padding: 5px 16px;
+  padding: 6px 18px;
   border-radius: 9999px;
+  box-shadow: 0 1px 3px rgba(16, 42, 67, 0.04);
+  position: relative;
+  z-index: 1;
 }
 
 /* ==========================================================================
-   1. Large Primary Overview Section: One Wide Financial Overview Panel
+   Section Separation Eyebrow Headings
+   ========================================================================== */
+.section-eyebrow-heading {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #627D98;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-eyebrow-heading .section-bullet {
+  width: 6px;
+  height: 6px;
+  border-radius: 2px;
+  background-color: #006B4F;
+}
+
+/* ==========================================================================
+   1. Featured Financial Overview Panel
    ========================================================================== */
 .super-admin-financial-overview-panel {
   background: #FFFFFF;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
+  border: 1px solid #D9E2EC;
+  border-top: 4px solid #006B4F;
+  border-radius: 14px;
   padding: 32px 40px;
-  margin-bottom: 32px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  margin-bottom: 36px;
+  box-shadow: 0 4px 14px rgba(16, 42, 67, 0.04);
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 24px;
+  gap: 28px;
 }
 
 .fin-overview-column {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  border-right: 1px solid #F1F5F9;
-  padding-right: 20px;
+  border-right: 1px solid #E2E8F0;
+  padding-right: 24px;
 }
 
 .fin-overview-column:last-child {
@@ -193,83 +280,110 @@
   padding-right: 0;
 }
 
-.fin-overview-label {
+.fin-overview-top-label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.8px;
-  color: #64748B;
+  color: #627D98;
 }
 
 .fin-overview-value {
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 800;
-  color: #0F172A;
+  color: #102A43;
   letter-spacing: -0.5px;
   line-height: 1.2;
 }
 
-.fin-overview-value.accent-gov-green {
-  color: #064E3B;
+.fin-overview-value.highlight-green {
+  color: #006B4F;
 }
 
 .fin-overview-subtext {
   font-size: 12px;
-  color: #64748B;
+  color: #627D98;
   font-weight: 500;
   line-height: 1.35;
 }
 
 /* ==========================================================================
-   2. Medium Operation Modules (Exactly 3 per row on Desktop)
+   2. Main Operations Grid (3 Cards Per Row, ~390px wide, 230–260px high)
    ========================================================================== */
 .super-admin-operations-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 24px;
-  margin-bottom: 36px;
+  margin-bottom: 40px;
 }
 
 .super-admin-operation-card {
   background: #FFFFFF;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
-  padding: 32px 32px 28px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  border: 1px solid #D6DEE8;
+  border-radius: 14px;
+  padding: 28px 28px 24px;
+  box-shadow: 0 2px 6px rgba(16, 42, 67, 0.04);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  min-height: 240px;
+  min-height: 245px;
   cursor: pointer;
   position: relative;
   text-decoration: none;
   color: inherit;
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-              box-shadow 0.2s cubic-bezier(0.16, 1, 0.3, 1),
-              border-color 0.2s ease;
+  transition: transform 250ms ease, box-shadow 250ms ease, border-color 250ms ease;
   user-select: none;
 }
 
+/* Hover Lift 5px, Border Strengthened, Shadow Deepened */
 .super-admin-operation-card:hover {
-  transform: translateY(-3px);
-  border-color: #064E3B;
-  box-shadow: 0 8px 16px -2px rgba(15, 23, 42, 0.06);
+  transform: translateY(-5px);
+  border-color: #006B4F;
+  box-shadow: 0 12px 24px -4px rgba(16, 42, 67, 0.1), 0 4px 6px -2px rgba(16, 42, 67, 0.04);
+}
+
+.super-admin-operation-card:hover .card-mono-icon-container {
+  transform: scale(1.05);
 }
 
 .super-admin-operation-card:hover .card-action-link {
-  color: #064E3B;
+  color: #006B4F;
 }
 
 .super-admin-operation-card:hover .card-action-link .action-arrow {
-  transform: translateX(4px);
+  transform: translateX(5px);
 }
 
-/* Card Header (Category & Monochrome Icon) */
+/* Colored Top Border Accents */
+.card-border-green {
+  border-top: 3px solid #006B4F;
+}
+
+.card-border-blue {
+  border-top: 3px solid #2563EB;
+}
+
+.card-border-gold {
+  border-top: 3px solid #D99A00;
+}
+
+.card-border-navy {
+  border-top: 3px solid #102A43;
+}
+
+.card-border-teal {
+  border-top: 3px solid #0D9488;
+}
+
+/* Top Row: Category Label & 48px Icon Container */
 .card-top-row {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 18px;
+  align-items: flex-start;
+  margin-bottom: 16px;
 }
 
 .card-category-heading {
@@ -277,46 +391,75 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 1px;
-  color: #64748B;
+  color: #627D98;
 }
 
-.card-mono-icon-wrapper {
-  color: #334155;
+/* 48px × 48px Icon Containers with Lightly Tinted Backgrounds */
+.card-mono-icon-container {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: transform 250ms ease;
 }
 
-/* Card Content Body */
+.icon-box-green {
+  background-color: #E6F4EA;
+  color: #006B4F;
+}
+
+.icon-box-blue {
+  background-color: #EFF6FF;
+  color: #2563EB;
+}
+
+.icon-box-gold {
+  background-color: #FEF3C7;
+  color: #D99A00;
+}
+
+.icon-box-navy {
+  background-color: #F0F4F8;
+  color: #102A43;
+}
+
+.icon-box-teal {
+  background-color: #CCFBF1;
+  color: #0D9488;
+}
+
+/* Card Body */
 .card-content-body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  margin-bottom: 24px;
+  gap: 6px;
+  margin-bottom: 20px;
 }
 
 .card-large-title {
   font-size: 22px;
   font-weight: 800;
-  color: #0F172A;
+  color: #102A43;
   letter-spacing: -0.3px;
   line-height: 1.25;
 }
 
 .card-description-text {
   font-size: 13px;
-  color: #64748B;
+  color: #627D98;
   font-weight: 500;
   line-height: 1.4;
 }
 
-/* Card Action Link at Bottom */
+/* Card Bottom Action Link */
 .card-bottom-row {
   border-top: 1px solid #F1F5F9;
-  padding-top: 16px;
+  padding-top: 14px;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
 }
 
 .card-action-link {
@@ -325,29 +468,55 @@
   gap: 6px;
   font-size: 13px;
   font-weight: 700;
-  color: #0F172A;
-  transition: color 0.15s ease;
+  color: #102A43;
+  transition: color 250ms ease;
 }
 
 .action-arrow {
-  transition: transform 0.18s ease;
+  transition: transform 250ms ease;
 }
 
-/* ==========================================================================
-   VISUAL HIERARCHY: Fund Allocation Card (Visually dominant / emphasized)
-   ========================================================================== */
+/* Feature Badge on Fund Allocation & Blockchain */
+.card-feature-pill {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background-color: #E6F4EA;
+  color: #006B4F;
+  border: 1px solid #A7F3D0;
+}
+
+/* Gold Status Badge on Approvals */
+.card-gold-badge {
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  background-color: #FEF3C7;
+  color: #975A16;
+  border: 1px solid #FDE68A;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Feature Card: Fund Allocation */
 .super-admin-operation-card.card-dominant-allocation {
-  border-top: 3px solid #064E3B;
+  border-top: 4px solid #006B4F;
   background-color: #FFFFFF;
 }
 
 .dominant-progress-container {
-  margin: 8px 0 4px;
+  margin: 10px 0 4px;
 }
 
 .dominant-progress-track {
   width: 100%;
-  height: 6px;
+  height: 7px;
   background-color: #E2E8F0;
   border-radius: 9999px;
   overflow: hidden;
@@ -355,7 +524,7 @@
 
 .dominant-progress-fill {
   height: 100%;
-  background-color: #064E3B;
+  background-color: #006B4F;
   border-radius: 9999px;
   transition: width 1s ease-in-out;
 }
@@ -365,8 +534,8 @@
   justify-content: space-between;
   font-size: 11px;
   font-weight: 600;
-  color: #64748B;
-  margin-top: 5px;
+  color: #627D98;
+  margin-top: 6px;
 }
 
 /* ==========================================================================
@@ -374,33 +543,40 @@
    ========================================================================== */
 .super-admin-section-container {
   background: #FFFFFF;
-  border: 1px solid #E2E8F0;
-  border-radius: 12px;
-  padding: 32px 40px;
-  margin-bottom: 32px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  border: 1px solid #D6DEE8;
+  border-radius: 14px;
+  padding: 32px 36px;
+  margin-bottom: 36px;
+  box-shadow: 0 2px 6px rgba(16, 42, 67, 0.03);
 }
 
-.section-header-title {
-  font-size: 12px;
+.section-container-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #F1F5F9;
+}
+
+.section-container-title {
+  font-size: 13px;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 1.2px;
-  color: #064E3B;
-  margin-bottom: 24px;
+  color: #006B4F;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-/* Horizontal Flow on Desktop */
 .fund-flow-wrapper {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
   position: relative;
-  padding: 12px 0;
+  padding: 16px 8px;
 }
 
 .fund-flow-node {
@@ -408,62 +584,63 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  width: 170px;
+  width: 180px;
   position: relative;
   z-index: 2;
 }
 
 .fund-flow-circle {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background-color: #FFFFFF;
-  border: 2px solid #064E3B;
-  color: #064E3B;
+  border: 2px solid #006B4F;
+  color: #006B4F;
   font-size: 13px;
   font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 12px;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 107, 79, 0.08);
+  transition: all 250ms ease;
 }
 
 .fund-flow-node:hover .fund-flow-circle {
-  background-color: #064E3B;
+  background-color: #006B4F;
   color: #FFFFFF;
+  transform: translateY(-2px);
 }
 
 .fund-flow-node-title {
   font-size: 13px;
   font-weight: 700;
-  color: #0F172A;
-  margin-bottom: 3px;
+  color: #102A43;
+  margin-bottom: 4px;
 }
 
 .fund-flow-node-desc {
   font-size: 11px;
-  color: #64748B;
+  color: #627D98;
   line-height: 1.35;
 }
 
-/* Connecting Line between nodes */
 .fund-flow-connector {
   flex: 1;
-  height: 1px;
-  background-color: #CBD5E1;
+  height: 2px;
+  background-color: #A7F3D0;
   position: relative;
-  margin: 0 8px;
+  margin: 0 10px;
   top: -24px;
 }
 
 .fund-flow-connector::after {
-  content: '→';
+  content: '▶';
   position: absolute;
   right: 0;
-  top: -8px;
-  color: #94A3B8;
-  font-size: 12px;
+  top: -6px;
+  color: #006B4F;
+  font-size: 10px;
 }
 
 /* ==========================================================================
@@ -473,15 +650,14 @@
   display: flex;
   flex-direction: column;
   gap: 0;
-  position: relative;
 }
 
 .activity-timeline-item {
   display: flex;
-  gap: 24px;
+  align-items: flex-start;
+  gap: 20px;
   padding: 16px 0;
   border-bottom: 1px solid #F1F5F9;
-  position: relative;
 }
 
 .activity-timeline-item:last-child {
@@ -493,45 +669,45 @@
   padding-top: 0;
 }
 
-.activity-time-column {
-  width: 70px;
+.activity-timeline-dot {
+  color: #006B4F;
+  font-size: 14px;
+  line-height: 1.4;
+  user-select: none;
+}
+
+.activity-time-pill {
   font-size: 12px;
   font-weight: 700;
-  color: #64748B;
+  color: #627D98;
   font-family: monospace;
-  padding-top: 2px;
+  background-color: #F0F4F8;
+  padding: 2px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
 }
 
-.activity-node-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background-color: #064E3B;
-  margin-top: 6px;
-  flex-shrink: 0;
-}
-
-.activity-content-column {
+.activity-content-box {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 2px;
 }
 
-.activity-title {
+.activity-title-text {
   font-size: 13px;
   font-weight: 700;
-  color: #0F172A;
+  color: #102A43;
 }
 
-.activity-detail {
+.activity-detail-text {
   font-size: 12px;
-  color: #64748B;
+  color: #627D98;
   line-height: 1.4;
 }
 
 /* ==========================================================================
-   Module Page Sub-View with Back to Super Admin Navigation
+   Sub-Module In-Page Navigation Bar
    ========================================================================== */
 .super-admin-module-bar {
   display: flex;
@@ -539,7 +715,7 @@
   justify-content: space-between;
   margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #E2E8F0;
+  border-bottom: 1px solid #D6DEE8;
 }
 
 .super-admin-back-btn {
@@ -547,22 +723,22 @@
   align-items: center;
   gap: 8px;
   background-color: #FFFFFF;
-  border: 1px solid #CBD5E1;
-  color: #064E3B;
+  border: 1px solid #D6DEE8;
+  color: #006B4F;
   font-size: 13px;
   font-weight: 700;
   padding: 8px 18px;
   border-radius: 8px;
   cursor: pointer;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-  transition: all 0.15s ease;
+  box-shadow: 0 1px 3px rgba(16, 42, 67, 0.04);
+  transition: all 250ms ease;
 }
 
 .super-admin-back-btn:hover {
-  background-color: #F8FAFC;
-  border-color: #064E3B;
-  color: #064E3B;
-  transform: translateX(-2px);
+  background-color: #E6F4EA;
+  border-color: #006B4F;
+  color: #006B4F;
+  transform: translateX(-3px);
 }
 
 .super-admin-module-title-box {
@@ -574,14 +750,14 @@
 .super-admin-module-crumb {
   font-size: 12px;
   font-weight: 700;
-  color: #64748B;
+  color: #627D98;
 }
 
 .super-admin-module-name-tag {
   font-size: 14px;
   font-weight: 800;
-  color: #0F172A;
-  background-color: #F1F5F9;
+  color: #102A43;
+  background-color: #F0F4F8;
   padding: 4px 12px;
   border-radius: 6px;
 }
@@ -589,7 +765,7 @@
 /* ==========================================================================
    Responsive Breakpoints
    ========================================================================== */
-@media (max-width: 1024px) {
+@media (max-width: 1100px) {
   .super-admin-operations-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -608,7 +784,7 @@
     align-items: flex-start;
     gap: 24px;
     padding-left: 20px;
-    border-left: 2px solid #E2E8F0;
+    border-left: 2px solid #006B4F;
   }
   .fund-flow-node {
     width: 100%;
@@ -633,8 +809,8 @@
   }
   .fin-overview-column {
     border-right: none;
-    border-bottom: 1px solid #F1F5F9;
-    padding-bottom: 14px;
+    border-bottom: 1px solid #E2E8F0;
+    padding-bottom: 16px;
     padding-right: 0;
   }
   .fin-overview-column:last-child {

@@ -14,7 +14,12 @@ import {
   ArrowLeft,
   LogOut,
   GitBranch,
-  Clock
+  Clock,
+  Landmark,
+  PieChart,
+  Shield,
+  Layers,
+  Link2
 } from 'lucide-react';
 import API from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -193,7 +198,7 @@ const AdminDashboard = () => {
     : (auditReportsList.filter(r => r.status === 'OPEN' || r.status === 'PENDING').length || 8);
   const activeUsersCount = usersList.filter(u => u.is_active !== false).length || 32;
 
-  // Recent timeline data derived from recent_allocations & recent_transfers
+  // Timeline events
   const recentActivities = [
     {
       time: '09:42',
@@ -204,22 +209,22 @@ const AdminDashboard = () => {
     },
     {
       time: '09:18',
-      title: 'Fund allocation created',
-      detail: dashboardData?.recent_allocations?.[1]?.amount
-        ? `${formatIndianDenomination(dashboardData.recent_allocations[1].amount)} → ${dashboardData.recent_allocations[1].department}`
-        : '₹25 Cr → Karnataka State Treasury'
+      title: '₹25 Cr allocation created',
+      detail: dashboardData?.recent_allocations?.[1]?.department
+        ? `${dashboardData.recent_allocations[1].department} • Karnataka State Treasury`
+        : 'Karnataka State Treasury'
     },
     {
       time: '08:55',
-      title: 'State release recorded',
-      detail: dashboardData?.recent_transfers?.[0]?.state_name
-        ? `${dashboardData.recent_transfers[0].state_name} Treasury • Verified on blockchain`
-        : 'Transaction verified on blockchain'
+      title: 'Blockchain transaction verified',
+      detail: dashboardData?.recent_allocations?.[0]?.blockchain_tx_hash
+        ? `TX: ${dashboardData.recent_allocations[0].blockchain_tx_hash.substring(0, 10)}...${dashboardData.recent_allocations[0].blockchain_tx_hash.substring(dashboardData.recent_allocations[0].blockchain_tx_hash.length - 4)}`
+        : 'TX: 0x82f4...A91'
     },
     {
       time: '08:30',
-      title: 'Audit verification confirmed',
-      detail: 'Cryptographic block check completed with zero exceptions'
+      title: 'Central budget sanctioned',
+      detail: 'Union Ministry Allocation registered and anchored on blockchain'
     }
   ];
 
@@ -308,37 +313,57 @@ const AdminDashboard = () => {
               </div>
             </div>
 
-            {/* Minimal Centered Header */}
+            {/* Impressive Center Header with Subtle Glow & Decorative Divider */}
             <div className="super-admin-center-header">
-              <div className="super-admin-badge-eyebrow">
-                SUPER ADMIN
+              <div className="gov-official-badge">
+                <Shield size={12} />
+                <span>Republic of India • National Public Finance</span>
               </div>
+
+              <span className="super-admin-badge-eyebrow">
+                SUPER ADMIN
+              </span>
               <h1 className="super-admin-main-title">
                 Government Fund Management Control Center
               </h1>
               <p className="super-admin-sub-title">
                 Government Fund Allocation & Transparency Platform
               </p>
+
+              {/* Thin Decorative Green Line */}
+              <div className="header-green-divider" />
+
               <div className="super-admin-fy-pill">
-                <Calendar size={13} color="#064E3B" />
+                <Calendar size={13} color="#006B4F" />
                 <span>Current Financial Year: FY {activeFY}</span>
               </div>
             </div>
 
             {/* ========================================================= */}
-            {/* 1. LARGE PRIMARY OVERVIEW: ONE WIDE FINANCIAL PANEL       */}
+            {/* SECTION 1: FINANCIAL OVERVIEW                             */}
             {/* ========================================================= */}
+            <div className="section-eyebrow-heading">
+              <span className="section-bullet" />
+              <span>FINANCIAL OVERVIEW</span>
+            </div>
+
             <div className="super-admin-financial-overview-panel">
               <div className="fin-overview-column">
-                <span className="fin-overview-label">Total Government Funds</span>
-                <span className="fin-overview-value accent-gov-green">
+                <div className="fin-overview-top-label">
+                  <Landmark size={14} color="#006B4F" />
+                  <span>TOTAL GOVERNMENT FUNDS</span>
+                </div>
+                <span className="fin-overview-value highlight-green">
                   {formatIndianDenomination(totalFunds)}
                 </span>
                 <span className="fin-overview-subtext">Central sanctioned ceiling</span>
               </div>
 
               <div className="fin-overview-column">
-                <span className="fin-overview-label">Allocated</span>
+                <div className="fin-overview-top-label">
+                  <Coins size={14} color="#2563EB" />
+                  <span>ALLOCATED</span>
+                </div>
                 <span className="fin-overview-value">
                   {formatIndianDenomination(allocatedFunds)}
                 </span>
@@ -346,7 +371,10 @@ const AdminDashboard = () => {
               </div>
 
               <div className="fin-overview-column">
-                <span className="fin-overview-label">Remaining</span>
+                <div className="fin-overview-top-label">
+                  <PieChart size={14} color="#627D98" />
+                  <span>REMAINING</span>
+                </div>
                 <span className="fin-overview-value">
                   {formatIndianDenomination(remainingFunds)}
                 </span>
@@ -354,7 +382,10 @@ const AdminDashboard = () => {
               </div>
 
               <div className="fin-overview-column">
-                <span className="fin-overview-label">Pending Approvals</span>
+                <div className="fin-overview-top-label">
+                  <CheckCircle2 size={14} color="#D99A00" />
+                  <span>PENDING APPROVALS</span>
+                </div>
                 <span className="fin-overview-value">
                   <AnimatedCounter 
                     value={pendingApprovalsCount} 
@@ -366,23 +397,28 @@ const AdminDashboard = () => {
             </div>
 
             {/* ========================================================= */}
-            {/* 2. MEDIUM OPERATION MODULES (3 Cards Per Row on Desktop)  */}
+            {/* SECTION 2: CORE OPERATIONS (3 Cards Per Row on Desktop)   */}
             {/* Row 1: [ Financial Year ] [ Schemes ] [ Fund Allocation ] */}
             {/* Row 2: [ Approvals ] [ Projects ] [ Departments ]         */}
             {/* Row 3: [ Blockchain ] [ Audit Reports ] [ Users & Access ]*/}
             {/* ========================================================= */}
+            <div className="section-eyebrow-heading">
+              <span className="section-bullet" />
+              <span>CORE OPERATIONS</span>
+            </div>
+
             <div className="super-admin-operations-grid">
 
               {/* CARD 1: Financial Year */}
               <div 
-                className="super-admin-operation-card" 
+                className="super-admin-operation-card card-border-green" 
                 onClick={() => setTab('config')}
                 id="card-financial-year"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">Financial Year</span>
-                  <div className="card-mono-icon-wrapper">
-                    <Calendar size={18} />
+                  <span className="card-category-heading">FINANCIAL YEAR</span>
+                  <div className="card-mono-icon-container icon-box-green">
+                    <Calendar size={22} />
                   </div>
                 </div>
 
@@ -398,21 +434,21 @@ const AdminDashboard = () => {
                 <div className="card-bottom-row">
                   <div className="card-action-link">
                     <span>Manage</span>
-                    <ArrowRight size={13} className="action-arrow" />
+                    <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
               </div>
 
               {/* CARD 2: Schemes */}
               <div 
-                className="super-admin-operation-card" 
+                className="super-admin-operation-card card-border-blue" 
                 onClick={() => setTab('schemes')}
                 id="card-schemes"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">Schemes</span>
-                  <div className="card-mono-icon-wrapper">
-                    <FileSpreadsheet size={18} />
+                  <span className="card-category-heading">SCHEMES</span>
+                  <div className="card-mono-icon-container icon-box-blue">
+                    <FileSpreadsheet size={22} />
                   </div>
                 </div>
 
@@ -428,33 +464,39 @@ const AdminDashboard = () => {
                 <div className="card-bottom-row">
                   <div className="card-action-link">
                     <span>View Schemes</span>
-                    <ArrowRight size={13} className="action-arrow" />
+                    <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
               </div>
 
-              {/* CARD 3: Fund Allocation (VISUALLY DOMINANT CARD) */}
+              {/* CARD 3: Fund Allocation (FEATURE CARD) */}
               <div 
-                className="super-admin-operation-card card-dominant-allocation" 
+                className="super-admin-operation-card card-border-green card-dominant-allocation" 
                 onClick={() => setTab('allocation')}
                 id="card-fund-allocation"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">Fund Allocation</span>
-                  <div className="card-mono-icon-wrapper" style={{ color: '#064E3B' }}>
-                    <Coins size={18} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span className="card-category-heading">FUND ALLOCATION</span>
+                    <span className="card-feature-pill">
+                      <Link2 size={10} />
+                      <span>On-chain tracked</span>
+                    </span>
+                  </div>
+                  <div className="card-mono-icon-container icon-box-green">
+                    <Coins size={22} />
                   </div>
                 </div>
 
                 <div className="card-content-body">
-                  <div className="card-large-title" style={{ color: '#064E3B' }}>
+                  <div className="card-large-title" style={{ color: '#006B4F' }}>
                     {formatIndianDenomination(allocatedFunds)}
                   </div>
-                  <div className="card-description-text" style={{ fontWeight: '600', color: '#334155' }}>
+                  <div className="card-description-text" style={{ fontWeight: '700', color: '#102A43' }}>
                     Allocated • {utilizationPct}%
                   </div>
 
-                  {/* Clean Subtle Progress Indicator */}
+                  {/* Clean Green Progress Bar */}
                   <div className="dominant-progress-container">
                     <div className="dominant-progress-track">
                       <div 
@@ -464,39 +506,44 @@ const AdminDashboard = () => {
                     </div>
                     <div className="dominant-progress-meta">
                       <span>Allocation progress</span>
-                      <span>{formatIndianDenomination(remainingFunds)} remaining</span>
+                      <span>{formatIndianDenomination(remainingFunds)} Remaining</span>
                     </div>
                   </div>
                 </div>
 
                 <div className="card-bottom-row">
-                  <div className="card-action-link" style={{ color: '#064E3B' }}>
+                  <div className="card-action-link" style={{ color: '#006B4F' }}>
                     <span>Manage Funds</span>
-                    <ArrowRight size={13} className="action-arrow" />
+                    <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
               </div>
 
               {/* CARD 4: Approvals */}
               <div 
-                className="super-admin-operation-card" 
+                className="super-admin-operation-card card-border-gold" 
                 onClick={() => setTab('send_finance')}
                 id="card-approvals"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">Approvals</span>
-                  <div className="card-mono-icon-wrapper">
-                    <CheckCircle2 size={18} />
+                  <span className="card-category-heading">APPROVALS</span>
+                  <div className="card-mono-icon-container icon-box-gold">
+                    <CheckCircle2 size={22} />
                   </div>
                 </div>
 
                 <div className="card-content-body">
-                  <div className="card-large-title">
-                    <AnimatedCounter 
-                      value={pendingApprovalsCount} 
-                      prefix={pendingApprovalsCount < 10 ? '0' : ''} 
-                      suffix=" Pending"
-                    />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div className="card-large-title">
+                      <AnimatedCounter 
+                        value={pendingApprovalsCount} 
+                        prefix={pendingApprovalsCount < 10 ? '0' : ''} 
+                        suffix=" Pending"
+                      />
+                    </div>
+                    <span className="card-gold-badge">
+                      {pendingApprovalsCount < 10 ? `0${pendingApprovalsCount}` : pendingApprovalsCount} Pending
+                    </span>
                   </div>
                   <div className="card-description-text">
                     {urgentApprovalsCount < 10 ? `0${urgentApprovalsCount}` : urgentApprovalsCount} require immediate action
@@ -505,22 +552,22 @@ const AdminDashboard = () => {
 
                 <div className="card-bottom-row">
                   <div className="card-action-link">
-                    <span>Review</span>
-                    <ArrowRight size={13} className="action-arrow" />
+                    <span>Review Approvals</span>
+                    <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
               </div>
 
               {/* CARD 5: Projects */}
               <div 
-                className="super-admin-operation-card" 
+                className="super-admin-operation-card card-border-navy" 
                 onClick={() => setTab('projects')}
                 id="card-projects"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">Projects</span>
-                  <div className="card-mono-icon-wrapper">
-                    <FolderKanban size={18} />
+                  <span className="card-category-heading">PROJECTS</span>
+                  <div className="card-mono-icon-container icon-box-navy">
+                    <FolderKanban size={22} />
                   </div>
                 </div>
 
@@ -536,21 +583,21 @@ const AdminDashboard = () => {
                 <div className="card-bottom-row">
                   <div className="card-action-link">
                     <span>View Projects</span>
-                    <ArrowRight size={13} className="action-arrow" />
+                    <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
               </div>
 
               {/* CARD 6: Departments */}
               <div 
-                className="super-admin-operation-card" 
+                className="super-admin-operation-card card-border-teal" 
                 onClick={() => setTab('departments')}
                 id="card-departments"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">Departments</span>
-                  <div className="card-mono-icon-wrapper">
-                    <Building2 size={18} />
+                  <span className="card-category-heading">DEPARTMENTS</span>
+                  <div className="card-mono-icon-container icon-box-teal">
+                    <Building2 size={22} />
                   </div>
                 </div>
 
@@ -566,21 +613,26 @@ const AdminDashboard = () => {
                 <div className="card-bottom-row">
                   <div className="card-action-link">
                     <span>View Departments</span>
-                    <ArrowRight size={13} className="action-arrow" />
+                    <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
               </div>
 
               {/* CARD 7: Blockchain */}
               <div 
-                className="super-admin-operation-card" 
+                className="super-admin-operation-card card-border-green" 
                 onClick={() => setTab('monitoring')}
                 id="card-blockchain"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">Blockchain</span>
-                  <div className="card-mono-icon-wrapper">
-                    <Activity size={18} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span className="card-category-heading">BLOCKCHAIN</span>
+                    <span className="card-feature-pill">
+                      <span>● Verified</span>
+                    </span>
+                  </div>
+                  <div className="card-mono-icon-container icon-box-green">
+                    <Activity size={22} />
                   </div>
                 </div>
 
@@ -596,21 +648,21 @@ const AdminDashboard = () => {
                 <div className="card-bottom-row">
                   <div className="card-action-link">
                     <span>Open Ledger</span>
-                    <ArrowRight size={13} className="action-arrow" />
+                    <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
               </div>
 
               {/* CARD 8: Audit Reports */}
               <div 
-                className="super-admin-operation-card" 
+                className="super-admin-operation-card card-border-gold" 
                 onClick={() => setTab('audits')}
                 id="card-audit-reports"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">Audit Reports</span>
-                  <div className="card-mono-icon-wrapper">
-                    <ShieldCheck size={18} />
+                  <span className="card-category-heading">AUDIT REPORTS</span>
+                  <div className="card-mono-icon-container icon-box-gold">
+                    <ShieldCheck size={22} />
                   </div>
                 </div>
 
@@ -630,21 +682,21 @@ const AdminDashboard = () => {
                 <div className="card-bottom-row">
                   <div className="card-action-link">
                     <span>View Reports</span>
-                    <ArrowRight size={13} className="action-arrow" />
+                    <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
               </div>
 
               {/* CARD 9: Users & Access */}
               <div 
-                className="super-admin-operation-card" 
+                className="super-admin-operation-card card-border-navy" 
                 onClick={() => setTab('users')}
                 id="card-users-access"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">Users & Access</span>
-                  <div className="card-mono-icon-wrapper">
-                    <Users size={18} />
+                  <span className="card-category-heading">USERS & ACCESS</span>
+                  <div className="card-mono-icon-container icon-box-navy">
+                    <Users size={22} />
                   </div>
                 </div>
 
@@ -660,7 +712,7 @@ const AdminDashboard = () => {
                 <div className="card-bottom-row">
                   <div className="card-action-link">
                     <span>Manage Users</span>
-                    <ArrowRight size={13} className="action-arrow" />
+                    <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
               </div>
@@ -668,19 +720,29 @@ const AdminDashboard = () => {
             </div>
 
             {/* ========================================================= */}
-            {/* 3. VISUAL GOVERNMENT FUND FLOW SECTION                    */}
+            {/* SECTION 3: FUND FLOW PROCESS VISUALIZATION                */}
             {/* ========================================================= */}
+            <div className="section-eyebrow-heading">
+              <span className="section-bullet" />
+              <span>FUND FLOW</span>
+            </div>
+
             <div className="super-admin-section-container">
-              <div className="section-header-title">
-                <GitBranch size={16} color="#064E3B" />
-                <span>Government Fund Flow</span>
+              <div className="section-container-header">
+                <div className="section-container-title">
+                  <GitBranch size={16} color="#006B4F" />
+                  <span>Government Fund Flow</span>
+                </div>
+                <span style={{ fontSize: '11px', color: '#627D98', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                  Multi-Tier Disbursal Pipeline
+                </span>
               </div>
 
               <div className="fund-flow-wrapper">
                 <div className="fund-flow-node">
                   <div className="fund-flow-circle">01</div>
                   <div className="fund-flow-node-title">Central Government</div>
-                  <div className="fund-flow-node-desc">Planning & Union Sanctions</div>
+                  <div className="fund-flow-node-desc">Union Budget & Planning</div>
                 </div>
 
                 <div className="fund-flow-connector" />
@@ -688,7 +750,7 @@ const AdminDashboard = () => {
                 <div className="fund-flow-node">
                   <div className="fund-flow-circle">02</div>
                   <div className="fund-flow-node-title">Finance Department</div>
-                  <div className="fund-flow-node-desc">Disbursal Pool & Release</div>
+                  <div className="fund-flow-node-desc">Central Disbursal Pool</div>
                 </div>
 
                 <div className="fund-flow-connector" />
@@ -696,7 +758,7 @@ const AdminDashboard = () => {
                 <div className="fund-flow-node">
                   <div className="fund-flow-circle">03</div>
                   <div className="fund-flow-node-title">State Treasury</div>
-                  <div className="fund-flow-node-desc">State Accounts Allocation</div>
+                  <div className="fund-flow-node-desc">State Fund Releases</div>
                 </div>
 
                 <div className="fund-flow-connector" />
@@ -704,40 +766,48 @@ const AdminDashboard = () => {
                 <div className="fund-flow-node">
                   <div className="fund-flow-circle">04</div>
                   <div className="fund-flow-node-title">District Agency</div>
-                  <div className="fund-flow-node-desc">Local Authority Oversight</div>
+                  <div className="fund-flow-node-desc">District Agency Execution</div>
                 </div>
 
                 <div className="fund-flow-connector" />
 
                 <div className="fund-flow-node">
                   <div className="fund-flow-circle">05</div>
-                  <div className="fund-flow-node-title">Projects</div>
-                  <div className="fund-flow-node-desc">Works & Public Verification</div>
+                  <div className="fund-flow-node-title">Development Project</div>
+                  <div className="fund-flow-node-desc">Public Works & Verification</div>
                 </div>
               </div>
             </div>
 
             {/* ========================================================= */}
-            {/* 4. RECENT GOVERNMENT ACTIVITY SECTION                     */}
+            {/* SECTION 4: RECENT GOVERNMENT ACTIVITY                     */}
             {/* ========================================================= */}
+            <div className="section-eyebrow-heading">
+              <span className="section-bullet" />
+              <span>RECENT ACTIVITY</span>
+            </div>
+
             <div className="super-admin-section-container">
-              <div className="section-header-title">
-                <Clock size={16} color="#064E3B" />
-                <span>Recent Government Activity</span>
+              <div className="section-container-header">
+                <div className="section-container-title">
+                  <Clock size={16} color="#006B4F" />
+                  <span>Recent Government Activity</span>
+                </div>
+                <span style={{ fontSize: '11px', color: '#627D98', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
+                  Audited System Event Log
+                </span>
               </div>
 
               <div className="activity-timeline-list">
                 {recentActivities.map((act, index) => (
                   <div key={index} className="activity-timeline-item">
-                    <div className="activity-time-column">
-                      {act.time}
-                    </div>
-                    <div className="activity-node-dot" />
-                    <div className="activity-content-column">
-                      <div className="activity-title">
+                    <span className="activity-timeline-dot">●</span>
+                    <span className="activity-time-pill">{act.time}</span>
+                    <div className="activity-content-box">
+                      <div className="activity-title-text">
                         {act.title}
                       </div>
-                      <div className="activity-detail">
+                      <div className="activity-detail-text">
                         {act.detail}
                       </div>
                     </div>
