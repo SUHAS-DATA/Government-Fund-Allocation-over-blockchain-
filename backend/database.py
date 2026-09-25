@@ -28,7 +28,7 @@ def _sanitize_mongo_uri(uri: str) -> str:
         pass
     return uri
 
-client = MongoClient(_sanitize_mongo_uri(MONGO_URI), serverSelectionTimeoutMS=5000)
+client = MongoClient(_sanitize_mongo_uri(MONGO_URI), serverSelectionTimeoutMS=5000, connect=False)
 db = client[DB_NAME]
 
 def init_indexes():
