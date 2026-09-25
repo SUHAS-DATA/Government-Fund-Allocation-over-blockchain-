@@ -1,0 +1,559 @@
+/* ==========================================================================
+   Super Admin Control Hub — Centered Clean Governance Interface
+   Strict Constraints:
+   - Absolutely NO Left Sidebar, NO Right Sidebar
+   - Absolutely NO Top Navbar, NO Bottom Navbar
+   - Max Width 1200px Centered Layout
+   - Exactly 3 Cards Per Row on Desktop
+   - Government Green (#064E3B) & Institutional Palette
+   ========================================================================== */
+
+/* Root standalone layout for Super Admin */
+.super-admin-root-layout {
+  min-height: 100vh;
+  width: 100%;
+  background-color: #F8FAFC;
+  color: #0F172A;
+  margin: 0;
+  padding: 36px 24px 60px;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Centered container constrained to 1200px */
+.super-admin-hub-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Top Meta Row (Status & User Profile / Logout) */
+.super-admin-top-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding: 0 4px;
+}
+
+.super-admin-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #ECFDF5;
+  border: 1px solid #A7F3D0;
+  color: #065F46;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  letter-spacing: 0.3px;
+}
+
+.live-pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: #10B981;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: pulseGreen 2s infinite;
+}
+
+@keyframes pulseGreen {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+.super-admin-user-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background-color: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.super-admin-user-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1E293B;
+}
+
+.super-admin-logout-btn {
+  background: transparent;
+  border: none;
+  color: #64748B;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+
+.super-admin-logout-btn:hover {
+  color: #DC2626;
+  background-color: #FEE2E2;
+}
+
+/* Center Header */
+.super-admin-center-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.super-admin-badge-eyebrow {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #064E3B;
+  margin-bottom: 6px;
+}
+
+.super-admin-main-title {
+  font-size: 32px;
+  font-weight: 800;
+  color: #0F172A;
+  letter-spacing: -0.5px;
+  margin: 0 0 8px 0;
+  line-height: 1.2;
+}
+
+.super-admin-sub-title {
+  font-size: 15px;
+  color: #475569;
+  font-weight: 500;
+  margin: 0 0 12px 0;
+}
+
+.super-admin-fy-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #F0FDF4;
+  border: 1px solid #BBF7D0;
+  color: #065F46;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 5px 16px;
+  border-radius: 20px;
+}
+
+/* Quick Overview Bar */
+.super-admin-overview-bar {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 18px 24px;
+  margin-bottom: 32px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.overview-stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-right: 1px solid #F1F5F9;
+  padding-right: 12px;
+}
+
+.overview-stat-item:last-child {
+  border-right: none;
+  padding-right: 0;
+}
+
+.overview-stat-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #64748B;
+}
+
+.overview-stat-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0F172A;
+  line-height: 1.2;
+}
+
+.overview-stat-value.highlight-green {
+  color: #064E3B;
+}
+
+.overview-stat-value.highlight-blue {
+  color: #1D4ED8;
+}
+
+.overview-stat-value.highlight-orange {
+  color: #C2410C;
+}
+
+/* Exactly 3 Cards Per Row on Desktop */
+.super-admin-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 36px;
+}
+
+@media (max-width: 1024px) {
+  .super-admin-cards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .super-admin-overview-bar {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  .overview-stat-item:nth-child(2) {
+    border-right: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .super-admin-cards-grid {
+    grid-template-columns: 1fr;
+  }
+  .super-admin-overview-bar {
+    grid-template-columns: 1fr;
+  }
+  .overview-stat-item {
+    border-right: none;
+    border-bottom: 1px solid #F1F5F9;
+    padding-bottom: 10px;
+  }
+  .overview-stat-item:last-child {
+    border-bottom: none;
+  }
+}
+
+/* Dynamic Interactive Cards */
+.super-admin-card {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 220px;
+  cursor: pointer;
+  position: relative;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.22s ease;
+  user-select: none;
+  animation: cardFadeSlide 0.5s ease backwards;
+}
+
+@keyframes cardFadeSlide {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Interactive Hover Visuals */
+.super-admin-card:hover {
+  transform: translateY(-4px);
+  border-color: #059669;
+  box-shadow: 0 12px 24px -4px rgba(6, 78, 59, 0.09), 0 4px 6px -2px rgba(0, 0, 0, 0.03);
+  background-color: #FAFCFA;
+}
+
+.super-admin-card:hover .card-icon-container {
+  transform: scale(1.08);
+}
+
+.super-admin-card:hover .card-action-btn {
+  color: #064E3B;
+}
+
+.super-admin-card:hover .card-action-btn .arrow-icon {
+  transform: translateX(4px);
+}
+
+/* Inside Card Components */
+.card-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.card-category-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: #64748B;
+}
+
+.card-pill-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.card-pill-badge.badge-green {
+  background-color: #ECFDF5;
+  color: #065F46;
+  border: 1px solid #A7F3D0;
+}
+
+.card-pill-badge.badge-blue {
+  background-color: #EFF6FF;
+  color: #1D4ED8;
+  border: 1px solid #BFDBFE;
+}
+
+.card-pill-badge.badge-amber {
+  background-color: #FFFBEB;
+  color: #B45309;
+  border: 1px solid #FDE68A;
+}
+
+.card-pill-badge.badge-red {
+  background-color: #FEF2F2;
+  color: #B91C1C;
+  border: 1px solid #FECACA;
+}
+
+.card-pill-badge.badge-slate {
+  background-color: #F1F5F9;
+  color: #334155;
+  border: 1px solid #E2E8F0;
+}
+
+/* Card Body Section */
+.card-body-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.card-icon-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.card-icon-container {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+}
+
+.card-icon-container.icon-green {
+  background-color: #ECFDF5;
+  color: #065F46;
+  border: 1px solid #A7F3D0;
+}
+
+.card-icon-container.icon-blue {
+  background-color: #EFF6FF;
+  color: #1D4ED8;
+  border: 1px solid #BFDBFE;
+}
+
+.card-icon-container.icon-emerald {
+  background-color: #F0FDF4;
+  color: #059669;
+  border: 1px solid #BBF7D0;
+}
+
+.card-icon-container.icon-orange {
+  background-color: #FFF7ED;
+  color: #C2410C;
+  border: 1px solid #FED7AA;
+}
+
+.card-icon-container.icon-purple {
+  background-color: #EEF2FF;
+  color: #4F46E5;
+  border: 1px solid #C7D2FE;
+}
+
+.card-icon-container.icon-teal {
+  background-color: #F0FDFA;
+  color: #0F766E;
+  border: 1px solid #99F6E4;
+}
+
+.card-icon-container.icon-slate {
+  background-color: #F8FAFC;
+  color: #0F172A;
+  border: 1px solid #CBD5E1;
+}
+
+.card-icon-container.icon-red {
+  background-color: #FEF2F2;
+  color: #DC2626;
+  border: 1px solid #FECACA;
+}
+
+.card-primary-metric {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0F172A;
+  letter-spacing: -0.3px;
+  line-height: 1.25;
+}
+
+.card-subtext {
+  font-size: 13px;
+  color: #64748B;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+/* Utilization Progress Bar for Fund Allocation */
+.card-utilization-bar-container {
+  margin-top: 6px;
+  margin-bottom: 2px;
+}
+
+.card-utilization-track {
+  width: 100%;
+  height: 7px;
+  background-color: #E2E8F0;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.card-utilization-fill {
+  height: 100%;
+  background-color: #059669;
+  border-radius: 9999px;
+  transition: width 1s ease-in-out;
+}
+
+.card-utilization-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748B;
+  margin-top: 4px;
+}
+
+/* Card Action Button / Indicator */
+.card-action-row {
+  border-top: 1px solid #F1F5F9;
+  padding-top: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.card-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0D5C3A;
+  transition: color 0.15s ease;
+}
+
+.arrow-icon {
+  transition: transform 0.18s ease;
+}
+
+/* ==========================================================================
+   Module Page Sub-View with Back to Super Admin Navigation
+   ========================================================================== */
+.super-admin-module-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.super-admin-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #FFFFFF;
+  border: 1px solid #CBD5E1;
+  color: #064E3B;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: all 0.18s ease;
+}
+
+.super-admin-back-btn:hover {
+  background-color: #ECFDF5;
+  border-color: #059669;
+  color: #064E3B;
+  transform: translateX(-2px);
+}
+
+.super-admin-module-title-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.super-admin-module-crumb {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748B;
+}
+
+.super-admin-module-name-tag {
+  font-size: 14px;
+  font-weight: 800;
+  color: #0F172A;
+  background-color: #F1F5F9;
+  padding: 4px 12px;
+  border-radius: 6px;
+}

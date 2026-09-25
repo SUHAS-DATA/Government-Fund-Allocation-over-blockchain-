@@ -113,6 +113,17 @@ const PortalLayout = ({ children }) => {
     setMobileSidebarOpen(false);
   }, [location.pathname]);
 
+  const isSuperAdmin = user?.role === 'SUPER_ADMIN' || location.pathname.startsWith('/admin');
+
+  // Super Admin uses a completely centered standalone hub: NO top navbar, NO sidebar, NO footer
+  if (isSuperAdmin) {
+    return (
+      <div className="super-admin-portal-wrapper">
+        {children}
+      </div>
+    );
+  }
+
   const isFinance = user?.role === 'FINANCE';
 
   return (
@@ -178,18 +189,19 @@ function App() {
                   <Route path="/admin-portal" element={<AdminPortalPage />} />
                   <Route path="/login" element={<AdminPortalPage />} />
 
-                  {/* Super Admin Dashboards & Operations */}
+                  {/* Super Admin Centered Control Hub & Operations */}
                   <Route path="/admin" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} activePortal={activePortal}><AdminDashboard /></ProtectedRoute>} />
                   <Route path="/admin/dashboard" element={<Navigate to="/admin" replace />} />
-                  <Route path="/admin/financial-years" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} activePortal={activePortal}><FinancialYears /></ProtectedRoute>} />
-                  <Route path="/admin/departments" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} activePortal={activePortal}><Departments /></ProtectedRoute>} />
-                  <Route path="/admin/states-districts" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} activePortal={activePortal}><StatesDistricts /></ProtectedRoute>} />
-                  <Route path="/admin/schemes" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} activePortal={activePortal}><Schemes /></ProtectedRoute>} />
-                  <Route path="/admin/budget-allocation" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} activePortal={activePortal}><BudgetAllocation /></ProtectedRoute>} />
-                  <Route path="/admin/send-to-finance" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} activePortal={activePortal}><SendToFinance /></ProtectedRoute>} />
-                  <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} activePortal={activePortal}><UserManagement /></ProtectedRoute>} />
-                  <Route path="/admin/blockchain-explorer" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} activePortal={activePortal}><AuditExplorer /></ProtectedRoute>} />
-                  <Route path="/admin/audit-reports" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} activePortal={activePortal}><AuditReportsReview /></ProtectedRoute>} />
+                  <Route path="/admin/financial-years" element={<Navigate to="/admin?tab=config" replace />} />
+                  <Route path="/admin/departments" element={<Navigate to="/admin?tab=departments" replace />} />
+                  <Route path="/admin/states-districts" element={<Navigate to="/admin?tab=states_districts" replace />} />
+                  <Route path="/admin/schemes" element={<Navigate to="/admin?tab=schemes" replace />} />
+                  <Route path="/admin/budget-allocation" element={<Navigate to="/admin?tab=allocation" replace />} />
+                  <Route path="/admin/send-to-finance" element={<Navigate to="/admin?tab=send_finance" replace />} />
+                  <Route path="/admin/users" element={<Navigate to="/admin?tab=users" replace />} />
+                  <Route path="/admin/blockchain-explorer" element={<Navigate to="/admin?tab=monitoring" replace />} />
+                  <Route path="/admin/audit-reports" element={<Navigate to="/admin?tab=audits" replace />} />
+                  <Route path="/admin/projects" element={<Navigate to="/admin?tab=projects" replace />} />
 
                   {/* Finance Department Dashboards & Operations */}
                   <Route path="/finance" element={<ProtectedRoute allowedRoles={['FINANCE']} activePortal={activePortal}><FinanceDashboard /></ProtectedRoute>} />
