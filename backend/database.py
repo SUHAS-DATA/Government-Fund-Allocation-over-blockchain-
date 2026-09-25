@@ -14,6 +14,10 @@ DB_NAME = os.getenv("MONGODB_DB_NAME", "FUNDSYSTEM")
 def _sanitize_mongo_uri(uri: str) -> str:
     """Safely escapes usernames and passwords containing special characters (like @) per RFC 3986."""
     try:
+        # Auto-correct typo where numeral '1' was typed instead of lowercase 'l'
+        if "16fgx36" in uri:
+            uri = uri.replace("16fgx36", "l6fgx36")
+
         if "://" in uri and "@" in uri:
             prefix, rest = uri.split("://", 1)
             if "@" in rest:

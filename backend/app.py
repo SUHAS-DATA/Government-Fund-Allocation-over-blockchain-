@@ -123,12 +123,22 @@ async def health():
         }
     }
 
-# Uniform Error Handlers
+def _cors_headers(request: Request) -> dict:
+    origin = request.headers.get("origin") or "*"
+    return {
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Credentials": "true",
+        "Access-Control-Allow-Methods": "*",
+        "Access-Control-Allow-Headers": "*",
+    }
+
+# Uniform Error Handlers with Guaranteed CORS Headers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
     return JSONResponse(
         status_code=exc.status_code,
-        content={"success": False, "message": exc.detail}
+        content={"success": False, "message": exc.detail},
+        headers=_cors_headers(request)
     )
 
 @app.exception_handler(404)
@@ -136,16 +146,27 @@ async def not_found_error(request: Request, exc):
     if request.url.path.startswith("/api/"):
         return JSONResponse(
             status_code=404,
-            content={"success": False, "message": "API resource endpoint not found"}
+            content={"success": False, "message": "API resource endpoint not found"},
+            headers=_cors_headers(request)
         )
-    return JSONResponse(status_code=404, content={"error": "Not Found"})
+    return JSONResponse(status_code=404, content={"error": "Not Found"}, headers=_cors_headers(request))
 
 @app.exception_handler(500)
 async def internal_error(request: Request, exc):
     logging.error(f"Internal Server Error on {request.url.path}: {exc}")
     return JSONResponse(
         status_code=500,
-        content={"success": False, "message": "Internal server processing error. Please check server logs."}
+        content={"success": False, "message": "Internal server processing error. Please check server logs."},
+        headers=_cors_headers(request)
+    )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logging.error(f"Unhandled Exception on {request.url.path}: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={"success": False, "message": str(exc)},
+        headers=_cors_headers(request)
     )
 
 if __name__ == "__main__":
