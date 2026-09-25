@@ -66,14 +66,47 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Security Response Headers Middleware
+# Comprehensive CORS Preflight & Security Headers Middleware
 @app.middleware("http")
-async def add_security_headers(request: Request, call_next):
-    response = await call_next(request)
+async def cors_and_security_middleware(request: Request, call_next):
+    # Immediately answer preflight OPTIONS requests with 200 OK and complete CORS headers
+    if request.method == "OPTIONS":
+        origin = request.headers.get("origin") or "*"
+        return JSONResponse(
+            status_code=200,
+            content={"message": "OK"},
+            headers={
+                "Access-Control-Allow-Origin": origin,
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+                "Access-Control-Allow-Headers": request.headers.get("access-control-request-headers") or "*",
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Max-Age": "86400",
+            }
+        )
+
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        logging.error(f"Unhandled exception on {request.url.path}: {exc}")
+        origin = request.headers.get("origin") or "*"
+        return JSONResponse(
+            status_code=500,
+            content={"success": False, "message": f"Server processing error: {str(exc)}"},
+            headers={
+                "Access-Control-Allow-Origin": origin,
+                "Access-Control-Allow-Credentials": "true",
+                "Access-Control-Allow-Methods": "*",
+                "Access-Control-Allow-Headers": "*",
+            }
+        )
+
+    origin = request.headers.get("origin")
+    if origin:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
-    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
 
 # Static file serving for off-chain document repository
