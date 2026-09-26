@@ -113,10 +113,8 @@ const PortalLayout = ({ children }) => {
     setMobileSidebarOpen(false);
   }, [location.pathname]);
 
-  const isSuperAdmin = user?.role === 'SUPER_ADMIN' || location.pathname.startsWith('/admin');
-
-  // Super Admin uses a completely centered standalone hub: NO top navbar, NO sidebar, NO footer
-  if (isSuperAdmin) {
+  // All authenticated government department officers use the centered control hub layout: NO sidebar, NO top nav, NO bottom nav
+  if (user) {
     return (
       <div className="super-admin-portal-wrapper">
         {children}
@@ -206,9 +204,9 @@ function App() {
                   {/* Finance Department Dashboards & Operations */}
                   <Route path="/finance" element={<ProtectedRoute allowedRoles={['FINANCE']} activePortal={activePortal}><FinanceDashboard /></ProtectedRoute>} />
                   <Route path="/finance/dashboard" element={<Navigate to="/finance" replace />} />
-                  <Route path="/finance/received-budgets" element={<ProtectedRoute allowedRoles={['FINANCE']} activePortal={activePortal}><ReceivedBudgets /></ProtectedRoute>} />
-                  <Route path="/finance/transfers" element={<ProtectedRoute allowedRoles={['FINANCE']} activePortal={activePortal}><TransferToState /></ProtectedRoute>} />
-                  <Route path="/finance/history" element={<ProtectedRoute allowedRoles={['FINANCE']} activePortal={activePortal}><FinanceHistory /></ProtectedRoute>} />
+                  <Route path="/finance/received-budgets" element={<Navigate to="/finance?tab=pending" replace />} />
+                  <Route path="/finance/transfers" element={<Navigate to="/finance?tab=release" replace />} />
+                  <Route path="/finance/history" element={<Navigate to="/finance?tab=history" replace />} />
 
                   {/* Common Authenticated Routes */}
                   <Route path="/profile" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'FINANCE']} activePortal={activePortal}><ProfilePage /></ProtectedRoute>} />
@@ -236,14 +234,14 @@ function App() {
                   <Route path="/district/dashboard" element={<Navigate to="/department" replace />} />
 
                   {/* State Treasury Sub-Routes */}
-                  <Route path="/state/received-funds" element={<ProtectedRoute allowedRoles={['STATE', 'DEPARTMENT']} activePortal={activePortal}><StateReceivedFunds /></ProtectedRoute>} />
-                  <Route path="/state/allocations" element={<ProtectedRoute allowedRoles={['STATE', 'DEPARTMENT']} activePortal={activePortal}><AllocateToDistrict /></ProtectedRoute>} />
-                  <Route path="/state/history" element={<ProtectedRoute allowedRoles={['STATE', 'DEPARTMENT']} activePortal={activePortal}><StateHistory /></ProtectedRoute>} />
+                  <Route path="/state/received-funds" element={<Navigate to="/department?tab=received" replace />} />
+                  <Route path="/state/allocations" element={<Navigate to="/department?tab=state_allocations" replace />} />
+                  <Route path="/state/history" element={<Navigate to="/department?tab=schemes" replace />} />
 
                   {/* District Agency Sub-Routes */}
-                  <Route path="/district/projects" element={<ProtectedRoute allowedRoles={['DISTRICT', 'DEPARTMENT']} activePortal={activePortal}><ProjectsManagement /></ProtectedRoute>} />
-                  <Route path="/district/contractors" element={<ProtectedRoute allowedRoles={['DISTRICT', 'DEPARTMENT']} activePortal={activePortal}><ContractorKYCReview /></ProtectedRoute>} />
-                  <Route path="/district/grievances" element={<ProtectedRoute allowedRoles={['DISTRICT', 'DEPARTMENT']} activePortal={activePortal}><GrievanceInbox /></ProtectedRoute>} />
+                  <Route path="/district/projects" element={<Navigate to="/department?tab=projects" replace />} />
+                  <Route path="/district/contractors" element={<Navigate to="/department?tab=contractors" replace />} />
+                  <Route path="/district/grievances" element={<Navigate to="/department?tab=grievances" replace />} />
 
                   {/* Common Authenticated Routes */}
                   <Route path="/profile" element={<ProtectedRoute allowedRoles={['STATE', 'DISTRICT', 'DEPARTMENT']} activePortal={activePortal}><ProfilePage /></ProtectedRoute>} />
@@ -315,11 +313,11 @@ function App() {
                   {/* Auditor Dashboard & Operations */}
                   <Route path="/auditor" element={<ProtectedRoute allowedRoles={['AUDITOR']} activePortal={activePortal}><AuditorDashboard /></ProtectedRoute>} />
                   <Route path="/auditor/dashboard" element={<Navigate to="/auditor" replace />} />
-                  <Route path="/auditor/blockchain-explorer" element={<ProtectedRoute allowedRoles={['AUDITOR']} activePortal={activePortal}><AuditExplorer /></ProtectedRoute>} />
-                  <Route path="/auditor/document-audit" element={<ProtectedRoute allowedRoles={['AUDITOR']} activePortal={activePortal}><DocumentAudit /></ProtectedRoute>} />
-                  <Route path="/auditor/anomalies" element={<ProtectedRoute allowedRoles={['AUDITOR']} activePortal={activePortal}><AnomalyAnalytics /></ProtectedRoute>} />
-                  <Route path="/auditor/fraud-freeze" element={<ProtectedRoute allowedRoles={['AUDITOR']} activePortal={activePortal}><FraudFreeze /></ProtectedRoute>} />
-                  <Route path="/auditor/submit-report" element={<ProtectedRoute allowedRoles={['AUDITOR']} activePortal={activePortal}><SubmitAuditReport /></ProtectedRoute>} />
+                  <Route path="/auditor/blockchain-explorer" element={<Navigate to="/auditor?tab=explorer" replace />} />
+                  <Route path="/auditor/document-audit" element={<Navigate to="/auditor?tab=documents" replace />} />
+                  <Route path="/auditor/anomalies" element={<Navigate to="/auditor?tab=anomalies" replace />} />
+                  <Route path="/auditor/fraud-freeze" element={<Navigate to="/auditor?tab=freeze" replace />} />
+                  <Route path="/auditor/submit-report" element={<Navigate to="/auditor?tab=report" replace />} />
 
                   {/* Common Authenticated Routes */}
                   <Route path="/profile" element={<ProtectedRoute allowedRoles={['AUDITOR']} activePortal={activePortal}><ProfilePage /></ProtectedRoute>} />
