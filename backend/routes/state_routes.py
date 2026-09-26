@@ -156,6 +156,10 @@ async def allocate_to_district(
     # 1. Execute On-Chain Smart Contract Function
     tx_hash = None
     block_num = None
+    to_dist = bcs.get_entity_wallet("DISTRICT", district_name)
+    from_state = bcs.get_entity_wallet("STATE", trf.get("state_code"))
+    state_title = trf.get("state_name") or "State"
+
     try:
         contract = bcs.get_contract()
         if contract:
@@ -178,10 +182,6 @@ async def allocate_to_district(
                         "blockchain_block": rec_trf["block_number"]
                     }}
                 )
-
-        to_dist = bcs.get_entity_wallet("DISTRICT", district_name)
-        from_state = bcs.get_entity_wallet("STATE", trf.get("state_code"))
-        state_title = trf.get("state_name") or "State"
 
         tx_receipt = bcs.record_district_allocation_onchain(dist_alloc_id, transfer_id, district_name, amount, receiver_address=to_dist)
         if tx_receipt:

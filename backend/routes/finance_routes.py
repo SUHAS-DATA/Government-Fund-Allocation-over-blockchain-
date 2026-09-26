@@ -156,6 +156,9 @@ async def approve_and_transfer(
     # 1. Execute On-Chain Ethereum Smart Contract Transaction
     tx_hash = None
     block_num = None
+    to_state = bcs.get_entity_wallet("STATE", state_code)
+    from_fin = bcs.get_entity_wallet("FINANCE")
+
     try:
         contract = bcs.get_contract()
         if contract:
@@ -196,9 +199,6 @@ async def approve_and_transfer(
                     "timestamp": datetime.now(timezone.utc)
                 })
 
-        to_state = bcs.get_entity_wallet("STATE", state_code)
-        from_fin = bcs.get_entity_wallet("FINANCE")
-        
         tx_receipt = bcs.record_state_transfer_onchain(trf_id, alloc_id, state_name, amount, receiver_address=to_state)
         if tx_receipt:
             tx_hash = tx_receipt["tx_hash"]
