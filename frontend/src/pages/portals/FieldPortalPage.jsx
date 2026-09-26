@@ -65,9 +65,8 @@ const FieldPortalPage = () => {
 
   // If already logged in, redirect to permitted dashboard or role home
   if (user) {
-    if (user.role === 'STATE' || user.role === 'DISTRICT' || user.role === 'DEPARTMENT') {
-      return <Navigate to="/department" replace />;
-    }
+    if (user.role === 'STATE') return <Navigate to="/state" replace />;
+    if (user.role === 'DISTRICT' || user.role === 'DEPARTMENT') return <Navigate to="/district" replace />;
     if (user.role === 'SUPER_ADMIN') return <Navigate to="/admin" replace />;
     if (user.role === 'FINANCE') return <Navigate to="/finance" replace />;
     if (user.role === 'CONTRACTOR') return <Navigate to="/contractor/dashboard" replace />;
@@ -97,8 +96,10 @@ const FieldPortalPage = () => {
     try {
       const res = await login((loginEmail || email).trim(), loginPassword || password);
       if (res.success) {
-        if (res.user.role === 'STATE' || res.user.role === 'DISTRICT' || res.user.role === 'DEPARTMENT') {
-          navigate('/department');
+        if (res.user.role === 'STATE') {
+          navigate('/state');
+        } else if (res.user.role === 'DISTRICT' || res.user.role === 'DEPARTMENT') {
+          navigate('/district');
         } else {
           // Unauthorized role on field portal
           if (res.user.role === 'SUPER_ADMIN') navigate('/admin');

@@ -45,11 +45,13 @@ import TransferToState from './pages/finance/TransferToState';
 import FinanceHistory from './pages/finance/FinanceHistory';
 
 // State Pages
+import StateDashboard from './pages/state/StateDashboard';
 import StateReceivedFunds from './pages/state/StateReceivedFunds';
 import AllocateToDistrict from './pages/state/AllocateToDistrict';
 import StateHistory from './pages/state/StateHistory';
 
 // Department / District Pages
+import DistrictDashboard from './pages/district/DistrictDashboard';
 import DepartmentDashboard from './pages/department/DepartmentDashboard';
 import ProjectsManagement from './pages/district/ProjectsManagement';
 import ContractorKYCReview from './pages/district/ContractorKYCReview';
@@ -79,7 +81,7 @@ const getRoleHome = (role, activePortal) => {
     return role === 'FINANCE' ? '/finance' : '/admin';
   }
   if (activePortal === PORTAL_TYPES.FIELD) {
-    return '/department';
+    return role === 'STATE' ? '/state' : '/district';
   }
   if (activePortal === PORTAL_TYPES.CONTRACTOR) {
     return '/contractor/dashboard';
@@ -228,20 +230,23 @@ function App() {
                   <Route path="/field-portal" element={<FieldPortalPage />} />
                   <Route path="/district-login" element={<FieldPortalPage />} />
 
-                  {/* State & District Dashboards & Operations */}
+                  {/* Dedicated District Development Control Hub & Operations */}
+                  <Route path="/district" element={<ProtectedRoute allowedRoles={['DISTRICT', 'DEPARTMENT']} activePortal={activePortal}><DistrictDashboard /></ProtectedRoute>} />
+                  <Route path="/district/dashboard" element={<Navigate to="/district" replace />} />
+                  <Route path="/district/projects" element={<Navigate to="/district?tab=projects" replace />} />
+                  <Route path="/district/contractors" element={<Navigate to="/district?tab=contractors" replace />} />
+                  <Route path="/district/grievances" element={<Navigate to="/district?tab=grievances" replace />} />
+
+                  {/* Dedicated State Treasury Control Hub & Operations */}
+                  <Route path="/state" element={<ProtectedRoute allowedRoles={['STATE']} activePortal={activePortal}><StateDashboard /></ProtectedRoute>} />
+                  <Route path="/state/dashboard" element={<Navigate to="/state" replace />} />
+                  <Route path="/state/received-funds" element={<Navigate to="/state?tab=received" replace />} />
+                  <Route path="/state/allocations" element={<Navigate to="/state?tab=allocations" replace />} />
+                  <Route path="/state/history" element={<Navigate to="/state?tab=history" replace />} />
+
+                  {/* Role-based Department Entry Dispatcher */}
                   <Route path="/department" element={<ProtectedRoute allowedRoles={['STATE', 'DISTRICT', 'DEPARTMENT']} activePortal={activePortal}><DepartmentDashboard /></ProtectedRoute>} />
-                  <Route path="/state/dashboard" element={<Navigate to="/department" replace />} />
-                  <Route path="/district/dashboard" element={<Navigate to="/department" replace />} />
-
-                  {/* State Treasury Sub-Routes */}
-                  <Route path="/state/received-funds" element={<Navigate to="/department?tab=received" replace />} />
-                  <Route path="/state/allocations" element={<Navigate to="/department?tab=state_allocations" replace />} />
-                  <Route path="/state/history" element={<Navigate to="/department?tab=schemes" replace />} />
-
-                  {/* District Agency Sub-Routes */}
-                  <Route path="/district/projects" element={<Navigate to="/department?tab=projects" replace />} />
-                  <Route path="/district/contractors" element={<Navigate to="/department?tab=contractors" replace />} />
-                  <Route path="/district/grievances" element={<Navigate to="/department?tab=grievances" replace />} />
+                  <Route path="/department/dashboard" element={<Navigate to="/department" replace />} />
 
                   {/* Common Authenticated Routes */}
                   <Route path="/profile" element={<ProtectedRoute allowedRoles={['STATE', 'DISTRICT', 'DEPARTMENT']} activePortal={activePortal}><ProfilePage /></ProtectedRoute>} />
