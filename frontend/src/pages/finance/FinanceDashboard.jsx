@@ -18,7 +18,8 @@ import {
   Shield,
   GitBranch,
   Link2,
-  LogOut
+  LogOut,
+  Calendar
 } from 'lucide-react';
 import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
