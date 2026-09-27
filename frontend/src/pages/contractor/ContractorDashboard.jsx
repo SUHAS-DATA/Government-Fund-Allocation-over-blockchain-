@@ -786,50 +786,6 @@ const ContractorDashboard = () => {
               </div>
             </div>
 
-            {/* ========================================================= */}
-            {/* CONTRACTOR 14-STAGE WORKFLOW PIPELINE                     */}
-            {/* ========================================================= */}
-            <div className="gov-workflow-card">
-              <div className="gov-workflow-header">
-                <div className="gov-workflow-title">
-                  <GitBranch size={16} color="#006B4F" />
-                  <span>Complete Contractor End-to-End Workflow</span>
-                </div>
-                <span style={{ fontSize: '11px', color: '#627D98', fontWeight: '700' }}>
-                  14-STAGE STATUTORY PUBLIC WORKS PIPELINE
-                </span>
-              </div>
-              <div className="gov-workflow-steps">
-                {[
-                  { step: 1, title: 'Registration' },
-                  { step: 2, title: 'Login' },
-                  { step: 3, title: 'Available Projects', tab: 'available' },
-                  { step: 4, title: 'Apply/Bid', tab: 'apply_bid' },
-                  { step: 5, title: 'Bid Evaluation', tab: 'my_bids' },
-                  { step: 6, title: 'Contract Award', tab: 'contracts' },
-                  { step: 7, title: 'Project Execution', tab: 'projects' },
-                  { step: 8, title: 'Upload Progress', tab: 'upload' },
-                  { step: 9, title: 'Milestone Verification', tab: 'milestones' },
-                  { step: 10, title: 'Payment Request', tab: 'payment_requests' },
-                  { step: 11, title: 'Payment Approval', tab: 'payment_requests' },
-                  { step: 12, title: 'Blockchain Record', tab: 'blockchain' },
-                  { step: 13, title: 'Payment Released', tab: 'history' },
-                  { step: 14, title: 'Project Completion', tab: 'projects' }
-                ].map((s, idx, arr) => (
-                  <React.Fragment key={s.step}>
-                    <div 
-                      className="gov-workflow-step active" 
-                      onClick={() => s.tab && setTab(s.tab)}
-                      style={{ cursor: s.tab ? 'pointer' : 'default' }}
-                    >
-                      <span className="gov-workflow-step-num">{s.step}</span>
-                      <span>{s.title}</span>
-                    </div>
-                    {idx < arr.length - 1 && <span className="gov-workflow-arrow">→</span>}
-                  </React.Fragment>
-                ))}
-              </div>
-            </div>
 
             {/* ========================================================= */}
             {/* SECTION 2: 12 INTERACTIVE MODULES (3 Cards Per Row)       */}
