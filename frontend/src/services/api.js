@@ -94,9 +94,13 @@ api.interceptors.response.use(
     }
 
     if (error.response) {
-      if (error.response.status === 401 && !window.location.href.includes('login')) {
+      if (error.response.status === 401 && !window.location.href.includes('login') && window.location.pathname !== '/') {
         localStorage.removeItem('govtfund_token');
         localStorage.removeItem('govtfund_user');
+        if (typeof window !== 'undefined' && !window.__redirectingToLogin) {
+          window.__redirectingToLogin = true;
+          window.location.href = '/?session_expired=1';
+        }
       }
       return Promise.reject(error.response.data || { message: error.message });
     }
