@@ -74,20 +74,20 @@ api.interceptors.response.use(
   (response) => response.data,
   async (error) => {
     const config = error.config;
-    // Detect cold-start or temporary network failure (no response or 502-504 Gateway errors)
+    // Detect cold-start, container restart, or temporary network failure (no response or 5xx/Cloudflare 520-526 Gateway errors)
     const isColdStartOrNetworkError =
       !error.response ||
-      (error.response && error.response.status >= 502 && error.response.status <= 504);
+      (error.response && error.response.status >= 500 && error.response.status <= 530);
 
-    // Automatically retry idempotent GET requests while Render wakes up
+    // Automatically retry idempotent GET requests while Render wakes up or restarts
     if (config && isColdStartOrNetworkError && (!config.method || config.method.toLowerCase() === 'get')) {
       config.__retryCount = config.__retryCount || 0;
-      const MAX_RETRIES = 3;
+      const MAX_RETRIES = 4;
 
       if (config.__retryCount < MAX_RETRIES) {
         config.__retryCount += 1;
         const delayMs = config.__retryCount * 2500;
-        console.warn(`[API] Cloud server waking up or transient network drop. Retrying ${config.url} (Attempt ${config.__retryCount}/${MAX_RETRIES}) in ${delayMs}ms...`);
+        console.warn(`[API] Cloud server waking up or transient network drop (${error.response ? error.response.status : 'no response'}). Retrying ${config.url} (Attempt ${config.__retryCount}/${MAX_RETRIES}) in ${delayMs}ms...`);
         await new Promise((resolve) => setTimeout(resolve, delayMs));
         return api(config);
       }
