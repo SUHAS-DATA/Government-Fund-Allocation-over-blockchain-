@@ -17,26 +17,91 @@ import {
   TrendingUp,
   Building2,
   ArrowRight,
+  ArrowLeft,
   MessageSquareWarning,
-  Eye
+  Eye,
+  History,
+  PieChart,
+  Shield,
+  Layers,
+  Send,
+  X
 } from 'lucide-react';
 import API from '../../services/api';
 import { formatCurrency, formatAddress } from '../../services/blockchain';
-import StatCard from '../../components/StatCard';
 import BlockchainBadge from '../../components/BlockchainBadge';
-import StateDistrictSelector from '../../components/StateDistrictSelector';
+import { getAllStates, getDistrictsByState } from '../../config/statesDistrictsData';
 import PublicProjects from '../public/PublicProjects';
 import PublicExplorer from '../public/PublicExplorer';
 import GrievancePortal from '../public/GrievancePortal';
-import PortalNavHeader from '../../components/PortalNavHeader';
+import '../admin/SuperAdminHub.css';
+
+/**
+ * Animated Number Counter Hook & Component
+ */
+const AnimatedCounter = ({ value, duration = 1000, prefix = '', suffix = '' }) => {
+  const [displayValue, setDisplayValue] = useState(0);
+
+  useEffect(() => {
+    let startTimestamp = null;
+    const endValue = Number(value) || 0;
+    if (endValue === 0) {
+      setDisplayValue(0);
+      return;
+    }
+
+    const step = (timestamp) => {
+      if (!startTimestamp) startTimestamp = timestamp;
+      const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      setDisplayValue(Math.floor(ease * endValue));
+
+      if (progress < 1) {
+        window.requestAnimationFrame(step);
+      } else {
+        setDisplayValue(endValue);
+      }
+    };
+
+    const animId = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(animId);
+  }, [value, duration]);
+
+  return <span>{prefix}{displayValue.toLocaleString('en-IN')}{suffix}</span>;
+};
+
+/**
+ * Clean Indian Currency formatting helper (e.g. ₹350 Cr, ₹165 Cr)
+ */
+const formatIndianDenomination = (amount) => {
+  const num = Number(amount) || 0;
+  if (num >= 10000000) {
+    const cr = num / 10000000;
+    const formatted = cr % 1 === 0 ? cr.toFixed(0) : cr.toFixed(1);
+    return `₹${formatted} Cr`;
+  }
+  if (num >= 100000) {
+    const lakh = num / 100000;
+    const formatted = lakh % 1 === 0 ? lakh.toFixed(0) : lakh.toFixed(1);
+    return `₹${formatted} Lakh`;
+  }
+  return `₹${num.toLocaleString('en-IN')}`;
+};
 
 const PublicPortalPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = searchParams.get('tab') || 'projects';
+  const activeTab = searchParams.get('tab') || 'overview';
 
   const [stats, setStats] = useState(null);
   const [schemes, setSchemes] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Multi-Field Search Filter State
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
+  const [searchScheme, setSearchScheme] = useState(searchParams.get('scheme') || '');
+  const [searchState, setSearchState] = useState(searchParams.get('state') || '');
+  const [searchDistrict, setSearchDistrict] = useState(searchParams.get('district') || '');
+  const [searchDepartment, setSearchDepartment] = useState(searchParams.get('department') || '');
 
   // QR Verification Modal State
   const [showQrModal, setShowQrModal] = useState(false);
@@ -46,7 +111,8 @@ const PublicPortalPage = () => {
   const [qrError, setQrError] = useState('');
 
   const setTab = (t) => {
-    setSearchParams({ tab: t });
+    setSearchParams(t === 'overview' ? {} : { tab: t });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   useEffect(() => {
@@ -62,6 +128,19 @@ const PublicPortalPage = () => {
       }).catch(() => {});
     }).finally(() => setLoading(false));
   }, []);
+
+  const handleCitizenSearch = (e) => {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    params.set('tab', 'projects');
+    if (searchQuery.trim()) params.set('search', searchQuery.trim());
+    if (searchScheme) params.set('scheme', searchScheme);
+    if (searchState) params.set('state', searchState);
+    if (searchDistrict) params.set('district', searchDistrict);
+    if (searchDepartment) params.set('department', searchDepartment);
+    setSearchParams(params);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleVerifyQr = (e) => {
     e.preventDefault();
@@ -84,296 +163,810 @@ const PublicPortalPage = () => {
       .finally(() => setQrSearching(false));
   };
 
+  // 7 Dashboard Stats as per requirements:
+  // - Government Schemes
+  // - Total Allocated Funds
+  // - Project Locations
+  // - Project Progress
+  // - Funds Released
+  // - Verified Blockchain Transactions
+  // - Public Documents
+  const schemesCount = schemes.length || 14;
+  const totalAllocated = stats?.total_allocated || 350000000000;
+  const projectLocationsCount = stats?.total_locations || '32 States/UTs';
+  const avgProgress = stats?.avg_progress || 72;
+  const fundsReleased = stats?.total_disbursed || 165000000000;
+  const verifiedTxCount = stats?.total_tx_count || 428;
+  const publicDocsCount = stats?.public_documents || 96;
+
+  const getModuleTitle = (tab) => {
+    switch (tab) {
+      case 'projects': return 'Public Infrastructure Projects Tracking';
+      case 'schemes': return 'Centrally Sponsored Schemes & Programs';
+      case 'allocation': return 'National Fund Allocation Breakdown';
+      case 'progress': return 'Field Project Execution Progress';
+      case 'explorer': return 'Live Blockchain Fund Flow & Transaction Explorer';
+      case 'reports': return 'Public Financial Reports & Utilization Statements';
+      case 'grievances': return 'Citizen Grievance Redressal & Feedback';
+      default: return 'Public Transparency Module';
+    }
+  };
+
   return (
-    <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '32px 20px' }}>
-      {/* Shared Portal Navigation Header with Back to Portals & Switcher */}
-      <PortalNavHeader currentPortal="public" />
-      
-      {/* Official Government Public Portal Banner */}
-      <div className="gov-hero-banner" style={{ marginBottom: '24px', padding: '36px 36px 30px 36px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px' }}>
+    <div className="super-admin-root-layout">
+      <div className="super-admin-hub-container">
+        
+        {/* ========================================================= */}
+        {/* SUB-MODULE VIEW (When a card has been clicked)            */}
+        {/* ========================================================= */}
+        {activeTab !== 'overview' ? (
           <div>
-            <div className="gov-hero-pill">
-              <Globe size={13} />
-              <span>Public Transparency Portal • Open Citizen Access • No Login Required</span>
+            <div className="super-admin-module-bar">
+              <button 
+                type="button" 
+                onClick={() => setTab('overview')} 
+                className="super-admin-back-btn"
+                id="back-to-public-hub-btn"
+              >
+                <ArrowLeft size={15} />
+                <span>← Back to Public Portal</span>
+              </button>
+
+              <div className="super-admin-module-title-box">
+                <span className="super-admin-module-crumb">Public Portal</span>
+                <span style={{ color: '#CBD5E1' }}>/</span>
+                <span className="super-admin-module-name-tag">{getModuleTitle(activeTab)}</span>
+              </div>
             </div>
-            <h1 className="gov-hero-title">
-              National Public Fund & Project Transparency Ledger
-            </h1>
-            <p className="gov-hero-subtitle">
-              Real-time public tracking of Indian government infrastructure projects, multi-tier public treasury transfers, QR site inspection proofs, and cryptographic Ethereum ledger verification.
-            </p>
-          </div>
 
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => setShowQrModal(true)}
-              className="btn btn-sm"
-              style={{
-                backgroundColor: '#F59E0B',
-                color: '#0F172A',
-                borderColor: '#F59E0B',
-                fontWeight: '800',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px'
-              }}
-            >
-              <QrCode size={14} />
-              <span>Verify Project QR Code</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab('explorer')}
-              className="btn btn-secondary btn-sm"
-              style={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', borderColor: 'transparent', fontWeight: '700' }}
-            >
-              <Activity size={14} />
-              <span>Live Blockchain Ledger</span>
-            </button>
-          </div>
-        </div>
-      </div>
+            <div className="super-admin-submodule-wrapper">
+              {activeTab === 'projects' && (
+                <PublicProjects />
+              )}
 
-      {/* Public High-Level Metrics */}
-      <div className="grid-4" style={{ marginBottom: '24px' }}>
-        <StatCard
-          title="Total Sanctioned Ceiling"
-          value={stats?.total_allocated || 350000000000}
-          icon={Coins}
-          color="green"
-          isCurrency={true}
-          subtitle="Union Budget Ceiling"
-        />
-        <StatCard
-          title="State Disbursals"
-          value={stats?.total_disbursed || 165000000000}
-          icon={TrendingUp}
-          color="blue"
-          isCurrency={true}
-          subtitle="On-Chain State Releases"
-        />
-        <StatCard
-          title="Public Monitored Works"
-          value={stats?.total_projects || 24}
-          icon={FolderKanban}
-          color="teal"
-          subtitle="Geo-Tagged Development Sites"
-        />
-        <StatCard
-          title="Cryptographic Proofs"
-          value={stats?.verified_milestones || 15}
-          icon={ShieldCheck}
-          color="orange"
-          subtitle="SHA-256 Document Hashes"
-        />
-      </div>
-
-      {/* Public Navigation Tabs */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '6px',
-        borderBottom: '2px solid var(--border-color)',
-        marginBottom: '24px',
-        overflowX: 'auto',
-        paddingBottom: '2px'
-      }}>
-        <button
-          type="button"
-          onClick={() => setTab('projects')}
-          style={{
-            padding: '10px 16px',
-            border: 'none',
-            borderBottom: activeTab === 'projects' ? '3px solid var(--color-primary)' : '3px solid transparent',
-            background: 'none',
-            color: activeTab === 'projects' ? 'var(--color-primary)' : 'var(--text-secondary)',
-            fontWeight: activeTab === 'projects' ? '800' : '600',
-            fontSize: '13px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            transition: 'all 0.15s ease',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          <FolderKanban size={16} />
-          <span>Project Tracking</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setTab('schemes')}
-          style={{
-            padding: '10px 16px',
-            border: 'none',
-            borderBottom: activeTab === 'schemes' ? '3px solid var(--color-primary)' : '3px solid transparent',
-            background: 'none',
-            color: activeTab === 'schemes' ? 'var(--color-primary)' : 'var(--text-secondary)',
-            fontWeight: activeTab === 'schemes' ? '800' : '600',
-            fontSize: '13px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            transition: 'all 0.15s ease',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          <FileSpreadsheet size={16} />
-          <span>Scheme Tracking</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setTab('explorer')}
-          style={{
-            padding: '10px 16px',
-            border: 'none',
-            borderBottom: activeTab === 'explorer' ? '3px solid var(--color-primary)' : '3px solid transparent',
-            background: 'none',
-            color: activeTab === 'explorer' ? 'var(--color-primary)' : 'var(--text-secondary)',
-            fontWeight: activeTab === 'explorer' ? '800' : '600',
-            fontSize: '13px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            transition: 'all 0.15s ease',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          <Activity size={16} />
-          <span>Blockchain Fund Tracking</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setShowQrModal(true)}
-          style={{
-            padding: '10px 16px',
-            border: 'none',
-            borderBottom: '3px solid transparent',
-            background: 'none',
-            color: 'var(--text-secondary)',
-            fontWeight: '600',
-            fontSize: '13px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            transition: 'all 0.15s ease',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          <QrCode size={16} />
-          <span>QR & Geo Verification</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setTab('grievances')}
-          style={{
-            padding: '10px 16px',
-            border: 'none',
-            borderBottom: activeTab === 'grievances' ? '3px solid var(--color-primary)' : '3px solid transparent',
-            background: 'none',
-            color: activeTab === 'grievances' ? 'var(--color-primary)' : 'var(--text-secondary)',
-            fontWeight: activeTab === 'grievances' ? '800' : '600',
-            fontSize: '13px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            transition: 'all 0.15s ease',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          <MessageSquareWarning size={16} />
-          <span>Citizen Reports & Grievances</span>
-        </button>
-      </div>
-
-      {/* TAB 1: Project Tracking */}
-      {activeTab === 'projects' && (
-        <PublicProjects />
-      )}
-
-      {/* TAB 2: Scheme Tracking */}
-      {activeTab === 'schemes' && (
-        <div className="card">
-          <div className="card-header">
-            <div className="card-title">
-              <FileSpreadsheet size={18} color="var(--color-primary)" />
-              <span>National Schemes & Centrally Sponsored Programs</span>
-            </div>
-          </div>
-
-          <div style={{ overflowX: 'auto' }}>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Scheme Code</th>
-                  <th>Scheme Name</th>
-                  <th>Central Ministry / Department</th>
-                  <th>Budget Share (Central:State)</th>
-                  <th>Public Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {schemes.length > 0 ? (
-                  schemes.map((s) => (
-                    <tr key={s.code || s._id}>
-                      <td>
-                        <strong style={{ fontFamily: 'monospace', color: 'var(--color-primary)' }}>
-                          {s.code || s.scheme_code}
-                        </strong>
-                      </td>
-                      <td>
-                        <strong style={{ color: 'var(--text-main)' }}>{s.name || s.scheme_name}</strong>
-                        {s.description && (
-                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                            {s.description}
-                          </div>
+              {activeTab === 'schemes' && (
+                <div className="card" style={{ padding: '24px' }}>
+                  <div className="card-header" style={{ marginBottom: '20px' }}>
+                    <div className="card-title">
+                      <FileSpreadsheet size={20} color="#006B4F" />
+                      <span>National Government Schemes & Centrally Sponsored Programs</span>
+                    </div>
+                  </div>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ background: '#F8FAFC', borderBottom: '2px solid #E2E8F0', textAlign: 'left' }}>
+                          <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '800', color: '#475569' }}>Scheme Code</th>
+                          <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '800', color: '#475569' }}>Scheme Name</th>
+                          <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '800', color: '#475569' }}>Central Department</th>
+                          <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '800', color: '#475569' }}>Center : State Share</th>
+                          <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '800', color: '#475569' }}>Public Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {schemes.length > 0 ? (
+                          schemes.map((s) => (
+                            <tr key={s.code || s._id} style={{ borderBottom: '1px solid #EDF2F7' }}>
+                              <td style={{ padding: '14px 16px', fontFamily: 'monospace', color: '#006B4F', fontWeight: '700' }}>
+                                {s.code || s.scheme_code}
+                              </td>
+                              <td style={{ padding: '14px 16px' }}>
+                                <div style={{ fontWeight: '800', color: '#102A43', fontSize: '14px' }}>{s.name || s.scheme_name}</div>
+                                {s.description && (
+                                  <div style={{ fontSize: '12px', color: '#627D98', marginTop: '3px' }}>{s.description}</div>
+                                )}
+                              </td>
+                              <td style={{ padding: '14px 16px', fontSize: '13px', color: '#475569' }}>{s.department || 'Infrastructure'}</td>
+                              <td style={{ padding: '14px 16px', fontSize: '13px', fontWeight: '700', color: '#102A43' }}>
+                                {s.center_share_pct || 60}% : {s.state_share_pct || 40}%
+                              </td>
+                              <td style={{ padding: '14px 16px' }}>
+                                <span style={{ background: '#E6F4EA', color: '#006B4F', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '800' }}>
+                                  ACTIVE
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="5" style={{ textAlign: 'center', padding: '32px', color: '#627D98' }}>
+                              Loading centrally sponsored national schemes...
+                            </td>
+                          </tr>
                         )}
-                      </td>
-                      <td style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                        {s.department}
-                      </td>
-                      <td style={{ fontSize: '12px', fontWeight: '700' }}>
-                        {s.center_share_pct || 60}% : {s.state_share_pct || 40}%
-                      </td>
-                      <td>
-                        <span className="badge badge-success" style={{ fontSize: '10px' }}>
-                          ACTIVE SCHEME
-                        </span>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan="5" style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
-                      Loading national schemes...
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'allocation' && (
+                <div className="card" style={{ padding: '24px' }}>
+                  <div className="card-header" style={{ marginBottom: '20px' }}>
+                    <div className="card-title">
+                      <Coins size={20} color="#006B4F" />
+                      <span>National Government Fund Allocation Architecture</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '18px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#627D98' }}>TOTAL UNION CEILING</span>
+                      <div style={{ fontSize: '24px', fontWeight: '900', color: '#006B4F', marginTop: '6px' }}>
+                        {formatIndianDenomination(totalAllocated)}
+                      </div>
+                      <span style={{ fontSize: '12px', color: '#475569' }}>Approved in Union Budget FY 2026-27</span>
+                    </div>
+                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '18px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#627D98' }}>TRANSFERRED TO STATES</span>
+                      <div style={{ fontSize: '24px', fontWeight: '900', color: '#2563EB', marginTop: '6px' }}>
+                        {formatIndianDenomination(fundsReleased)}
+                      </div>
+                      <span style={{ fontSize: '12px', color: '#475569' }}>Credited to State Consolidated Funds</span>
+                    </div>
+                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '18px' }}>
+                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#627D98' }}>REMAINING LIQUIDITY</span>
+                      <div style={{ fontSize: '24px', fontWeight: '900', color: '#D97706', marginTop: '6px' }}>
+                        {formatIndianDenomination(Math.max(0, totalAllocated - fundsReleased))}
+                      </div>
+                      <span style={{ fontSize: '12px', color: '#475569' }}>Available for Supplementary Grants</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'progress' && (
+                <div className="card" style={{ padding: '24px' }}>
+                  <div className="card-header" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="card-title">
+                      <TrendingUp size={20} color="#16A34A" />
+                      <span>Physical Infrastructure Milestone Progress</span>
+                    </div>
+                    <button type="button" onClick={() => setTab('projects')} className="super-admin-back-btn">
+                      <FolderKanban size={14} />
+                      <span>View All Projects</span>
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {[
+                      { name: 'Four-Lane Rural Bypass Highway (Belagavi)', progress: 75, budget: '₹14.5 Cr', status: 'Phase 2 Completed' },
+                      { name: 'District Multi-Specialty Mother & Child Care Wing', progress: 60, budget: '₹22.0 Cr', status: 'Superstructure Underway' },
+                      { name: 'Smart Panchayat Drinking Water Filtration Network', progress: 90, budget: '₹6.8 Cr', status: 'Testing Phase' }
+                    ].map((p, idx) => (
+                      <div key={idx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '16px 20px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <span style={{ fontWeight: '800', color: '#102A43', fontSize: '15px' }}>{p.name}</span>
+                          <span style={{ fontWeight: '800', color: '#006B4F', fontSize: '14px' }}>{p.progress}%</span>
+                        </div>
+                        <div style={{ width: '100%', height: '8px', background: '#E2E8F0', borderRadius: '4px', overflow: 'hidden', marginBottom: '8px' }}>
+                          <div style={{ width: `${p.progress}%`, height: '100%', background: '#006B4F', borderRadius: '4px' }} />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#627D98' }}>
+                          <span>Sanctioned Budget: <strong>{p.budget}</strong></span>
+                          <span>Milestone: <strong>{p.status}</strong></span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'explorer' && (
+                <PublicExplorer />
+              )}
+
+              {activeTab === 'reports' && (
+                <div className="card" style={{ padding: '24px' }}>
+                  <div className="card-header" style={{ marginBottom: '20px' }}>
+                    <div className="card-title">
+                      <PieChart size={20} color="#0284C7" />
+                      <span>Public Reports & Audited Statements</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {[
+                      { title: 'National Public Works Expenditure Report (FY 2026-27)', desc: 'Comprehensive state-wise and scheme-wise disbursal summaries', format: 'PDF (Official Gazette)' },
+                      { title: 'Public Blockchain Verification Proof Ledger', desc: 'Immutable Ethereum cryptographic receipt hashes and block confirmations', format: 'JSON / CSV' },
+                      { title: 'Citizen Grievance Redressal Status Bulletin', desc: 'Public complaint resolution metrics and site inspection outcomes', format: 'Quarterly PDF' }
+                    ].map((r, idx) => (
+                      <div key={idx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                        <div>
+                          <div style={{ fontWeight: '800', color: '#102A43', fontSize: '15px' }}>{r.title}</div>
+                          <div style={{ fontSize: '12px', color: '#627D98', marginTop: '2px' }}>{r.desc} • {r.format}</div>
+                        </div>
+                        <button type="button" onClick={() => window.print()} className="super-admin-back-btn">
+                          View / Download
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'grievances' && (
+                <GrievancePortal />
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        ) : (
+          /* ========================================================= */
+          /* MAIN CENTERED CITIZEN TRANSPARENCY HUB VIEW               */
+          /* ========================================================= */
+          <>
+            {/* Top Bar: Official Emblem, Live Pulse & Citizen Status */}
+            <div className="super-admin-top-meta-bar">
+              <div className="super-admin-badge-left">
+                <span className="live-pulse-dot" />
+                <span className="live-network-text">OPEN CITIZEN ACCESS</span>
+                <span style={{ color: '#CBD5E1' }}>•</span>
+                <span style={{ color: '#486581', fontWeight: '600' }}>ETHEREUM PUBLIC LEDGER</span>
+              </div>
 
-      {/* TAB 3: Blockchain Fund Tracking */}
-      {activeTab === 'explorer' && (
-        <PublicExplorer />
-      )}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowQrModal(true)}
+                  className="super-admin-back-btn"
+                  style={{ background: '#FFFBEB', color: '#B45309', borderColor: '#FDE68A', padding: '6px 14px', fontSize: '12px' }}
+                >
+                  <QrCode size={13} />
+                  <span>Verify QR Code</span>
+                </button>
+              </div>
+            </div>
 
-      {/* TAB 4: Citizen Grievances */}
-      {activeTab === 'grievances' && (
-        <GrievancePortal />
-      )}
+            {/* Impressive Center Header with Subtle Glow & Decorative Divider */}
+            <div className="super-admin-center-header">
+              <div className="gov-official-badge">
+                <Shield size={12} />
+                <span>Republic of India • National Public Transparency Portal</span>
+              </div>
+
+              <span className="super-admin-badge-eyebrow">
+                OPEN CITIZEN INTEGRITY PLATFORM • NO LOGIN REQUIRED
+              </span>
+              <h1 className="super-admin-main-title">
+                Government Fund Allocation & Public Tracking
+              </h1>
+              <p className="super-admin-sub-title">
+                Real-time tracking of public infrastructure projects, multi-tier treasury transfers, and tamper-proof Ethereum blockchain verification.
+              </p>
+
+              {/* Thin Decorative Green Line */}
+              <div className="header-green-divider" />
+
+              <div className="super-admin-fy-pill">
+                <Globe size={13} color="#006B4F" />
+                <span>Public Transparency Portal • Open Data Standard • FY 2026–27</span>
+              </div>
+            </div>
+
+            {/* ========================================================= */}
+            {/* SECTION 1: CITIZEN MULTI-FIELD SEARCH COMPONENT           */}
+            {/* ========================================================= */}
+            <div className="section-eyebrow-heading">
+              <span className="section-bullet" />
+              <span>CITIZEN MULTI-FIELD SEARCH</span>
+            </div>
+
+            <div className="card" style={{ padding: '24px', marginBottom: '28px', border: '1px solid #D9E2EC', boxShadow: '0 4px 12px rgba(16, 42, 67, 0.05)' }}>
+              <div style={{ fontSize: '13px', fontWeight: '800', color: '#102A43', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Search size={16} color="#006B4F" />
+                <span>Search by Scheme, Project, State, District, Department, Project ID, or QR Code</span>
+              </div>
+
+              <form onSubmit={handleCitizenSearch}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px', marginBottom: '14px' }}>
+                  {/* Search Query */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#627D98', marginBottom: '4px' }}>PROJECT NAME / ID</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. PRJ-KA-101, Roadway..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '13px' }}
+                    />
+                  </div>
+
+                  {/* Scheme Dropdown */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#627D98', marginBottom: '4px' }}>SCHEME</label>
+                    <select
+                      value={searchScheme}
+                      onChange={(e) => setSearchScheme(e.target.value)}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '13px', background: '#FFF' }}
+                    >
+                      <option value="">All Schemes</option>
+                      {schemes.map((s) => (
+                        <option key={s.code || s._id} value={s.code || s.scheme_code}>{s.name || s.scheme_name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* State Dropdown */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#627D98', marginBottom: '4px' }}>STATE</label>
+                    <select
+                      value={searchState}
+                      onChange={(e) => { setSearchState(e.target.value); setSearchDistrict(''); }}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '13px', background: '#FFF' }}
+                    >
+                      <option value="">All States / UTs</option>
+                      {getAllStates().map((st) => (
+                        <option key={st.code} value={st.code}>{st.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* District Dropdown */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#627D98', marginBottom: '4px' }}>DISTRICT</label>
+                    <select
+                      value={searchDistrict}
+                      onChange={(e) => setSearchDistrict(e.target.value)}
+                      disabled={!searchState}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '13px', background: '#FFF' }}
+                    >
+                      <option value="">All Districts</option>
+                      {searchState && getDistrictsByState(searchState).map((d) => (
+                        <option key={d.name} value={d.name}>{d.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Department Dropdown */}
+                  <div>
+                    <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#627D98', marginBottom: '4px' }}>DEPARTMENT</label>
+                    <select
+                      value={searchDepartment}
+                      onChange={(e) => setSearchDepartment(e.target.value)}
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '6px', border: '1px solid #CBD5E1', fontSize: '13px', background: '#FFF' }}
+                    >
+                      <option value="">All Departments</option>
+                      <option value="Rural Development & Infrastructure">Rural Development & Infrastructure</option>
+                      <option value="Public Works Department (PWD)">Public Works Department (PWD)</option>
+                      <option value="Health & Family Welfare">Health & Family Welfare</option>
+                      <option value="Primary & Secondary Education">Primary & Secondary Education</option>
+                      <option value="Water Resources & Sanitation">Water Resources & Sanitation</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowQrModal(true)}
+                    style={{
+                      background: '#FFFBEB',
+                      color: '#B45309',
+                      border: '1px solid #FDE68A',
+                      padding: '9px 16px',
+                      borderRadius: '6px',
+                      fontWeight: '700',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    <QrCode size={14} />
+                    <span>Search by QR Code</span>
+                  </button>
+                  <button
+                    type="submit"
+                    style={{
+                      background: '#006B4F',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      padding: '9px 24px',
+                      borderRadius: '6px',
+                      fontWeight: '800',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      boxShadow: '0 2px 4px rgba(0, 107, 79, 0.25)'
+                    }}
+                  >
+                    <Search size={14} />
+                    <span>Search Projects</span>
+                  </button>
+                </div>
+              </form>
+            </div>
+
+            {/* ========================================================= */}
+            {/* SECTION 2: 7-METRIC PUBLIC DASHBOARD STATS                */}
+            {/* ========================================================= */}
+            <div className="section-eyebrow-heading">
+              <span className="section-bullet" />
+              <span>PUBLIC EXPENDITURE & INFRASTRUCTURE OVERVIEW</span>
+            </div>
+
+            <div className="super-admin-financial-overview-panel grid-7">
+              <div className="fin-overview-column">
+                <div className="fin-overview-top-label">
+                  <FileSpreadsheet size={14} color="#006B4F" />
+                  <span>GOVT SCHEMES</span>
+                </div>
+                <span className="fin-overview-value highlight-green">
+                  <AnimatedCounter value={schemesCount} />
+                </span>
+                <span className="fin-overview-subtext">Active national programs</span>
+              </div>
+
+              <div className="fin-overview-column">
+                <div className="fin-overview-top-label">
+                  <Coins size={14} color="#2563EB" />
+                  <span>TOTAL ALLOCATED</span>
+                </div>
+                <span className="fin-overview-value">
+                  {formatIndianDenomination(totalAllocated)}
+                </span>
+                <span className="fin-overview-subtext">Union sanctioned ceiling</span>
+              </div>
+
+              <div className="fin-overview-column">
+                <div className="fin-overview-top-label">
+                  <MapPin size={14} color="#D97706" />
+                  <span>PROJECT LOCATIONS</span>
+                </div>
+                <span className="fin-overview-value" style={{ fontSize: '18px' }}>
+                  {projectLocationsCount}
+                </span>
+                <span className="fin-overview-subtext">Geocoded site coverage</span>
+              </div>
+
+              <div className="fin-overview-column">
+                <div className="fin-overview-top-label">
+                  <TrendingUp size={14} color="#16A34A" />
+                  <span>PROJECT PROGRESS</span>
+                </div>
+                <span className="fin-overview-value highlight-green">
+                  {avgProgress}%
+                </span>
+                <span className="fin-overview-subtext">Average milestone rate</span>
+              </div>
+
+              <div className="fin-overview-column">
+                <div className="fin-overview-top-label">
+                  <Coins size={14} color="#006B4F" />
+                  <span>FUNDS RELEASED</span>
+                </div>
+                <span className="fin-overview-value">
+                  {formatIndianDenomination(fundsReleased)}
+                </span>
+                <span className="fin-overview-subtext">Treasury disbursements</span>
+              </div>
+
+              <div className="fin-overview-column">
+                <div className="fin-overview-top-label">
+                  <Activity size={14} color="#7C3AED" />
+                  <span>BLOCKCHAIN TXNS</span>
+                </div>
+                <span className="fin-overview-value">
+                  <AnimatedCounter value={verifiedTxCount} />
+                </span>
+                <span className="fin-overview-subtext">Immutable Ethereum logs</span>
+              </div>
+
+              <div className="fin-overview-column">
+                <div className="fin-overview-top-label">
+                  <Layers size={14} color="#0284C7" />
+                  <span>PUBLIC DOCUMENTS</span>
+                </div>
+                <span className="fin-overview-value">
+                  <AnimatedCounter value={publicDocsCount} />
+                </span>
+                <span className="fin-overview-subtext">SHA-256 verified files</span>
+              </div>
+            </div>
+
+            {/* ========================================================= */}
+            {/* SECTION 3: 3x3 INTERACTIVE PUBLIC MODULES GRID            */}
+            {/* ========================================================= */}
+            <div className="section-eyebrow-heading">
+              <span className="section-bullet" />
+              <span>PUBLIC TRANSPARENCY MODULES</span>
+            </div>
+
+            <div className="super-admin-operations-grid">
+
+              {/* CARD 1: Search Projects */}
+              <div 
+                className="super-admin-operation-card card-border-blue" 
+                onClick={() => setTab('projects')}
+                id="public-card-projects"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">SEARCH PROJECTS</span>
+                  <div className="card-mono-icon-container icon-box-blue">
+                    <FolderKanban size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    <AnimatedCounter value={stats?.total_projects || 24} suffix=" Public Works" />
+                  </div>
+                  <div className="card-description-text">
+                    Search active infrastructure works, budgets, contractors, and geo-locations
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>Search Projects</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 2: Search Schemes */}
+              <div 
+                className="super-admin-operation-card card-border-green" 
+                onClick={() => setTab('schemes')}
+                id="public-card-schemes"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">SEARCH SCHEMES</span>
+                  <div className="card-mono-icon-container icon-box-green">
+                    <FileSpreadsheet size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    <AnimatedCounter value={schemesCount} suffix=" National Schemes" />
+                  </div>
+                  <div className="card-description-text">
+                    Explore centrally sponsored programs, guidelines, and central:state ratios
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>Search Schemes</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 3: Fund Allocation */}
+              <div 
+                className="super-admin-operation-card card-border-gold card-dominant-allocation" 
+                onClick={() => setTab('allocation')}
+                id="public-card-allocation"
+              >
+                <div className="card-top-row">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span className="card-category-heading">FUND ALLOCATION</span>
+                    <span className="card-feature-pill">
+                      <span>● Multi-Tier Flow</span>
+                    </span>
+                  </div>
+                  <div className="card-mono-icon-container icon-box-gold">
+                    <Coins size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title" style={{ color: '#006B4F' }}>
+                    {formatIndianDenomination(totalAllocated)}
+                  </div>
+                  <div className="card-description-text" style={{ fontWeight: '700', color: '#102A43' }}>
+                    Central Ministry → State → District DRDA
+                  </div>
+
+                  <div className="dominant-progress-container">
+                    <div className="dominant-progress-track">
+                      <div 
+                        className="dominant-progress-fill" 
+                        style={{ width: '47%' }}
+                      />
+                    </div>
+                    <div className="dominant-progress-meta">
+                      <span>{formatIndianDenomination(fundsReleased)} Disbursed</span>
+                      <span>100% On-Chain</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link" style={{ color: '#006B4F' }}>
+                    <span>Inspect Allocation</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 4: Project Progress */}
+              <div 
+                className="super-admin-operation-card card-border-teal" 
+                onClick={() => setTab('progress')}
+                id="public-card-progress"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">PROJECT PROGRESS</span>
+                  <div className="card-mono-icon-container icon-box-teal">
+                    <TrendingUp size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    {avgProgress}% Avg Completion
+                  </div>
+                  <div className="card-description-text">
+                    Track civil engineering milestones, physical status, and site verification
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>Track Progress</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 5: Fund Transactions */}
+              <div 
+                className="super-admin-operation-card card-border-green" 
+                onClick={() => setTab('explorer')}
+                id="public-card-transactions"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">FUND TRANSACTIONS</span>
+                  <div className="card-mono-icon-container icon-box-green">
+                    <History size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    {formatIndianDenomination(fundsReleased)} Released
+                  </div>
+                  <div className="card-description-text">
+                    Trace transparent disbursements through Treasury to contractor bank accounts
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>Trace Transactions</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 6: QR Verification */}
+              <div 
+                className="super-admin-operation-card card-border-gold" 
+                onClick={() => setShowQrModal(true)}
+                id="public-card-qr"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">QR VERIFICATION</span>
+                  <div className="card-mono-icon-container icon-box-gold">
+                    <QrCode size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    Scan Site Signage
+                  </div>
+                  <div className="card-description-text">
+                    Verify physical workboard QR codes placed at government construction sites
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>Verify QR Code</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 7: Blockchain Verification */}
+              <div 
+                className="super-admin-operation-card card-border-green" 
+                onClick={() => setTab('explorer')}
+                id="public-card-blockchain"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">BLOCKCHAIN VERIFICATION</span>
+                  <div className="card-mono-icon-container icon-box-green">
+                    <Activity size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    Consensus Verified
+                  </div>
+                  <div className="card-description-text">
+                    Cryptographic audit trail recorded on immutable Ethereum blockchain
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>Inspect Ledger</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 8: Reports */}
+              <div 
+                className="super-admin-operation-card card-border-navy" 
+                onClick={() => setTab('reports')}
+                id="public-card-reports"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">REPORTS</span>
+                  <div className="card-mono-icon-container icon-box-navy">
+                    <PieChart size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    Public Statements
+                  </div>
+                  <div className="card-description-text">
+                    Download expenditure bulletins, utilization summaries, and audit gazettes
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>View Reports</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 9: Complaints / Feedback */}
+              <div 
+                className="super-admin-operation-card card-border-orange" 
+                onClick={() => setTab('grievances')}
+                id="public-card-grievance"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">COMPLAINTS / FEEDBACK</span>
+                  <div className="card-mono-icon-container icon-box-orange">
+                    <MessageSquareWarning size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    Citizen Redressal
+                  </div>
+                  <div className="card-description-text">
+                    Submit site quality grievances, track resolution progress, or provide feedback
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>File Feedback</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </>
+        )}
+
+      </div>
 
       {/* QR Code & Geo-Tag Verification Modal */}
       {showQrModal && (
@@ -398,137 +991,103 @@ const PublicPortalPage = () => {
               maxWidth: '600px',
               width: '100%',
               padding: '28px',
-              boxShadow: 'var(--shadow-lg)',
-              border: '1px solid var(--border-color)',
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              border: '1px solid #E2E8F0',
               maxHeight: '90vh',
               overflowY: 'auto'
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <QrCode size={22} color="var(--color-primary)" />
-                <h3 style={{ fontSize: '18px', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>
-                  Public QR & Milestone Verification
-                </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid #E2E8F0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div style={{ padding: '8px', background: '#FFFBEB', color: '#D97706', borderRadius: '8px' }}>
+                  <QrCode size={22} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '800', color: '#102A43' }}>
+                    Verify Construction Workboard QR Code
+                  </h3>
+                  <div style={{ fontSize: '12px', color: '#627D98' }}>Enter Project ID printed on physical site signboard</div>
+                </div>
               </div>
-              <button
+              <button 
+                type="button" 
                 onClick={() => setShowQrModal(false)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: 'var(--text-muted)' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#627D98' }}
               >
-                ✕
+                <X size={20} />
               </button>
             </div>
 
-            <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.5' }}>
-              Every public works site features an official Government QR Board. Enter the Project ID or scan code below to inspect real-time progress, contractor information, and on-chain verified photos.
-            </p>
-
-            <form onSubmit={handleVerifyQr} style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
-              <input
-                type="text"
-                className="form-control"
-                placeholder="Enter Project ID (e.g. PRJ-BEL-001)"
-                value={qrVerifyId}
-                onChange={(e) => setQrVerifyId(e.target.value)}
-                required
-              />
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={qrSearching}
-                style={{ whiteSpace: 'nowrap' }}
-              >
-                {qrSearching ? 'Verifying...' : 'Verify on Ledger'}
-              </button>
+            <form onSubmit={handleVerifyQr} style={{ marginBottom: '20px' }}>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  placeholder="e.g. PRJ-KA-101 or full QR string"
+                  value={qrVerifyId}
+                  onChange={(e) => setQrVerifyId(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '12px 16px',
+                    borderRadius: '8px',
+                    border: '1px solid #CBD5E1',
+                    fontSize: '14px',
+                    fontFamily: 'monospace'
+                  }}
+                  required
+                />
+                <button
+                  type="submit"
+                  disabled={qrSearching}
+                  style={{
+                    padding: '12px 20px',
+                    background: '#006B4F',
+                    color: '#FFF',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontWeight: '800',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {qrSearching ? 'Verifying...' : 'Verify'}
+                </button>
+              </div>
             </form>
 
             {qrError && (
-              <div style={{
-                background: 'var(--color-danger-bg)',
-                border: '1px solid var(--color-danger-border)',
-                borderRadius: '8px',
-                padding: '12px 14px',
-                color: 'var(--color-danger)',
-                fontSize: '12px',
-                marginBottom: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <AlertCircle size={16} />
-                <span>{qrError}</span>
+              <div style={{ padding: '12px 16px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '8px', color: '#DC2626', fontSize: '13px', fontWeight: '700', marginBottom: '16px' }}>
+                {qrError}
               </div>
             )}
 
             {qrProjectData && (
-              <div style={{
-                background: 'var(--bg-subtle)',
-                border: '1px solid var(--border-color)',
-                borderRadius: '12px',
-                padding: '18px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '12px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div>
-                    <h4 style={{ fontSize: '16px', fontWeight: '800', color: 'var(--text-main)', margin: 0 }}>
-                      {qrProjectData.name}
-                    </h4>
-                    <div style={{ fontSize: '12px', color: 'var(--color-primary)', fontFamily: 'monospace', fontWeight: '700', marginTop: '2px' }}>
-                      ID: {qrProjectData.project_id}
-                    </div>
-                  </div>
-                  <span className="badge badge-success">
-                    {qrProjectData.status}
+              <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '10px', padding: '18px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#102A43' }}>{qrProjectData.name}</h4>
+                  <span style={{ background: '#E6F4EA', color: '#006B4F', padding: '3px 8px', borderRadius: '4px', fontSize: '11px', fontWeight: '800' }}>
+                    AUTHENTIC
                   </span>
                 </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', fontSize: '12px' }}>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)' }}>Location: </span>
-                    <strong>{qrProjectData.district_name}, {qrProjectData.state_code}</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)' }}>Sanctioned Budget: </span>
-                    <strong style={{ color: 'var(--color-success)' }}>{formatCurrency(qrProjectData.total_budget)}</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)' }}>Scheme: </span>
-                    <strong>{qrProjectData.scheme_name}</strong>
-                  </div>
-                  <div>
-                    <span style={{ color: 'var(--text-muted)' }}>Department: </span>
-                    <strong>{qrProjectData.department}</strong>
-                  </div>
+                <div style={{ fontSize: '12px', color: '#475569', marginBottom: '8px' }}>
+                  ID: <code style={{ color: '#006B4F', fontWeight: '700' }}>{qrProjectData.project_id}</code> • Scheme: {qrProjectData.scheme_name}
                 </div>
-
+                <div style={{ fontSize: '13px', color: '#102A43', marginBottom: '6px' }}>
+                  Sanctioned Budget: <strong>{formatCurrency(qrProjectData.total_budget || 0)}</strong>
+                </div>
+                <div style={{ fontSize: '12px', color: '#627D98', marginBottom: '12px' }}>
+                  Location: {qrProjectData.district_name}, {qrProjectData.state_code}
+                </div>
                 {qrProjectData.blockchain_tx_hash && (
-                  <div style={{ borderTop: '1px solid var(--border-color)', paddingTop: '10px' }}>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-                      Smart Contract Escrow Tx Hash:
-                    </span>
+                  <div style={{ marginTop: '10px' }}>
                     <BlockchainBadge txHash={qrProjectData.blockchain_tx_hash} />
                   </div>
                 )}
-
-                <div style={{ marginTop: '8px' }}>
-                  <Link
-                    to={`/public/projects/${qrProjectData.project_id}`}
-                    className="btn btn-outline btn-sm"
-                    style={{ width: '100%', justifyContent: 'center' }}
-                    onClick={() => setShowQrModal(false)}
-                  >
-                    <span>View Complete Public Milestone Breakdown & Photos</span>
-                    <ArrowRight size={13} />
-                  </Link>
-                </div>
               </div>
             )}
           </div>
         </div>
       )}
+
     </div>
   );
 };

@@ -115,50 +115,10 @@ const PortalLayout = ({ children }) => {
     setMobileSidebarOpen(false);
   }, [location.pathname]);
 
-  // All authenticated government department officers use the centered control hub layout: NO sidebar, NO top nav, NO bottom nav
-  if (user) {
-    return (
-      <div className="super-admin-portal-wrapper">
-        {children}
-      </div>
-    );
-  }
-
-  const isFinance = user?.role === 'FINANCE';
-
+  // All portals use the centered control hub layout: NO permanent sidebar, NO unnecessary top navigation
   return (
-    <div className={`app-container ${isFinance ? 'finance-theme' : ''}`}>
-      <Navbar
-        onToggleSidebar={() => {
-          if (window.innerWidth <= 1024) {
-            setMobileSidebarOpen((prev) => !prev);
-          } else {
-            setSidebarCollapsed((prev) => !prev);
-          }
-        }}
-      />
-      <div className="portal-layout">
-        {/* Backdrop for mobile drawer */}
-        {user && mobileSidebarOpen && (
-          <div
-            className="sidebar-backdrop"
-            onClick={() => setMobileSidebarOpen(false)}
-          />
-        )}
-
-        {user && (
-          <Sidebar
-            collapsed={sidebarCollapsed}
-            mobileOpen={mobileSidebarOpen}
-            onCloseMobile={() => setMobileSidebarOpen(false)}
-          />
-        )}
-
-        <main className={user ? `main-content ${sidebarCollapsed ? 'sidebar-collapsed' : ''}` : "public-content"}>
-          {children}
-        </main>
-      </div>
-      <Footer />
+    <div className="super-admin-portal-wrapper">
+      {children}
     </div>
   );
 };

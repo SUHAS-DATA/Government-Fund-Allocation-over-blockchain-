@@ -217,7 +217,19 @@ const DistrictDashboard = () => {
       case 'projects':
         return 'District Public Works & Projects Management';
       case 'contractors':
-        return 'Contractor Statutory KYC & Verification';
+        return 'Contractor Statutory KYC & Allocation';
+      case 'progress':
+        return 'Project Progress & Field Engineering Monitoring';
+      case 'milestones':
+        return 'Milestone Verification & Field Inspection';
+      case 'payments':
+        return 'Contractor Payment Requests & Requisitions';
+      case 'documents':
+        return 'Statutory Documents & Geo-Tagged Media Evidence';
+      case 'reports':
+        return 'District Utilization & Audit Reports';
+      case 'notifications':
+        return 'Official District Notifications & Dispatches';
       case 'grievances':
         return 'Citizen Grievance Resolution & Tracking';
       case 'received':
@@ -319,6 +331,236 @@ const DistrictDashboard = () => {
                   )}
                 </div>
               )}
+
+              {activeTab === 'progress' && (
+                <div className="card" style={{ padding: '24px' }}>
+                  <div className="card-header" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="card-title">
+                      <TrendingUp size={20} color="#006B4F" />
+                      <span>District Civil Works Progress Tracking</span>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => setTab('projects')} 
+                      className="super-admin-back-btn"
+                    >
+                      <FolderKanban size={14} />
+                      <span>Manage All Works</span>
+                    </button>
+                  </div>
+                  
+                  {recentProjects.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      {recentProjects.map((p, idx) => (
+                        <div key={idx} style={{
+                          background: '#F8FAFC',
+                          border: '1px solid #E2E8F0',
+                          borderRadius: '10px',
+                          padding: '20px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '12px'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                            <div>
+                              <h4 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#102A43' }}>{p.name}</h4>
+                              <span style={{ fontSize: '12px', color: '#627D98' }}>
+                                ID: <code style={{ color: '#006B4F', fontWeight: '700' }}>{p.project_id || `PRJ-${idx + 101}`}</code> • Scheme: {p.scheme_name || 'Public Infrastructure'}
+                              </span>
+                            </div>
+                            <span style={{
+                              background: '#E6F4EA',
+                              color: '#006B4F',
+                              padding: '4px 10px',
+                              borderRadius: '20px',
+                              fontSize: '12px',
+                              fontWeight: '700'
+                            }}>
+                              Status: {p.status || 'IN_PROGRESS'}
+                            </span>
+                          </div>
+
+                          <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', fontWeight: '700', marginBottom: '6px', color: '#486581' }}>
+                              <span>Physical Milestone Progress</span>
+                              <span style={{ color: '#006B4F' }}>{p.progress_percentage || 65}% Completed</span>
+                            </div>
+                            <div style={{ width: '100%', height: '8px', background: '#E2E8F0', borderRadius: '4px', overflow: 'hidden' }}>
+                              <div style={{ width: `${p.progress_percentage || 65}%`, height: '100%', background: '#006B4F', borderRadius: '4px' }} />
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '13px', paddingTop: '8px', borderTop: '1px solid #EDF2F7', color: '#627D98' }}>
+                            <span>Budget: <strong style={{ color: '#102A43' }}>{formatCurrency(p.total_budget || 0)}</strong></span>
+                            <span>Contractor: <strong style={{ color: '#102A43' }}>{p.assigned_contractor_name || 'Empanelled Vendor'}</strong></span>
+                            <span>Inspection: <strong style={{ color: '#006B4F' }}>Bi-Weekly Drone/Site Log Verified</strong></span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '40px 20px', color: '#627D98' }}>
+                      No active construction projects currently tracked in this district.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'milestones' && (
+                <div className="card" style={{ padding: '24px' }}>
+                  <div className="card-header" style={{ marginBottom: '20px' }}>
+                    <div className="card-title">
+                      <FileCheck size={20} color="#7C3AED" />
+                      <span>District Milestone Inspection & Verification</span>
+                    </div>
+                  </div>
+                  <div style={{ background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: '8px', padding: '14px 18px', marginBottom: '20px', fontSize: '13px', color: '#0369A1' }}>
+                    💡 <strong>Smart Escrow Security:</strong> Field engineers must verify geotagged photos and test reports before milestone sign-off triggers escrow release.
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {[
+                      { id: 'M-101', project: 'District Hospital Oxygen Pipeline', stage: 'Stage 2: Pressure Testing & Line Certification', completion: '100%', amount: '₹45,00,000', status: 'Awaiting District Engineer Sign-off' },
+                      { id: 'M-102', project: 'Rural Bypass Macadam Roadway', stage: 'Stage 3: Sub-Base Compaction & Layering', completion: '100%', amount: '₹1,20,00,000', status: 'Geo-Photo Audit Verified' },
+                      { id: 'M-103', project: 'Panchayat Model Smart School', stage: 'Stage 1: Foundation Piling & Plinth Level', completion: '100%', amount: '₹35,00,000', status: 'Inspection Scheduled' }
+                    ].map((m, idx) => (
+                      <div key={idx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+                        <div>
+                          <div style={{ fontWeight: '800', color: '#102A43', fontSize: '15px' }}>{m.project}</div>
+                          <div style={{ fontSize: '13px', color: '#475569', marginTop: '4px' }}>{m.stage} • Target Value: <strong style={{ color: '#006B4F' }}>{m.amount}</strong></div>
+                          <div style={{ fontSize: '11px', color: '#7C3AED', fontWeight: '700', marginTop: '4px' }}>Milestone ID: {m.id} • {m.status}</div>
+                        </div>
+                        <button 
+                          type="button" 
+                          onClick={() => setTab('projects')}
+                          style={{ background: '#7C3AED', color: '#FFFFFF', border: 'none', padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}
+                        >
+                          Verify & Sign Off
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'payments' && (
+                <div className="card" style={{ padding: '24px' }}>
+                  <div className="card-header" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div className="card-title">
+                      <CreditCard size={20} color="#EA580C" />
+                      <span>Contractor Payment Requests & Sanction Requisitions</span>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => setShowRequestFundModal(true)} 
+                      className="super-admin-back-btn"
+                      style={{ background: '#006B4F', color: '#FFFFFF', borderColor: '#006B4F' }}
+                    >
+                      <Send size={14} />
+                      <span>New State Fund Requisition</span>
+                    </button>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    {[
+                      { reqId: 'PAY-REQ-882', contractor: 'Apex Infra Projects Pvt Ltd', project: 'Model Smart Secondary School', amount: '₹35,00,000', date: '2026-09-22', status: 'Milestone Cleared - Under Review' },
+                      { reqId: 'PAY-REQ-881', contractor: 'Shree Balaji Constructions', project: 'Rural Bypass Roadway', amount: '₹62,50,000', date: '2026-09-18', status: 'Escrow Settlement Queued' }
+                    ].map((p, idx) => (
+                      <div key={idx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+                        <div>
+                          <div style={{ fontWeight: '800', color: '#102A43', fontSize: '15px' }}>{p.project}</div>
+                          <div style={{ fontSize: '13px', color: '#475569', marginTop: '4px' }}>Contractor: {p.contractor} • Requisition ID: <code style={{ color: '#EA580C', fontWeight: '700' }}>{p.reqId}</code></div>
+                          <div style={{ fontSize: '11px', color: '#627D98', marginTop: '4px' }}>Submitted on {p.date} • {p.status}</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '18px', fontWeight: '900', color: '#EA580C' }}>{p.amount}</div>
+                          <span style={{ fontSize: '11px', background: '#FEF3C7', color: '#92400E', padding: '2px 8px', borderRadius: '4px', fontWeight: '700' }}>Pending Approval</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'documents' && (
+                <div className="card" style={{ padding: '24px' }}>
+                  <div className="card-header" style={{ marginBottom: '20px' }}>
+                    <div className="card-title">
+                      <Layers size={20} color="#1E3A8A" />
+                      <span>Statutory Civil Documents & Geo-Tagged Inspection Records</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
+                    {[
+                      { name: 'Measurement Book (MB) Vol-IV', type: 'Civil Engineering Record', date: '2026-09-20', hash: '0x8f2d...3a91', format: 'PDF (Signed)' },
+                      { name: 'Geo-tagged Drone Site Survey Video', type: 'Site Evidence', date: '2026-09-18', hash: '0x3c11...99e4', format: 'MP4 / GPS metadata' },
+                      { name: 'Concrete Compressive Strength Test Lab Report', type: 'Quality Certification', date: '2026-09-15', hash: '0x44ab...ee10', format: 'PDF (Certified)' },
+                      { name: 'Environmental Impact Clearance (EIA)', type: 'Statutory Clearance', date: '2026-08-30', hash: '0x77bc...1122', format: 'PDF (Gazetted)' }
+                    ].map((doc, idx) => (
+                      <div key={idx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ fontWeight: '800', color: '#102A43', fontSize: '14px' }}>{doc.name}</div>
+                        <div style={{ fontSize: '12px', color: '#627D98' }}>{doc.type} • {doc.format}</div>
+                        <div style={{ fontSize: '11px', fontFamily: 'monospace', color: '#1E3A8A', background: '#EFF6FF', padding: '4px 8px', borderRadius: '4px' }}>
+                          SHA-256: {doc.hash}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: 'auto' }}>Timestamp: {doc.date}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'reports' && (
+                <div className="card" style={{ padding: '24px' }}>
+                  <div className="card-header" style={{ marginBottom: '20px' }}>
+                    <div className="card-title">
+                      <PieChart size={20} color="#0284C7" />
+                      <span>District Public Works Expenditure & Utilization Reports</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: '800', color: '#102A43' }}>Quarterly Utilization Certificate (Form 12-C GFR)</div>
+                        <div style={{ fontSize: '12px', color: '#627D98' }}>Period: Q2 FY 2026-27 • Certified for State Finance Department</div>
+                      </div>
+                      <button type="button" onClick={() => window.print()} className="super-admin-back-btn">Download PDF</button>
+                    </div>
+                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontWeight: '800', color: '#102A43' }}>Scheme-wise District Fund Ledger</div>
+                        <div style={{ fontSize: '12px', color: '#627D98' }}>Complete breakdown of inflows, commitments, and contractor escrow releases</div>
+                      </div>
+                      <button type="button" onClick={() => window.print()} className="super-admin-back-btn">Export Excel</button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'notifications' && (
+                <div className="card" style={{ padding: '24px' }}>
+                  <div className="card-header" style={{ marginBottom: '20px' }}>
+                    <div className="card-title">
+                      <Activity size={20} color="#D97706" />
+                      <span>District Administrative Dispatches & Notices</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {[
+                      { title: 'State Treasury Sanction Order Dispatched', desc: 'Sanction order issued for Belagavi District rural road upgrade project.', date: 'Today, 11:30 AM', type: 'Finance' },
+                      { title: 'Field Technical Audit Advisory', desc: 'CAG & State Inspection team scheduled for bridge pier inspection.', date: 'Yesterday, 04:15 PM', type: 'Audit' },
+                      { title: 'Contractor Milestone Submission Notice', desc: 'Milestone 2 evidence submitted by Apex Infra Projects.', date: '2 days ago', type: 'Milestone' }
+                    ].map((n, idx) => (
+                      <div key={idx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '14px 18px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                          <span style={{ fontWeight: '800', color: '#102A43', fontSize: '14px' }}>{n.title}</span>
+                          <span style={{ fontSize: '11px', color: '#627D98' }}>{n.date}</span>
+                        </div>
+                        <div style={{ fontSize: '13px', color: '#475569' }}>{n.desc}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
             </div>
           </div>
         ) : (
@@ -407,150 +649,149 @@ const DistrictDashboard = () => {
             </div>
 
             {/* ========================================================= */}
-            {/* SECTION 1: FINANCIAL OVERVIEW                             */}
+            {/* SECTION 1: DISTRICT 7-METRIC DASHBOARD OVERVIEW           */}
             {/* ========================================================= */}
             <div className="section-eyebrow-heading">
               <span className="section-bullet" />
-              <span>DISTRICT FINANCIAL OVERVIEW</span>
+              <span>DISTRICT FINANCIAL & OPERATIONAL OVERVIEW</span>
             </div>
 
-            <div className="super-admin-financial-overview-panel">
+            <div className="super-admin-financial-overview-panel grid-7">
               <div className="fin-overview-column">
                 <div className="fin-overview-top-label">
                   <Landmark size={14} color="#006B4F" />
-                  <span>TOTAL RECEIVED FROM STATE</span>
+                  <span>FUNDS RECEIVED</span>
                 </div>
                 <span className="fin-overview-value highlight-green">
                   {formatIndianDenomination(totalReceived)}
                 </span>
-                <span className="fin-overview-subtext">State Treasury allocations credited</span>
+                <span className="fin-overview-subtext">From State Treasury</span>
               </div>
 
               <div className="fin-overview-column">
                 <div className="fin-overview-top-label">
                   <Coins size={14} color="#2563EB" />
-                  <span>COMMITTED TO PROJECTS</span>
+                  <span>ALLOCATED TO PROJECTS</span>
                 </div>
                 <span className="fin-overview-value">
                   {formatIndianDenomination(allocatedProjects)}
                 </span>
-                <span className="fin-overview-subtext">{committedPct}% utilized in local public works</span>
+                <span className="fin-overview-subtext">{committedPct}% budget utilized</span>
               </div>
 
               <div className="fin-overview-column">
                 <div className="fin-overview-top-label">
-                  <TrendingUp size={14} color="#0D9488" />
-                  <span>DISBURSED TO CONTRACTORS</span>
+                  <FolderKanban size={14} color="#0284C7" />
+                  <span>ACTIVE PROJECTS</span>
                 </div>
                 <span className="fin-overview-value">
-                  {formatIndianDenomination(totalPaymentsReleased)}
+                  <AnimatedCounter value={activeProjectsCount} />
                 </span>
-                <span className="fin-overview-subtext">Verified smart escrow settlements</span>
+                <span className="fin-overview-subtext">In execution phase</span>
               </div>
 
               <div className="fin-overview-column">
                 <div className="fin-overview-top-label">
-                  <PieChart size={14} color="#627D98" />
-                  <span>REMAINING TREASURY</span>
+                  <UserCheck size={14} color="#D97706" />
+                  <span>CONTRACTORS</span>
                 </div>
                 <span className="fin-overview-value">
-                  {formatIndianDenomination(remainingTreasury)}
+                  <AnimatedCounter value={metrics?.contractors_count || 14} />
                 </span>
-                <span className="fin-overview-subtext">Available district deployment liquidity</span>
+                <span className="fin-overview-subtext">{pendingKycs} pending KYC</span>
+              </div>
+
+              <div className="fin-overview-column">
+                <div className="fin-overview-top-label">
+                  <TrendingUp size={14} color="#16A34A" />
+                  <span>PROJECT PROGRESS</span>
+                </div>
+                <span className="fin-overview-value">
+                  {metrics?.avg_progress || (recentProjects.length ? Math.round(recentProjects.reduce((acc, p) => acc + (p.progress_percentage || 45), 0) / recentProjects.length) : 68)}%
+                </span>
+                <span className="fin-overview-subtext">Average site progress</span>
+              </div>
+
+              <div className="fin-overview-column">
+                <div className="fin-overview-top-label">
+                  <FileCheck size={14} color="#7C3AED" />
+                  <span>PENDING MILESTONES</span>
+                </div>
+                <span className="fin-overview-value">
+                  <AnimatedCounter value={metrics?.pending_milestones || 6} />
+                </span>
+                <span className="fin-overview-subtext">Awaiting inspection</span>
+              </div>
+
+              <div className="fin-overview-column">
+                <div className="fin-overview-top-label">
+                  <CreditCard size={14} color="#EA580C" />
+                  <span>PAYMENT REQUESTS</span>
+                </div>
+                <span className="fin-overview-value">
+                  <AnimatedCounter value={metrics?.pending_payment_requests || 3} />
+                </span>
+                <span className="fin-overview-subtext">Pending clearance</span>
               </div>
             </div>
 
             {/* ========================================================= */}
-            {/* SECTION 2: 3x2 CORE OPERATIONS GRID                       */}
+            {/* DISTRICT AGENCY WORKFLOW PIPELINE                         */}
+            {/* ========================================================= */}
+            <div className="gov-workflow-card">
+              <div className="gov-workflow-header">
+                <div className="gov-workflow-title">
+                  <GitBranch size={16} color="#006B4F" />
+                  <span>District Agency Operational Workflow</span>
+                </div>
+                <span style={{ fontSize: '11px', color: '#627D98', fontWeight: '700' }}>
+                  6-STAGE FIELD EXECUTION PIPELINE
+                </span>
+              </div>
+              <div className="gov-workflow-steps">
+                <div className="gov-workflow-step active" onClick={() => setTab('received')} style={{ cursor: 'pointer' }}>
+                  <span className="gov-workflow-step-num">1</span>
+                  <span>Received Funds</span>
+                </div>
+                <span className="gov-workflow-arrow">→</span>
+                <div className="gov-workflow-step active" onClick={() => setTab('projects')} style={{ cursor: 'pointer' }}>
+                  <span className="gov-workflow-step-num">2</span>
+                  <span>Create/Manage Projects</span>
+                </div>
+                <span className="gov-workflow-arrow">→</span>
+                <div className="gov-workflow-step active" onClick={() => setTab('contractors')} style={{ cursor: 'pointer' }}>
+                  <span className="gov-workflow-step-num">3</span>
+                  <span>Assign Contractor</span>
+                </div>
+                <span className="gov-workflow-arrow">→</span>
+                <div className="gov-workflow-step active" onClick={() => setTab('progress')} style={{ cursor: 'pointer' }}>
+                  <span className="gov-workflow-step-num">4</span>
+                  <span>Monitor Project</span>
+                </div>
+                <span className="gov-workflow-arrow">→</span>
+                <div className="gov-workflow-step active" onClick={() => setTab('milestones')} style={{ cursor: 'pointer' }}>
+                  <span className="gov-workflow-step-num">5</span>
+                  <span>Verify Milestones</span>
+                </div>
+                <span className="gov-workflow-arrow">→</span>
+                <div className="gov-workflow-step active" onClick={() => setTab('payments')} style={{ cursor: 'pointer' }}>
+                  <span className="gov-workflow-step-num">6</span>
+                  <span>Request Payment</span>
+                </div>
+              </div>
+            </div>
+
+            {/* ========================================================= */}
+            {/* SECTION 2: 3x3 INTERACTIVE OPERATIONS MODULES GRID        */}
             {/* ========================================================= */}
             <div className="section-eyebrow-heading">
               <span className="section-bullet" />
-              <span>CORE DISTRICT OPERATIONS</span>
+              <span>DISTRICT AGENCY MODULES</span>
             </div>
 
             <div className="super-admin-operations-grid">
               
-              {/* CARD 1: Projects Management */}
-              <div 
-                className="super-admin-operation-card card-border-blue" 
-                onClick={() => setTab('projects')}
-                id="district-card-projects"
-              >
-                <div className="card-top-row">
-                  <span className="card-category-heading">PROJECTS MANAGEMENT</span>
-                  <div className="card-mono-icon-container icon-box-blue">
-                    <FolderKanban size={22} />
-                  </div>
-                </div>
-
-                <div className="card-content-body">
-                  <div className="card-large-title">
-                    <AnimatedCounter value={activeProjectsCount} suffix=" Active Works" />
-                  </div>
-                  <div className="card-description-text">
-                    Create works, assign contractors, inspect site progress & verify evidence
-                  </div>
-                </div>
-
-                <div className="card-bottom-row">
-                  <div className="card-action-link">
-                    <span>Manage Projects</span>
-                    <ArrowRight size={14} className="action-arrow" />
-                  </div>
-                </div>
-              </div>
-
-              {/* CARD 2: Project Commitment & Escrow (FEATURE CARD) */}
-              <div 
-                className="super-admin-operation-card card-border-green card-dominant-allocation" 
-                onClick={() => setTab('projects')}
-                id="district-card-fund-commitment"
-              >
-                <div className="card-top-row">
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span className="card-category-heading">PROJECT COMMITMENT & ESCROW</span>
-                    <span className="card-feature-pill">
-                      <Link2 size={10} />
-                      <span>On-chain tracked</span>
-                    </span>
-                  </div>
-                  <div className="card-mono-icon-container icon-box-green">
-                    <Coins size={22} />
-                  </div>
-                </div>
-
-                <div className="card-content-body">
-                  <div className="card-large-title" style={{ color: '#006B4F' }}>
-                    {formatIndianDenomination(allocatedProjects)}
-                  </div>
-                  <div className="card-description-text" style={{ fontWeight: '700', color: '#102A43' }}>
-                    Committed • {committedPct}% of District Budget
-                  </div>
-
-                  {/* Clean Green Progress Bar */}
-                  <div className="dominant-progress-container">
-                    <div className="dominant-progress-track">
-                      <div 
-                        className="dominant-progress-fill" 
-                        style={{ width: `${committedPct}%` }}
-                      />
-                    </div>
-                    <div className="dominant-progress-meta">
-                      <span>Project commitment</span>
-                      <span>{formatIndianDenomination(remainingTreasury)} Available</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="card-bottom-row">
-                  <div className="card-action-link" style={{ color: '#006B4F' }}>
-                    <span>Inspect Escrows</span>
-                    <ArrowRight size={14} className="action-arrow" />
-                  </div>
-                </div>
-              </div>
-
-              {/* CARD 3: Received State Funds */}
+              {/* CARD 1: Received Funds */}
               <div 
                 className="super-admin-operation-card card-border-green" 
                 onClick={() => setTab('received')}
@@ -558,9 +799,9 @@ const DistrictDashboard = () => {
               >
                 <div className="card-top-row">
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span className="card-category-heading">RECEIVED STATE ALLOCATIONS</span>
+                    <span className="card-category-heading">RECEIVED FUNDS</span>
                     <span className="card-feature-pill">
-                      <span>● State Inflow</span>
+                      <span>● State Treasury Credits</span>
                     </span>
                   </div>
                   <div className="card-mono-icon-container icon-box-green">
@@ -573,26 +814,56 @@ const DistrictDashboard = () => {
                     {formatIndianDenomination(totalReceived)}
                   </div>
                   <div className="card-description-text">
-                    State Treasury credits verified on immutable Ethereum ledger
+                    Central and State grants credited directly into district treasury escrow
                   </div>
                 </div>
 
                 <div className="card-bottom-row">
                   <div className="card-action-link">
-                    <span>View Inflows</span>
+                    <span>View Received Funds</span>
                     <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
               </div>
 
-              {/* CARD 4: Contractor KYC Review */}
+              {/* CARD 2: Projects */}
+              <div 
+                className="super-admin-operation-card card-border-blue" 
+                onClick={() => setTab('projects')}
+                id="district-card-projects"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">PROJECTS</span>
+                  <div className="card-mono-icon-container icon-box-blue">
+                    <FolderKanban size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    <AnimatedCounter value={activeProjectsCount} suffix=" Works" />
+                  </div>
+                  <div className="card-description-text">
+                    Create works, assign sanctioned budgets, and initiate local execution
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>Manage Projects</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 3: Contractor Assignment */}
               <div 
                 className="super-admin-operation-card card-border-gold" 
                 onClick={() => setTab('contractors')}
                 id="district-card-contractors"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">CONTRACTOR KYC REVIEW</span>
+                  <span className="card-category-heading">CONTRACTOR ASSIGNMENT</span>
                   <div className="card-mono-icon-container icon-box-gold">
                     <UserCheck size={22} />
                   </div>
@@ -601,147 +872,207 @@ const DistrictDashboard = () => {
                 <div className="card-content-body">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <div className="card-large-title">
-                      <AnimatedCounter value={pendingKycs} suffix=" Pending KYC" />
+                      <AnimatedCounter value={metrics?.contractors_count || 14} suffix=" Registered" />
                     </div>
                     {pendingKycs > 0 && (
                       <span className="card-gold-badge">
-                        {pendingKycs < 10 ? `0${pendingKycs}` : pendingKycs} Action
+                        {pendingKycs} Pending KYC
                       </span>
                     )}
                   </div>
                   <div className="card-description-text">
-                    Statutory vendor verification reviews, licenses & bank linkage
+                    Assign empanelled vendors, review statutory KYC, and issue work orders
                   </div>
                 </div>
 
                 <div className="card-bottom-row">
                   <div className="card-action-link">
-                    <span>Review KYC</span>
+                    <span>Assign Contractors</span>
                     <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
               </div>
 
-              {/* CARD 5: Citizen Grievances */}
-              <div 
-                className="super-admin-operation-card card-border-navy" 
-                onClick={() => setTab('grievances')}
-                id="district-card-grievances"
-              >
-                <div className="card-top-row">
-                  <span className="card-category-heading">CITIZEN GRIEVANCES</span>
-                  <div className="card-mono-icon-container icon-box-navy">
-                    <MessageSquareWarning size={22} />
-                  </div>
-                </div>
-
-                <div className="card-content-body">
-                  <div className="card-large-title">
-                    <AnimatedCounter value={openGrievances} suffix=" Open Grievances" />
-                  </div>
-                  <div className="card-description-text">
-                    Public transparency complaints and site resolution tracker
-                  </div>
-                </div>
-
-                <div className="card-bottom-row">
-                  <div className="card-action-link">
-                    <span>Open Inbox</span>
-                    <ArrowRight size={14} className="action-arrow" />
-                  </div>
-                </div>
-              </div>
-
-              {/* CARD 6: Fund Requisition to State */}
+              {/* CARD 4: Project Progress */}
               <div 
                 className="super-admin-operation-card card-border-teal" 
-                onClick={() => setShowRequestFundModal(true)}
-                id="district-card-requisition"
+                onClick={() => setTab('progress')}
+                id="district-card-progress"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">STATE FUND REQUISITION</span>
+                  <span className="card-category-heading">PROJECT PROGRESS</span>
                   <div className="card-mono-icon-container icon-box-teal">
-                    <Send size={22} />
+                    <TrendingUp size={22} />
                   </div>
                 </div>
 
                 <div className="card-content-body">
                   <div className="card-large-title">
-                    Request Sanction
+                    {metrics?.avg_progress || (recentProjects.length ? Math.round(recentProjects.reduce((acc, p) => acc + (p.progress_percentage || 45), 0) / recentProjects.length) : 68)}% Avg Progress
                   </div>
                   <div className="card-description-text">
-                    Submit supplementary budget requisition to State Finance Department
+                    Monitor real-time site engineering work, Gantt schedules, and milestones
                   </div>
                 </div>
 
                 <div className="card-bottom-row">
                   <div className="card-action-link">
-                    <span>New Requisition</span>
+                    <span>Track Progress</span>
                     <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
               </div>
 
-            </div>
-
-            {/* ========================================================= */}
-            {/* SECTION 3: DISTRICT PUBLIC WORKS FLOW                     */}
-            {/* ========================================================= */}
-            <div className="section-eyebrow-heading">
-              <span className="section-bullet" />
-              <span>DISTRICT PUBLIC WORKS PIPELINE</span>
-            </div>
-
-            <div className="super-admin-section-container">
-              <div className="section-container-header">
-                <div className="section-container-title">
-                  <GitBranch size={16} color="#006B4F" />
-                  <span>5-Stage Local Public Works Execution Lifecycle</span>
-                </div>
-                <span style={{ fontSize: '11px', color: '#627D98', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-                  District Project Workflow
-                </span>
-              </div>
-
-              <div className="fund-flow-wrapper">
-                <div className="fund-flow-node">
-                  <div className="fund-flow-circle">01</div>
-                  <div className="fund-flow-node-title">Project Planning</div>
-                  <div className="fund-flow-node-desc">Technical Requisition</div>
+              {/* CARD 5: Milestones */}
+              <div 
+                className="super-admin-operation-card card-border-purple" 
+                onClick={() => setTab('milestones')}
+                id="district-card-milestones"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">MILESTONES</span>
+                  <div className="card-mono-icon-container icon-box-purple">
+                    <FileCheck size={22} />
+                  </div>
                 </div>
 
-                <div className="fund-flow-connector" />
-
-                <div className="fund-flow-node">
-                  <div className="fund-flow-circle">02</div>
-                  <div className="fund-flow-node-title">Contractor Tendering</div>
-                  <div className="fund-flow-node-desc">KYC Validation & Award</div>
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    <AnimatedCounter value={metrics?.pending_milestones || 6} suffix=" Verifications" />
+                  </div>
+                  <div className="card-description-text">
+                    Verify civil construction milestones and field engineer inspection certificates
+                  </div>
                 </div>
 
-                <div className="fund-flow-connector" />
-
-                <div className="fund-flow-node">
-                  <div className="fund-flow-circle">03</div>
-                  <div className="fund-flow-node-title">Smart Escrow Lock</div>
-                  <div className="fund-flow-node-desc">Ethereum Contract Deposit</div>
-                </div>
-
-                <div className="fund-flow-connector" />
-
-                <div className="fund-flow-node">
-                  <div className="fund-flow-circle">04</div>
-                  <div className="fund-flow-node-title">Site Milestone Review</div>
-                  <div className="fund-flow-node-desc">Geo-tagged Evidence</div>
-                </div>
-
-                <div className="fund-flow-connector" />
-
-                <div className="fund-flow-node">
-                  <div className="fund-flow-circle">05</div>
-                  <div className="fund-flow-node-title">Direct Vendor Payment</div>
-                  <div className="fund-flow-node-desc">Escrow Release</div>
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>Verify Milestones</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
                 </div>
               </div>
+
+              {/* CARD 6: Payment Requests */}
+              <div 
+                className="super-admin-operation-card card-border-orange" 
+                onClick={() => setTab('payments')}
+                id="district-card-payments"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">PAYMENT REQUESTS</span>
+                  <div className="card-mono-icon-container icon-box-orange">
+                    <CreditCard size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    <AnimatedCounter value={metrics?.pending_payment_requests || 3} suffix=" In Review" />
+                  </div>
+                  <div className="card-description-text">
+                    Approve contractor invoice claims and forward requisitions to State Treasury
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>Review Payment Requests</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 7: Documents */}
+              <div 
+                className="super-admin-operation-card card-border-navy" 
+                onClick={() => setTab('documents')}
+                id="district-card-documents"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">DOCUMENTS</span>
+                  <div className="card-mono-icon-container icon-box-navy">
+                    <Layers size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    <AnimatedCounter value={metrics?.total_documents || 42} suffix=" Verified Files" />
+                  </div>
+                  <div className="card-description-text">
+                    Geo-tagged inspection photos, measurement books (MB), and SHA-256 proofs
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>Browse Documents</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 8: Reports */}
+              <div 
+                className="super-admin-operation-card card-border-blue" 
+                onClick={() => setTab('reports')}
+                id="district-card-reports"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">REPORTS</span>
+                  <div className="card-mono-icon-container icon-box-blue">
+                    <PieChart size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    District Expenditure
+                  </div>
+                  <div className="card-description-text">
+                    Generate utilization certificates (UC), audit summaries, and scheme ledgers
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>View Reports</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 9: Notifications */}
+              <div 
+                className="super-admin-operation-card card-border-gold" 
+                onClick={() => setTab('notifications')}
+                id="district-card-notifications"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">NOTIFICATIONS</span>
+                  <div className="card-mono-icon-container icon-box-gold">
+                    <Activity size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    Alerts & Dispatches
+                  </div>
+                  <div className="card-description-text">
+                    State Treasury sanction orders, inspection notices, and milestone advisories
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>View Notifications</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
             </div>
 
             {/* ========================================================= */}

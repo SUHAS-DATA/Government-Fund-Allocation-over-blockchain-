@@ -19,7 +19,9 @@ import {
   PieChart,
   Shield,
   Layers,
-  Link2
+  Link2,
+  Bell,
+  Settings
 } from 'lucide-react';
 import API from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
@@ -36,6 +38,7 @@ import AuditReportsReview from './AuditReportsReview';
 import StatesDistricts from './StatesDistricts';
 import AuditExplorer from '../auditor/AuditExplorer';
 import ProjectsManagement from '../district/ProjectsManagement';
+import NotificationsPage from '../common/NotificationsPage';
 
 /**
  * Animated Number Counter Hook & Component
@@ -241,6 +244,8 @@ const AdminDashboard = () => {
       case 'audits': return 'CAG & Forensic Audit Reports';
       case 'users': return 'User Access Control & RBAC';
       case 'states_districts': return 'State & District Treasuries';
+      case 'notifications': return 'National Operational Notifications';
+      case 'settings': return 'System Settings & Regional Configuration';
       default: return 'Module Management';
     }
   };
@@ -282,7 +287,8 @@ const AdminDashboard = () => {
               {activeTab === 'monitoring' && <AuditExplorer />}
               {activeTab === 'audits' && <AuditReportsReview />}
               {activeTab === 'users' && <UserManagement />}
-              {activeTab === 'states_districts' && <StatesDistricts />}
+              {activeTab === 'notifications' && <NotificationsPage />}
+              {(activeTab === 'states_districts' || activeTab === 'settings') && <StatesDistricts />}
             </div>
           </div>
         ) : (
@@ -344,10 +350,10 @@ const AdminDashboard = () => {
             {/* ========================================================= */}
             <div className="section-eyebrow-heading">
               <span className="section-bullet" />
-              <span>FINANCIAL OVERVIEW</span>
+              <span>SUPER ADMIN FINANCIAL & OPERATIONS OVERVIEW</span>
             </div>
 
-            <div className="super-admin-financial-overview-panel">
+            <div className="super-admin-financial-overview-panel grid-8">
               <div className="fin-overview-column">
                 <div className="fin-overview-top-label">
                   <Landmark size={14} color="#006B4F" />
@@ -362,7 +368,7 @@ const AdminDashboard = () => {
               <div className="fin-overview-column">
                 <div className="fin-overview-top-label">
                   <Coins size={14} color="#2563EB" />
-                  <span>ALLOCATED</span>
+                  <span>ALLOCATED FUNDS</span>
                 </div>
                 <span className="fin-overview-value">
                   {formatIndianDenomination(allocatedFunds)}
@@ -373,7 +379,7 @@ const AdminDashboard = () => {
               <div className="fin-overview-column">
                 <div className="fin-overview-top-label">
                   <PieChart size={14} color="#627D98" />
-                  <span>REMAINING</span>
+                  <span>REMAINING FUNDS</span>
                 </div>
                 <span className="fin-overview-value">
                   {formatIndianDenomination(remainingFunds)}
@@ -393,6 +399,50 @@ const AdminDashboard = () => {
                   />
                 </span>
                 <span className="fin-overview-subtext">Awaiting Finance dispatch</span>
+              </div>
+
+              <div className="fin-overview-column">
+                <div className="fin-overview-top-label">
+                  <FileSpreadsheet size={14} color="#006B4F" />
+                  <span>ACTIVE SCHEMES</span>
+                </div>
+                <span className="fin-overview-value">
+                  <AnimatedCounter value={activeSchemesCount} />
+                </span>
+                <span className="fin-overview-subtext">Sanctioned flagship schemes</span>
+              </div>
+
+              <div className="fin-overview-column">
+                <div className="fin-overview-top-label">
+                  <FolderKanban size={14} color="#2563EB" />
+                  <span>ACTIVE PROJECTS</span>
+                </div>
+                <span className="fin-overview-value">
+                  <AnimatedCounter value={activeProjectsCount} />
+                </span>
+                <span className="fin-overview-subtext">{onTrackProjectsCount} On track nationwide</span>
+              </div>
+
+              <div className="fin-overview-column">
+                <div className="fin-overview-top-label">
+                  <Building2 size={14} color="#0D9488" />
+                  <span>DEPARTMENT ALLOCATIONS</span>
+                </div>
+                <span className="fin-overview-value">
+                  <AnimatedCounter value={activeAllocationsCount} />
+                </span>
+                <span className="fin-overview-subtext">Across {departmentsCount} ministries</span>
+              </div>
+
+              <div className="fin-overview-column">
+                <div className="fin-overview-top-label">
+                  <Activity size={14} color="#006B4F" />
+                  <span>BLOCKCHAIN TRANSACTIONS</span>
+                </div>
+                <span className="fin-overview-value">
+                  <AnimatedCounter value={blockchainTxCount} />
+                </span>
+                <span className="fin-overview-subtext">Verified on Ethereum ledger</span>
               </div>
             </div>
 
@@ -712,6 +762,96 @@ const AdminDashboard = () => {
                 <div className="card-bottom-row">
                   <div className="card-action-link">
                     <span>Manage Users</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 10: Notifications */}
+              <div 
+                className="super-admin-operation-card card-border-gold" 
+                onClick={() => setTab('notifications')}
+                id="card-notifications"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">NOTIFICATIONS</span>
+                  <div className="card-mono-icon-container icon-box-gold">
+                    <Bell size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    National Alerts
+                  </div>
+                  <div className="card-description-text">
+                    Administrative notices, circulars and broadcast alerts
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>View Notices</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 11: Settings */}
+              <div 
+                className="super-admin-operation-card card-border-teal" 
+                onClick={() => setTab('settings')}
+                id="card-settings"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">SETTINGS</span>
+                  <div className="card-mono-icon-container icon-box-teal">
+                    <Settings size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    System Settings
+                  </div>
+                  <div className="card-description-text">
+                    Configure national parameters, thresholds and security rules
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>Configure</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 12: State & District Treasuries */}
+              <div 
+                className="super-admin-operation-card card-border-green" 
+                onClick={() => setTab('states_districts')}
+                id="card-states-districts"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">TREASURY STRUCTURE</span>
+                  <div className="card-mono-icon-container icon-box-green">
+                    <Landmark size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    State & District Hubs
+                  </div>
+                  <div className="card-description-text">
+                    Territorial treasury mapping and sub-treasury accounts
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>Manage Hierarchy</span>
                     <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>

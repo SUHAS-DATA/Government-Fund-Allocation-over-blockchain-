@@ -16,6 +16,8 @@
 .super-admin-root-layout {
   min-height: 100vh;
   width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
   background-color: #F5F7F9;
   background-image: 
     radial-gradient(circle at 50% 0%, rgba(0, 107, 79, 0.05) 0%, transparent 50%),
@@ -764,8 +766,11 @@
 
 /* ==========================================================================
    Responsive Breakpoints
+   - Desktop (>= 1024px): 3 cards per row
+   - Tablet (641px - 1023px, e.g. 768px): 2 cards per row
+   - Mobile (<= 640px, e.g. 375px, 390px): 1 card per row
    ========================================================================== */
-@media (max-width: 1100px) {
+@media (max-width: 1023px) {
   .super-admin-operations-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -820,4 +825,154 @@
   .super-admin-section-container {
     padding: 24px 20px;
   }
+  .super-admin-root-layout {
+    padding: 20px 12px 48px;
+  }
+}
+
+/* Portal wrapper reset */
+.super-admin-portal-wrapper {
+  min-height: 100vh;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Extra card border and icon colors */
+.card-border-purple {
+  border-top: 3px solid #7C3AED;
+}
+.icon-box-purple {
+  background-color: #F5F3FF;
+  color: #7C3AED;
+}
+
+.card-border-red {
+  border-top: 3px solid #DC2626;
+}
+.icon-box-red {
+  background-color: #FEF2F2;
+  color: #DC2626;
+}
+
+.card-border-orange {
+  border-top: 3px solid #EA580C;
+}
+.icon-box-orange {
+  background-color: #FFF7ED;
+  color: #EA580C;
+}
+
+/* Overview Panel Grid 8 / 6 / 7 Variants */
+.super-admin-financial-overview-panel.grid-8 {
+  grid-template-columns: repeat(4, 1fr);
+  row-gap: 24px;
+}
+.super-admin-financial-overview-panel.grid-6 {
+  grid-template-columns: repeat(3, 1fr);
+  row-gap: 24px;
+}
+.super-admin-financial-overview-panel.grid-7 {
+  grid-template-columns: repeat(4, 1fr);
+  row-gap: 24px;
+}
+
+@media (max-width: 1023px) {
+  .super-admin-financial-overview-panel.grid-8,
+  .super-admin-financial-overview-panel.grid-6,
+  .super-admin-financial-overview-panel.grid-7 {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+}
+
+@media (max-width: 640px) {
+  .super-admin-financial-overview-panel.grid-8,
+  .super-admin-financial-overview-panel.grid-6,
+  .super-admin-financial-overview-panel.grid-7 {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}
+
+/* Multi-step Workflow Pipelines */
+.gov-workflow-card {
+  background: #FFFFFF;
+  border: 1px solid #D9E2EC;
+  border-radius: 14px;
+  padding: 24px 28px;
+  margin-bottom: 32px;
+  box-shadow: 0 2px 6px rgba(16, 42, 67, 0.04);
+}
+
+.gov-workflow-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #E2E8F0;
+}
+
+.gov-workflow-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #102A43;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+
+.gov-workflow-steps {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.gov-workflow-step {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #F8FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #102A43;
+}
+
+.gov-workflow-step.active {
+  background: #E6F4EA;
+  border-color: #A7F3D0;
+  color: #006B4F;
+}
+
+.gov-workflow-step-num {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #E2E8F0;
+  color: #486581;
+  font-size: 10px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gov-workflow-step.active .gov-workflow-step-num {
+  background: #006B4F;
+  color: #FFFFFF;
+}
+
+.gov-workflow-arrow {
+  color: #94A3B8;
+  font-weight: 800;
+  font-size: 14px;
 }

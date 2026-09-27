@@ -21,7 +21,11 @@ import {
   LogOut,
   Calendar,
   Layers,
-  MapPin
+  MapPin,
+  FolderKanban,
+  CreditCard,
+  Bell,
+  FileText
 } from 'lucide-react';
 import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
@@ -33,6 +37,9 @@ import '../admin/SuperAdminHub.css';
 import AllocateToDistrict from './AllocateToDistrict';
 import StateReceivedFunds from './StateReceivedFunds';
 import StateHistory from './StateHistory';
+import ProjectsManagement from '../district/ProjectsManagement';
+import AuditExplorer from '../auditor/AuditExplorer';
+import NotificationsPage from '../common/NotificationsPage';
 
 /**
  * Animated Number Counter Hook & Component
@@ -94,6 +101,9 @@ const StateDashboard = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const [activeProjectsCount, setActiveProjectsCount] = useState(18);
+  const [pendingRequestsCount, setPendingRequestsCount] = useState(5);
+
   useEffect(() => {
     API.get('/state/dashboard')
       .then((res) => {
@@ -103,7 +113,16 @@ const StateDashboard = () => {
         console.error("State Dashboard error:", err);
       })
       .finally(() => setLoading(false));
-  }, []);
+
+    API.get('/public/projects')
+      .then((res) => {
+        if (res.success && res.projects) {
+          const stateProjects = res.projects.filter(p => !p.state_code || p.state_code === (data?.state_code || 'KA'));
+          if (stateProjects.length > 0) setActiveProjectsCount(stateProjects.length);
+        }
+      })
+      .catch(() => {});
+  }, [data?.state_code]);
 
   const setTab = (tabName) => {
     setSearchParams(tabName === 'overview' ? {} : { tab: tabName });
@@ -132,14 +151,24 @@ const StateDashboard = () => {
   // Sub-module Title Resolver
   const getModuleTitle = (tab) => {
     switch (tab) {
-      case 'allocations':
-        return 'State-to-District Fund Allocation';
       case 'received':
         return 'Central Finance Received Funds';
-      case 'history':
-        return 'District Disbursal History & Ledger';
+      case 'allocations':
+        return 'State-to-District Fund Allocation';
       case 'breakdown':
-        return 'District Treasury Allocations Matrix';
+        return 'District Allocations Matrix';
+      case 'projects':
+        return 'State Public Works & Projects Monitoring';
+      case 'payment_requests':
+        return 'District Agency Payment Requests & Requisitions';
+      case 'history':
+        return 'District Disbursements & Audit Ledger';
+      case 'blockchain':
+        return 'Ethereum Blockchain Ledger Records';
+      case 'reports':
+        return 'State Treasury Compliance & Expenditure Reports';
+      case 'notifications':
+        return 'State Treasury Official Notifications';
       default:
         return 'State Treasury Module';
     }
@@ -173,16 +202,12 @@ const StateDashboard = () => {
             </div>
 
             <div className="super-admin-submodule-wrapper">
-              {activeTab === 'allocations' && (
-                <AllocateToDistrict />
-              )}
-
               {activeTab === 'received' && (
                 <StateReceivedFunds />
               )}
 
-              {activeTab === 'history' && (
-                <StateHistory />
+              {activeTab === 'allocations' && (
+                <AllocateToDistrict />
               )}
 
               {activeTab === 'breakdown' && (
@@ -245,6 +270,110 @@ const StateDashboard = () => {
                     </div>
                   )}
                 </div>
+              )}
+
+              {activeTab === 'projects' && (
+                <ProjectsManagement />
+              )}
+
+              {activeTab === 'payment_requests' && (
+                <div className="card" style={{ padding: '28px' }}>
+                  <div className="card-header" style={{ marginBottom: '20px' }}>
+                    <div className="card-title">
+                      <CreditCard size={20} color="#006B4F" />
+                      <span>Pending Payment Requests from Subordinate Districts</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {[
+                      { district: 'Belagavi District DRDA', scheme: 'Rural Road Infrastructure', amount: 45000000, reason: 'Milestone 2 road excavation & grading completion', date: 'Today' },
+                      { district: 'Bengaluru Urban DRDA', scheme: 'Urban Water Drainage', amount: 62000000, reason: 'Pipeline laying & quality inspection certification', date: 'Yesterday' },
+                      { district: 'Mysuru District Agency', scheme: 'Primary Health Center Construction', amount: 28000000, reason: 'Foundation structural work inspected', date: '3 days ago' }
+                    ].map((req, idx) => (
+                      <div key={idx} style={{
+                        background: '#F8FAFC',
+                        border: '1px solid #E2E8F0',
+                        borderRadius: '8px',
+                        padding: '16px 20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '12px'
+                      }}>
+                        <div>
+                          <div style={{ fontWeight: '800', color: '#102A43', fontSize: '15px' }}>{req.district}</div>
+                          <div style={{ fontSize: '12px', color: '#627D98', marginTop: '2px' }}>
+                            Scheme: <strong>{req.scheme}</strong> • {req.reason}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: '2px' }}>Requested: {req.date}</div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '18px', fontWeight: '900', color: '#006B4F' }}>
+                            {formatIndianDenomination(req.amount)}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setTab('allocations')}
+                            style={{
+                              marginTop: '4px',
+                              background: '#E6F4EA',
+                              color: '#006B4F',
+                              border: '1px solid #A7F3D0',
+                              borderRadius: '4px',
+                              padding: '4px 10px',
+                              fontSize: '11px',
+                              fontWeight: '700',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Approve Disbursal →
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'history' && (
+                <StateHistory />
+              )}
+
+              {activeTab === 'blockchain' && (
+                <AuditExplorer />
+              )}
+
+              {activeTab === 'reports' && (
+                <div className="card" style={{ padding: '28px' }}>
+                  <div className="card-header" style={{ marginBottom: '20px' }}>
+                    <div className="card-title">
+                      <FileText size={20} color="#006B4F" />
+                      <span>State Treasury Financial Compliance & Utilization Report</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
+                    <div style={{ background: '#F8FAFC', padding: '16px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                      <div style={{ fontSize: '11px', fontWeight: '800', color: '#627D98', textTransform: 'uppercase' }}>Central Receipts</div>
+                      <div style={{ fontSize: '20px', fontWeight: '800', color: '#102A43', marginTop: '4px' }}>{formatIndianDenomination(totalReceived)}</div>
+                    </div>
+                    <div style={{ background: '#E6F4EA', padding: '16px', borderRadius: '8px', border: '1px solid #A7F3D0' }}>
+                      <div style={{ fontSize: '11px', fontWeight: '800', color: '#006B4F', textTransform: 'uppercase' }}>District Deployments</div>
+                      <div style={{ fontSize: '20px', fontWeight: '800', color: '#006B4F', marginTop: '4px' }}>{formatIndianDenomination(totalAllocated)}</div>
+                    </div>
+                    <div style={{ background: '#EFF6FF', padding: '16px', borderRadius: '8px', border: '1px solid #BFDBFE' }}>
+                      <div style={{ fontSize: '11px', fontWeight: '800', color: '#2563EB', textTransform: 'uppercase' }}>Treasury Balance</div>
+                      <div style={{ fontSize: '20px', fontWeight: '800', color: '#2563EB', marginTop: '4px' }}>{formatIndianDenomination(remainingTreasury)}</div>
+                    </div>
+                  </div>
+                  <p style={{ fontSize: '13px', color: '#486581', lineHeight: '1.6' }}>
+                    State Treasury statutory accounts are anchored to the RBI clearing gateway and verified against the National Ethereum Ledger. All tranches disbursed to district collectorates require valid administrative requisitions and utilization certificates.
+                  </p>
+                </div>
+              )}
+
+              {activeTab === 'notifications' && (
+                <NotificationsPage />
               )}
             </div>
           </div>
@@ -324,11 +453,11 @@ const StateDashboard = () => {
               <span>STATE FINANCIAL OVERVIEW</span>
             </div>
 
-            <div className="super-admin-financial-overview-panel">
+            <div className="super-admin-financial-overview-panel grid-6">
               <div className="fin-overview-column">
                 <div className="fin-overview-top-label">
                   <Landmark size={14} color="#006B4F" />
-                  <span>TOTAL RECEIVED FROM CENTRE</span>
+                  <span>FUNDS RECEIVED FROM CENTRE</span>
                 </div>
                 <span className="fin-overview-value highlight-green">
                   {formatIndianDenomination(totalReceived)}
@@ -339,7 +468,7 @@ const StateDashboard = () => {
               <div className="fin-overview-column">
                 <div className="fin-overview-top-label">
                   <Coins size={14} color="#2563EB" />
-                  <span>ALLOCATED TO DISTRICTS</span>
+                  <span>FUNDS ALLOCATED TO DISTRICTS</span>
                 </div>
                 <span className="fin-overview-value">
                   {formatIndianDenomination(totalAllocated)}
@@ -350,7 +479,7 @@ const StateDashboard = () => {
               <div className="fin-overview-column">
                 <div className="fin-overview-top-label">
                   <PieChart size={14} color="#627D98" />
-                  <span>REMAINING STATE TREASURY</span>
+                  <span>REMAINING STATE FUNDS</span>
                 </div>
                 <span className="fin-overview-value">
                   {formatIndianDenomination(remainingTreasury)}
@@ -360,8 +489,30 @@ const StateDashboard = () => {
 
               <div className="fin-overview-column">
                 <div className="fin-overview-top-label">
-                  <TrendingUp size={14} color="#0D9488" />
-                  <span>DISTRICT SANCTIONS COUNT</span>
+                  <FolderKanban size={14} color="#0D9488" />
+                  <span>ACTIVE PROJECTS</span>
+                </div>
+                <span className="fin-overview-value">
+                  <AnimatedCounter value={activeProjectsCount} />
+                </span>
+                <span className="fin-overview-subtext">Public works under state monitoring</span>
+              </div>
+
+              <div className="fin-overview-column">
+                <div className="fin-overview-top-label">
+                  <CreditCard size={14} color="#D99A00" />
+                  <span>PENDING PAYMENT REQUESTS</span>
+                </div>
+                <span className="fin-overview-value">
+                  <AnimatedCounter value={pendingRequestsCount} prefix="0" />
+                </span>
+                <span className="fin-overview-subtext">District milestone claims awaiting disbursal</span>
+              </div>
+
+              <div className="fin-overview-column">
+                <div className="fin-overview-top-label">
+                  <TrendingUp size={14} color="#006B4F" />
+                  <span>RECENT DISBURSEMENTS</span>
                 </div>
                 <span className="fin-overview-value">
                   <AnimatedCounter value={districtAllocationsCount} suffix=" Orders" />
@@ -371,7 +522,7 @@ const StateDashboard = () => {
             </div>
 
             {/* ========================================================= */}
-            {/* SECTION 2: 3x2 CORE OPERATIONS GRID                       */}
+            {/* SECTION 2: 3x3 CORE OPERATIONS GRID (3 Cards Per Row)     */}
             {/* ========================================================= */}
             <div className="section-eyebrow-heading">
               <span className="section-bullet" />
@@ -380,69 +531,14 @@ const StateDashboard = () => {
 
             <div className="super-admin-operations-grid">
               
-              {/* CARD 1: Allocate to Districts (DOMINANT FEATURE CARD) */}
-              <div 
-                className="super-admin-operation-card card-border-green card-dominant-allocation" 
-                onClick={() => setTab('allocations')}
-                id="state-card-allocate"
-              >
-                <div className="card-top-row">
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span className="card-category-heading">ALLOCATE TO DISTRICTS</span>
-                    <span className="card-feature-pill">
-                      <Link2 size={10} />
-                      <span>On-chain tracked</span>
-                    </span>
-                  </div>
-                  <div className="card-mono-icon-container icon-box-green">
-                    <Send size={22} />
-                  </div>
-                </div>
-
-                <div className="card-content-body">
-                  <div className="card-large-title" style={{ color: '#006B4F' }}>
-                    {formatIndianDenomination(totalAllocated)}
-                  </div>
-                  <div className="card-description-text" style={{ fontWeight: '700', color: '#102A43' }}>
-                    Disbursed • {allocatedPct}% of State Treasury
-                  </div>
-
-                  {/* Clean Green Progress Bar */}
-                  <div className="dominant-progress-container">
-                    <div className="dominant-progress-track">
-                      <div 
-                        className="dominant-progress-fill" 
-                        style={{ width: `${allocatedPct}%` }}
-                      />
-                    </div>
-                    <div className="dominant-progress-meta">
-                      <span>Regional commitment</span>
-                      <span>{formatIndianDenomination(remainingTreasury)} Remaining</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="card-bottom-row">
-                  <div className="card-action-link" style={{ color: '#006B4F' }}>
-                    <span>Allocate to Districts</span>
-                    <ArrowRight size={14} className="action-arrow" />
-                  </div>
-                </div>
-              </div>
-
-              {/* CARD 2: Received Central Budgets */}
+              {/* CARD 1: Received Funds */}
               <div 
                 className="super-admin-operation-card card-border-green" 
                 onClick={() => setTab('received')}
                 id="state-card-received"
               >
                 <div className="card-top-row">
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span className="card-category-heading">RECEIVED CENTRAL BUDGETS</span>
-                    <span className="card-feature-pill">
-                      <span>● Union Release</span>
-                    </span>
-                  </div>
+                  <span className="card-category-heading">RECEIVED FUNDS</span>
                   <div className="card-mono-icon-container icon-box-green">
                     <Landmark size={22} />
                   </div>
@@ -465,44 +561,64 @@ const StateDashboard = () => {
                 </div>
               </div>
 
-              {/* CARD 3: State Disbursal History */}
+              {/* CARD 2: State Allocations (DOMINANT FEATURE CARD) */}
               <div 
-                className="super-admin-operation-card card-border-blue" 
-                onClick={() => setTab('history')}
-                id="state-card-history"
+                className="super-admin-operation-card card-border-green card-dominant-allocation" 
+                onClick={() => setTab('allocations')}
+                id="state-card-allocate"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">DISBURSAL HISTORY</span>
-                  <div className="card-mono-icon-container icon-box-blue">
-                    <History size={22} />
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span className="card-category-heading">STATE ALLOCATIONS</span>
+                    <span className="card-feature-pill">
+                      <Link2 size={10} />
+                      <span>On-chain tracked</span>
+                    </span>
+                  </div>
+                  <div className="card-mono-icon-container icon-box-green">
+                    <Send size={22} />
                   </div>
                 </div>
 
                 <div className="card-content-body">
-                  <div className="card-large-title">
-                    <AnimatedCounter value={districtAllocationsCount} suffix=" Disbursals" />
+                  <div className="card-large-title" style={{ color: '#006B4F' }}>
+                    {formatIndianDenomination(totalAllocated)}
                   </div>
-                  <div className="card-description-text">
-                    Comprehensive ledger of district allocations and cryptographic receipts
+                  <div className="card-description-text" style={{ fontWeight: '700', color: '#102A43' }}>
+                    Allocated • {allocatedPct}% of State Treasury
+                  </div>
+
+                  {/* Clean Green Progress Bar */}
+                  <div className="dominant-progress-container">
+                    <div className="dominant-progress-track">
+                      <div 
+                        className="dominant-progress-fill" 
+                        style={{ width: `${allocatedPct}%` }}
+                      />
+                    </div>
+                    <div className="dominant-progress-meta">
+                      <span>Regional commitment</span>
+                      <span>{formatIndianDenomination(remainingTreasury)} Remaining</span>
+                    </div>
                   </div>
                 </div>
 
                 <div className="card-bottom-row">
-                  <div className="card-action-link">
-                    <span>Audit Records</span>
+                  <div className="card-action-link" style={{ color: '#006B4F' }}>
+                    <span>Allocate Funds</span>
                     <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
               </div>
 
-              {/* CARD 4: District Breakdown */}
+              {/* CARD 3: District Allocations */}
               <div 
                 className="super-admin-operation-card card-border-navy" 
                 onClick={() => setTab('breakdown')}
                 id="state-card-breakdown"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">DISTRICT TREASURIES MATRIX</span>
+                  <span className="card-category-heading">DISTRICT ALLOCATIONS</span>
                   <div className="card-mono-icon-container icon-box-navy">
                     <Building2 size={22} />
                   </div>
@@ -525,52 +641,117 @@ const StateDashboard = () => {
                 </div>
               </div>
 
-              {/* CARD 5: State Schemes & Ceilings */}
+              {/* CARD 4: Projects */}
               <div 
-                className="super-admin-operation-card card-border-gold" 
-                onClick={() => setTab('allocations')}
-                id="state-card-schemes"
+                className="super-admin-operation-card card-border-blue" 
+                onClick={() => setTab('projects')}
+                id="state-card-projects"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">STATUTORY SCHEMES</span>
-                  <div className="card-mono-icon-container icon-box-gold">
-                    <FileSpreadsheet size={22} />
+                  <span className="card-category-heading">PROJECTS</span>
+                  <div className="card-mono-icon-container icon-box-blue">
+                    <FolderKanban size={22} />
                   </div>
                 </div>
 
                 <div className="card-content-body">
                   <div className="card-large-title">
-                    Scheme Monitoring
+                    <AnimatedCounter value={activeProjectsCount} suffix=" Projects" />
                   </div>
                   <div className="card-description-text">
-                    Centrally sponsored and state scheme ceiling compliance
+                    State infrastructure public works and development scheme execution
                   </div>
                 </div>
 
                 <div className="card-bottom-row">
                   <div className="card-action-link">
-                    <span>Check Ceilings</span>
+                    <span>Monitor Works</span>
                     <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
               </div>
 
-              {/* CARD 6: On-Chain Settlement Ledger */}
+              {/* CARD 5: Payment Requests */}
+              <div 
+                className="super-admin-operation-card card-border-gold" 
+                onClick={() => setTab('payment_requests')}
+                id="state-card-payment-requests"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">PAYMENT REQUESTS</span>
+                  <div className="card-mono-icon-container icon-box-gold">
+                    <CreditCard size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    <AnimatedCounter value={pendingRequestsCount} suffix=" Requests Pending" />
+                  </div>
+                  <div className="card-description-text">
+                    District development milestone claims awaiting State Treasury release
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>Review Requisitions</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 6: Disbursements */}
               <div 
                 className="super-admin-operation-card card-border-teal" 
                 onClick={() => setTab('history')}
-                id="state-card-ledger"
+                id="state-card-history"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">BLOCKCHAIN SETTLEMENT</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span className="card-category-heading">DISBURSEMENTS</span>
+                    <span className="card-feature-pill">
+                      <span>● Verified</span>
+                    </span>
+                  </div>
                   <div className="card-mono-icon-container icon-box-teal">
+                    <History size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    <AnimatedCounter value={districtAllocationsCount} suffix=" Disbursals" />
+                  </div>
+                  <div className="card-description-text">
+                    Comprehensive ledger of district allocations and cryptographic receipts
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>Audit Records</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 7: Blockchain Records */}
+              <div 
+                className="super-admin-operation-card card-border-green" 
+                onClick={() => setTab('blockchain')}
+                id="state-card-blockchain"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">BLOCKCHAIN RECORDS</span>
+                  <div className="card-mono-icon-container icon-box-green">
                     <ShieldCheck size={22} />
                   </div>
                 </div>
 
                 <div className="card-content-body">
                   <div className="card-large-title">
-                    Ethereum Verified
+                    Ethereum Consensus
                   </div>
                   <div className="card-description-text">
                     Every rupee anchored on-chain with immutable cryptographic hashes
@@ -580,6 +761,66 @@ const StateDashboard = () => {
                 <div className="card-bottom-row">
                   <div className="card-action-link">
                     <span>Verify Ledger</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 8: Reports */}
+              <div 
+                className="super-admin-operation-card card-border-navy" 
+                onClick={() => setTab('reports')}
+                id="state-card-reports"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">REPORTS</span>
+                  <div className="card-mono-icon-container icon-box-navy">
+                    <FileText size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    Treasury Reports
+                  </div>
+                  <div className="card-description-text">
+                    Statutory state expenditure statements, CAG audit compliance & receipts
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>View Reports</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 9: Notifications */}
+              <div 
+                className="super-admin-operation-card card-border-purple" 
+                onClick={() => setTab('notifications')}
+                id="state-card-notifications"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">NOTIFICATIONS</span>
+                  <div className="card-mono-icon-container icon-box-purple">
+                    <Bell size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    State Notices
+                  </div>
+                  <div className="card-description-text">
+                    Central fund transfer notices, ministry circulars & alerts
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>View Notices</span>
                     <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>

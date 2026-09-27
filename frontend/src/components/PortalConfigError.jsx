@@ -46,8 +46,17 @@ const PortalConfigError = ({ detectedValue }) => {
           letterSpacing: '-0.4px',
           marginBottom: '10px'
         }}>
-          Portal configuration is missing or invalid.
+          Portal configuration missing.
         </h1>
+
+        <p style={{
+          fontSize: '14px',
+          color: '#475569',
+          fontWeight: '600',
+          marginBottom: '16px'
+        }}>
+          Please configure VITE_PORTAL.
+        </p>
 
         <p style={{
           fontSize: '13px',

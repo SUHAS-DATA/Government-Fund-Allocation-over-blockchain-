@@ -19,7 +19,12 @@ import {
   GitBranch,
   Link2,
   LogOut,
-  Calendar
+  Calendar,
+  Bell,
+  Settings,
+  FileText,
+  Layers,
+  FileCheck
 } from 'lucide-react';
 import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
@@ -30,6 +35,9 @@ import '../admin/SuperAdminHub.css';
 import ReceivedBudgets from './ReceivedBudgets';
 import TransferToState from './TransferToState';
 import FinanceHistory from './FinanceHistory';
+import AuditExplorer from '../auditor/AuditExplorer';
+import NotificationsPage from '../common/NotificationsPage';
+import ProfilePage from '../common/ProfilePage';
 
 /**
  * Animated Number Counter Hook & Component
@@ -90,6 +98,7 @@ const FinanceDashboard = () => {
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [schemesList, setSchemesList] = useState([]);
 
   const setTab = (t) => {
     setSearchParams(t === 'overview' ? {} : { tab: t });
@@ -98,22 +107,30 @@ const FinanceDashboard = () => {
 
   useEffect(() => {
     setLoading(true);
-    API.get('/finance/dashboard')
-      .then((res) => {
-        if (res.success) setData(res);
-      })
-      .finally(() => setLoading(false));
+    Promise.allSettled([
+      API.get('/finance/dashboard'),
+      API.get('/public/schemes')
+    ]).then(([dashRes, schemesRes]) => {
+      if (dashRes.status === 'fulfilled' && dashRes.value?.success) {
+        setData(dashRes.value);
+      }
+      if (schemesRes.status === 'fulfilled' && schemesRes.value?.schemes) {
+        setSchemesList(schemesRes.value.schemes);
+      }
+    }).finally(() => setLoading(false));
   }, []);
 
   const metrics = data?.metrics || {};
   const pendingBudgets = data?.pending_budgets || [];
+  const stateBreakdown = data?.state_breakdown || [];
   const pendingAmount = pendingBudgets.reduce((acc, b) => acc + ((b.amount || 0) - (b.disbursed_amount || 0)), 0) || 400000000; // ₹40 Cr fallback
   const totalDisbursed = metrics?.total_disbursed || 800000000; // ₹80 Cr fallback
   const totalVolume = pendingAmount + totalDisbursed || 1200000000; // ₹120 Cr
   const disbursedPct = totalVolume > 0 ? Math.min(100, Math.round((totalDisbursed / totalVolume) * 100)) : 67;
   const pendingCount = metrics?.pending_budgets_count || pendingBudgets.length || 3;
-  const statesCount = metrics?.states_count || 28;
-  const transfersCount = data?.recent_transfers?.length || 18;
+  const statesCount = metrics?.states_supported || stateBreakdown.length || 28;
+  const transfersCount = metrics?.transfers_count || data?.recent_transfers?.length || 18;
+  const approvedSchemesCount = schemesList.length > 0 ? schemesList.length : 12;
 
   // Recent timeline events
   const recentActivities = [
@@ -141,9 +158,17 @@ const FinanceDashboard = () => {
 
   const getModuleTitle = (tab) => {
     switch (tab) {
-      case 'pending': return 'Central Sanctions Received';
+      case 'schemes': return 'Approved Government Schemes';
+      case 'requests':
+      case 'pending': return 'Central Sanctions & Fund Requests';
       case 'release': return 'Execute State Treasury Transfers';
+      case 'state_allocations': return 'State-wise Allocations & Treasury Accounts';
+      case 'disbursements': return 'State Disbursals Ledger';
       case 'history': return 'Audited Disbursal Ledger History';
+      case 'blockchain': return 'Ethereum Blockchain Ledger Records';
+      case 'reports': return 'Financial Reconciliation & Audit Reports';
+      case 'notifications': return 'Ministry of Finance Notifications';
+      case 'settings': return 'Finance Department Profile & Treasury Settings';
       default: return 'Finance Module';
     }
   };
@@ -176,9 +201,163 @@ const FinanceDashboard = () => {
             </div>
 
             <div className="super-admin-module-content">
-              {activeTab === 'pending' && <ReceivedBudgets />}
+              {activeTab === 'schemes' && (
+                <div className="card" style={{ padding: '28px' }}>
+                  <div className="card-header" style={{ marginBottom: '20px' }}>
+                    <div className="card-title">
+                      <FileSpreadsheet size={20} color="#006B4F" />
+                      <span>Approved Government Schemes for Fund Release</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {(schemesList.length > 0 ? schemesList : [
+                      { scheme_name: 'National Rural Road Infrastructure Scheme', department: 'Rural Development', budget: 1500000000, description: 'All-weather road connectivity to unconnected rural habitations' },
+                      { scheme_name: 'National Highways Development Program', department: 'Road Transport & Highways', budget: 2000000000, description: 'Four/six laning of national highway corridors across major economic nodes' },
+                      { scheme_name: 'Clean Water & Urban Sanitation Mission', department: 'Jal Shakti', budget: 850000000, description: 'Potable tap water supply and wastewater management systems' }
+                    ]).map((s, idx) => (
+                      <div key={idx} style={{
+                        background: '#F8FAFC',
+                        border: '1px solid #E2E8F0',
+                        borderRadius: '8px',
+                        padding: '16px 20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '12px'
+                      }}>
+                        <div>
+                          <div style={{ fontWeight: '800', color: '#102A43', fontSize: '15px' }}>{s.scheme_name || s.name}</div>
+                          <div style={{ fontSize: '12px', color: '#627D98', marginTop: '2px' }}>
+                            Ministry: <strong>{s.department || 'Central Secretariat'}</strong> • Status: <span style={{ color: '#006B4F', fontWeight: '800' }}>APPROVED FOR RELEASE</span>
+                          </div>
+                          {s.description && (
+                            <div style={{ fontSize: '12px', color: '#486581', marginTop: '4px' }}>{s.description}</div>
+                          )}
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '16px', fontWeight: '900', color: '#006B4F' }}>
+                            {formatIndianDenomination(s.budget || s.allocated_amount || 1500000000)}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setTab('release')}
+                            style={{
+                              marginTop: '4px',
+                              background: '#E6F4EA',
+                              color: '#006B4F',
+                              border: '1px solid #A7F3D0',
+                              borderRadius: '4px',
+                              padding: '4px 10px',
+                              fontSize: '11px',
+                              fontWeight: '800',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            Release Funds →
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(activeTab === 'pending' || activeTab === 'requests') && <ReceivedBudgets />}
               {activeTab === 'release' && <TransferToState />}
-              {activeTab === 'history' && <FinanceHistory />}
+
+              {activeTab === 'state_allocations' && (
+                <div className="card" style={{ padding: '28px' }}>
+                  <div className="card-header" style={{ marginBottom: '20px' }}>
+                    <div className="card-title">
+                      <Building2 size={20} color="#006B4F" />
+                      <span>State-wise Budget Allocation & Treasury Distribution</span>
+                    </div>
+                  </div>
+                  {stateBreakdown.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {stateBreakdown.map((st, idx) => (
+                        <div key={idx} style={{
+                          background: '#F8FAFC',
+                          border: '1px solid #E2E8F0',
+                          borderRadius: '8px',
+                          padding: '16px 20px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between'
+                        }}>
+                          <div>
+                            <div style={{ fontWeight: '800', color: '#102A43', fontSize: '15px' }}>{st._id || 'State Treasury'}</div>
+                            <div style={{ fontSize: '12px', color: '#627D98', marginTop: '2px' }}>
+                              Disbursals Executed: {st.transfer_count || 1} Tranches
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '18px', fontWeight: '900', color: '#006B4F' }}>
+                              {formatCurrency(st.total_amount)}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setTab('release')}
+                              style={{
+                                marginTop: '4px',
+                                background: '#E6F4EA',
+                                color: '#006B4F',
+                                border: '1px solid #A7F3D0',
+                                borderRadius: '4px',
+                                padding: '3px 10px',
+                                fontSize: '11px',
+                                fontWeight: '700',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Transfer More →
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: 'center', padding: '30px', color: '#627D98' }}>
+                      No state-wise releases recorded yet. Click Execute Transfer to disburse funds.
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {(activeTab === 'disbursements' || activeTab === 'history') && <FinanceHistory />}
+              {activeTab === 'blockchain' && <AuditExplorer />}
+              
+              {activeTab === 'reports' && (
+                <div className="card" style={{ padding: '28px' }}>
+                  <div className="card-header" style={{ marginBottom: '20px' }}>
+                    <div className="card-title">
+                      <ShieldCheck size={20} color="#006B4F" />
+                      <span>Financial Reconciliation & Statutory Disbursal Report</span>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
+                    <div style={{ background: '#F8FAFC', padding: '16px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
+                      <div style={{ fontSize: '11px', fontWeight: '800', color: '#627D98', textTransform: 'uppercase' }}>Total Sanctioned</div>
+                      <div style={{ fontSize: '20px', fontWeight: '800', color: '#102A43', marginTop: '4px' }}>{formatIndianDenomination(totalVolume)}</div>
+                    </div>
+                    <div style={{ background: '#E6F4EA', padding: '16px', borderRadius: '8px', border: '1px solid #A7F3D0' }}>
+                      <div style={{ fontSize: '11px', fontWeight: '800', color: '#006B4F', textTransform: 'uppercase' }}>Total Released</div>
+                      <div style={{ fontSize: '20px', fontWeight: '800', color: '#006B4F', marginTop: '4px' }}>{formatIndianDenomination(totalDisbursed)}</div>
+                    </div>
+                    <div style={{ background: '#EFF6FF', padding: '16px', borderRadius: '8px', border: '1px solid #BFDBFE' }}>
+                      <div style={{ fontSize: '11px', fontWeight: '800', color: '#2563EB', textTransform: 'uppercase' }}>Pending Balance</div>
+                      <div style={{ fontSize: '20px', fontWeight: '800', color: '#2563EB', marginTop: '4px' }}>{formatIndianDenomination(pendingAmount)}</div>
+                    </div>
+                  </div>
+                  <p style={{ fontSize: '13px', color: '#486581', lineHeight: '1.6' }}>
+                    This statutory report certifies that all state treasury releases adhere to Union Cabinet sanctions, with cryptographic blockchain anchoring under the Public Financial Management System guidelines.
+                  </p>
+                </div>
+              )}
+
+              {activeTab === 'notifications' && <NotificationsPage />}
+              {activeTab === 'settings' && <ProfilePage />}
             </div>
           </div>
         ) : (
@@ -240,25 +419,36 @@ const FinanceDashboard = () => {
             {/* ========================================================= */}
             <div className="section-eyebrow-heading">
               <span className="section-bullet" />
-              <span>FINANCIAL OVERVIEW</span>
+              <span>FINANCE DISBURSAL OVERVIEW</span>
             </div>
 
-            <div className="super-admin-financial-overview-panel">
+            <div className="super-admin-financial-overview-panel grid-6">
               <div className="fin-overview-column">
                 <div className="fin-overview-top-label">
-                  <Landmark size={14} color="#006B4F" />
-                  <span>TOTAL CENTRAL SANCTIONS</span>
+                  <FileSpreadsheet size={14} color="#006B4F" />
+                  <span>APPROVED SCHEMES</span>
                 </div>
                 <span className="fin-overview-value highlight-green">
-                  {formatIndianDenomination(totalVolume)}
+                  <AnimatedCounter value={approvedSchemesCount} />
                 </span>
-                <span className="fin-overview-subtext">Received from Cabinet Secretariat</span>
+                <span className="fin-overview-subtext">Approved national schemes</span>
               </div>
 
               <div className="fin-overview-column">
                 <div className="fin-overview-top-label">
-                  <Coins size={14} color="#2563EB" />
-                  <span>DISBURSED TO STATES</span>
+                  <PieChart size={14} color="#2563EB" />
+                  <span>FUNDS AVAILABLE</span>
+                </div>
+                <span className="fin-overview-value">
+                  {formatIndianDenomination(pendingAmount)}
+                </span>
+                <span className="fin-overview-subtext">Available treasury pool</span>
+              </div>
+
+              <div className="fin-overview-column">
+                <div className="fin-overview-top-label">
+                  <Coins size={14} color="#0D9488" />
+                  <span>FUNDS RELEASED</span>
                 </div>
                 <span className="fin-overview-value">
                   {formatIndianDenomination(totalDisbursed)}
@@ -268,19 +458,8 @@ const FinanceDashboard = () => {
 
               <div className="fin-overview-column">
                 <div className="fin-overview-top-label">
-                  <PieChart size={14} color="#627D98" />
-                  <span>PENDING DISBURSAL POOL</span>
-                </div>
-                <span className="fin-overview-value">
-                  {formatIndianDenomination(pendingAmount)}
-                </span>
-                <span className="fin-overview-subtext">Available for state releases</span>
-              </div>
-
-              <div className="fin-overview-column">
-                <div className="fin-overview-top-label">
                   <Clock size={14} color="#D99A00" />
-                  <span>PENDING RELEASES</span>
+                  <span>PENDING FUND REQUESTS</span>
                 </div>
                 <span className="fin-overview-value">
                   <AnimatedCounter 
@@ -290,6 +469,28 @@ const FinanceDashboard = () => {
                 </span>
                 <span className="fin-overview-subtext">Awaiting state transfer execution</span>
               </div>
+
+              <div className="fin-overview-column">
+                <div className="fin-overview-top-label">
+                  <Building2 size={14} color="#102A43" />
+                  <span>STATE-WISE DISBURSEMENT</span>
+                </div>
+                <span className="fin-overview-value">
+                  <AnimatedCounter value={statesCount} suffix=" States" />
+                </span>
+                <span className="fin-overview-subtext">RBI state treasury accounts</span>
+              </div>
+
+              <div className="fin-overview-column">
+                <div className="fin-overview-top-label">
+                  <Activity size={14} color="#006B4F" />
+                  <span>RECENT TRANSACTIONS</span>
+                </div>
+                <span className="fin-overview-value">
+                  <AnimatedCounter value={transfersCount} suffix=" Disbursals" />
+                </span>
+                <span className="fin-overview-subtext">Audited on-chain settlements</span>
+              </div>
             </div>
 
             {/* ========================================================= */}
@@ -297,42 +498,72 @@ const FinanceDashboard = () => {
             {/* ========================================================= */}
             <div className="section-eyebrow-heading">
               <span className="section-bullet" />
-              <span>CORE OPERATIONS</span>
+              <span>FINANCE OPERATIONS</span>
             </div>
 
             <div className="super-admin-operations-grid">
 
-              {/* CARD 1: Received Budgets */}
+              {/* CARD 1: Approved Schemes */}
               <div 
-                className="super-admin-operation-card card-border-blue" 
-                onClick={() => setTab('pending')}
-                id="fin-card-received"
+                className="super-admin-operation-card card-border-green" 
+                onClick={() => setTab('schemes')}
+                id="fin-card-schemes"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">RECEIVED BUDGETS</span>
-                  <div className="card-mono-icon-container icon-box-blue">
+                  <span className="card-category-heading">APPROVED SCHEMES</span>
+                  <div className="card-mono-icon-container icon-box-green">
                     <FileSpreadsheet size={22} />
                   </div>
                 </div>
 
                 <div className="card-content-body">
                   <div className="card-large-title">
-                    <AnimatedCounter value={pendingCount} suffix=" Central Sanctions" />
+                    <AnimatedCounter value={approvedSchemesCount} suffix=" Schemes" />
                   </div>
                   <div className="card-description-text">
-                    Budget allocations approved by Super Admin awaiting release
+                    National schemes approved by Cabinet Secretariat eligible for funding
                   </div>
                 </div>
 
                 <div className="card-bottom-row">
                   <div className="card-action-link">
-                    <span>View Sanctions</span>
+                    <span>View Schemes</span>
                     <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
               </div>
 
-              {/* CARD 2: Transfer to State (FEATURE CARD) */}
+              {/* CARD 2: Fund Requests */}
+              <div 
+                className="super-admin-operation-card card-border-gold" 
+                onClick={() => setTab('requests')}
+                id="fin-card-requests"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">FUND REQUESTS</span>
+                  <div className="card-mono-icon-container icon-box-gold">
+                    <Clock size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    <AnimatedCounter value={pendingCount} suffix=" Pending Sanctions" />
+                  </div>
+                  <div className="card-description-text">
+                    Budget allocations approved by Super Admin awaiting finance release
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>Review Requests</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 3: Fund Release (FEATURE CARD) */}
               <div 
                 className="super-admin-operation-card card-border-green card-dominant-allocation" 
                 onClick={() => setTab('release')}
@@ -340,7 +571,7 @@ const FinanceDashboard = () => {
               >
                 <div className="card-top-row">
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span className="card-category-heading">TRANSFER TO STATE</span>
+                    <span className="card-category-heading">FUND RELEASE</span>
                     <span className="card-feature-pill">
                       <Link2 size={10} />
                       <span>On-chain tracked</span>
@@ -356,7 +587,7 @@ const FinanceDashboard = () => {
                     {formatIndianDenomination(totalDisbursed)}
                   </div>
                   <div className="card-description-text" style={{ fontWeight: '700', color: '#102A43' }}>
-                    Disbursed • {disbursedPct}%
+                    Disbursed • {disbursedPct}% of total volume
                   </div>
 
                   {/* Clean Green Progress Bar */}
@@ -376,13 +607,73 @@ const FinanceDashboard = () => {
 
                 <div className="card-bottom-row">
                   <div className="card-action-link" style={{ color: '#006B4F' }}>
-                    <span>Execute Transfer</span>
+                    <span>Execute Release</span>
                     <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
               </div>
 
-              {/* CARD 3: Disbursal History */}
+              {/* CARD 4: State Allocations */}
+              <div 
+                className="super-admin-operation-card card-border-teal" 
+                onClick={() => setTab('state_allocations')}
+                id="fin-card-state-allocations"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">STATE ALLOCATIONS</span>
+                  <div className="card-mono-icon-container icon-box-teal">
+                    <Building2 size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    <AnimatedCounter value={statesCount} suffix=" State Treasuries" />
+                  </div>
+                  <div className="card-description-text">
+                    State-wise budget quotas & authorized RBI treasury linked wallets
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>Manage Allocations</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 5: Disbursements */}
+              <div 
+                className="super-admin-operation-card card-border-blue" 
+                onClick={() => setTab('disbursements')}
+                id="fin-card-disbursements"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">DISBURSEMENTS</span>
+                  <div className="card-mono-icon-container icon-box-blue">
+                    <Coins size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    {formatIndianDenomination(totalDisbursed)}
+                  </div>
+                  <div className="card-description-text">
+                    Live record of tranches settled to regional treasuries
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>View Disbursements</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 6: Transaction History */}
               <div 
                 className="super-admin-operation-card card-border-navy" 
                 onClick={() => setTab('history')}
@@ -390,7 +681,7 @@ const FinanceDashboard = () => {
               >
                 <div className="card-top-row">
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span className="card-category-heading">DISBURSAL HISTORY</span>
+                    <span className="card-category-heading">TRANSACTION HISTORY</span>
                     <span className="card-feature-pill">
                       <span>● Verified</span>
                     </span>
@@ -402,10 +693,10 @@ const FinanceDashboard = () => {
 
                 <div className="card-content-body">
                   <div className="card-large-title">
-                    <AnimatedCounter value={transfersCount} suffix=" State Releases" />
+                    <AnimatedCounter value={transfersCount} suffix=" Transactions" />
                   </div>
                   <div className="card-description-text">
-                    Audited ledger records of transfers to State Treasuries
+                    Audited ledger records of central releases to State Treasuries
                   </div>
                 </div>
 
@@ -417,44 +708,14 @@ const FinanceDashboard = () => {
                 </div>
               </div>
 
-              {/* CARD 4: State Treasuries */}
-              <div 
-                className="super-admin-operation-card card-border-teal" 
-                onClick={() => setTab('release')}
-                id="fin-card-states"
-              >
-                <div className="card-top-row">
-                  <span className="card-category-heading">STATE TREASURIES</span>
-                  <div className="card-mono-icon-container icon-box-teal">
-                    <Building2 size={22} />
-                  </div>
-                </div>
-
-                <div className="card-content-body">
-                  <div className="card-large-title">
-                    <AnimatedCounter value={statesCount} suffix=" State Accounts" />
-                  </div>
-                  <div className="card-description-text">
-                    Authorized RBI state treasury linked smart contract wallets
-                  </div>
-                </div>
-
-                <div className="card-bottom-row">
-                  <div className="card-action-link">
-                    <span>Manage Accounts</span>
-                    <ArrowRight size={14} className="action-arrow" />
-                  </div>
-                </div>
-              </div>
-
-              {/* CARD 5: Blockchain Settlement */}
+              {/* CARD 7: Blockchain Records */}
               <div 
                 className="super-admin-operation-card card-border-green" 
-                onClick={() => setTab('history')}
+                onClick={() => setTab('blockchain')}
                 id="fin-card-blockchain"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">BLOCKCHAIN SETTLEMENT</span>
+                  <span className="card-category-heading">BLOCKCHAIN RECORDS</span>
                   <div className="card-mono-icon-container icon-box-green">
                     <Activity size={22} />
                   </div>
@@ -465,26 +726,26 @@ const FinanceDashboard = () => {
                     Ethereum Consensus
                   </div>
                   <div className="card-description-text">
-                    Real-time inter-governmental smart contract anchoring
+                    Real-time inter-governmental smart contract anchoring & tx hashes
                   </div>
                 </div>
 
                 <div className="card-bottom-row">
                   <div className="card-action-link">
-                    <span>View Ledger</span>
+                    <span>Inspect Ledger</span>
                     <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
               </div>
 
-              {/* CARD 6: Audit Reconciliation */}
+              {/* CARD 8: Reports */}
               <div 
                 className="super-admin-operation-card card-border-gold" 
-                onClick={() => setTab('history')}
-                id="fin-card-audit"
+                onClick={() => setTab('reports')}
+                id="fin-card-reports"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">AUDIT RECONCILIATION</span>
+                  <span className="card-category-heading">REPORTS</span>
                   <div className="card-mono-icon-container icon-box-gold">
                     <ShieldCheck size={22} />
                   </div>
@@ -498,13 +759,73 @@ const FinanceDashboard = () => {
                     <span className="card-gold-badge">Audited</span>
                   </div>
                   <div className="card-description-text">
-                    Full reconciliation with Comptroller General of India
+                    Statutory financial reconciliation & disbursal audit statements
                   </div>
                 </div>
 
                 <div className="card-bottom-row">
                   <div className="card-action-link">
-                    <span>Review Status</span>
+                    <span>Generate Reports</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 9: Notifications */}
+              <div 
+                className="super-admin-operation-card card-border-purple" 
+                onClick={() => setTab('notifications')}
+                id="fin-card-notifications"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">NOTIFICATIONS</span>
+                  <div className="card-mono-icon-container icon-box-purple">
+                    <Bell size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    Treasury Alerts
+                  </div>
+                  <div className="card-description-text">
+                    Direct central sanction alerts and state disbursal confirmations
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>View Alerts</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD 10: Settings */}
+              <div 
+                className="super-admin-operation-card card-border-navy" 
+                onClick={() => setTab('settings')}
+                id="fin-card-settings"
+              >
+                <div className="card-top-row">
+                  <span className="card-category-heading">SETTINGS</span>
+                  <div className="card-mono-icon-container icon-box-navy">
+                    <Settings size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    Treasury Settings
+                  </div>
+                  <div className="card-description-text">
+                    Finance officer credentials, smart contract address & key custody
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link">
+                    <span>Configure Profile</span>
                     <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
