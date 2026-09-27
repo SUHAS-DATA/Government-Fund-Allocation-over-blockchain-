@@ -984,14 +984,14 @@ const ProjectManageModal = ({ project, onClose, onRefresh }) => {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {milestones.map((m, idx) => {
-            const isCompleted = m.status === 'COMPLETED';
-            const isSubmitted = m.status === 'SUBMITTED' || m.phase_status === 'SUBMITTED_FOR_VERIFICATION';
-            const isFundRequested = m.status === 'FUND_REQUESTED' || m.phase_status === 'FUND_REQUESTED';
-            const isFundsTransferred = m.status === 'FUNDS_TRANSFERRED' || m.phase_status === 'FUNDS_TRANSFERRED';
-            const isWorkInProgress = m.status === 'APPROVED_FOR_WORK' || m.phase_status === 'EXECUTING_WORK';
-            const isRejectedProof = m.status === 'REJECTED_NEEDS_RECTIFICATION' || m.status === 'REJECTED';
-            const isFundRejected = m.status === 'FUND_REQUEST_REJECTED';
-            const isLocked = m.status === 'LOCKED' || m.phase_status === 'LOCKED';
+            const isCompleted = m.status === 'COMPLETED' || m.status === 'RELEASED';
+            const isSubmitted = !isCompleted && (m.status === 'SUBMITTED' || m.phase_status === 'SUBMITTED_FOR_VERIFICATION');
+            const isFundRequested = !isCompleted && (m.status === 'FUND_REQUESTED' || m.phase_status === 'FUND_REQUESTED');
+            const isFundsTransferred = !isCompleted && (m.status === 'FUNDS_TRANSFERRED' || m.phase_status === 'FUNDS_TRANSFERRED');
+            const isWorkInProgress = !isCompleted && (m.status === 'APPROVED_FOR_WORK' || m.phase_status === 'EXECUTING_WORK');
+            const isRejectedProof = !isCompleted && (m.status === 'REJECTED_NEEDS_RECTIFICATION' || m.status === 'REJECTED');
+            const isFundRejected = !isCompleted && (m.status === 'FUND_REQUEST_REJECTED');
+            const isLocked = !isCompleted && (m.status === 'LOCKED' || m.phase_status === 'LOCKED');
 
             return (
               <div key={idx} style={{

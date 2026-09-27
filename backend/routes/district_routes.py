@@ -1177,10 +1177,11 @@ async def handle_milestone_verification(project_id: str, milestone_index: int, r
 
     # Decision Node: APPROVE Submission (Step 17/27/37: Yes -> Phase Completed)
     if milestone.get("status") == "COMPLETED" or milestone.get("status") == "RELEASED":
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={"success": False, "message": "Milestone phase has already been verified and marked completed."}
-        )
+        return {
+            "success": True,
+            "message": f"Milestone phase #{milestone_index + 1} is already verified and marked completed.",
+            "is_already_completed": True
+        }
 
     tx_hash = None
     block_num = None
