@@ -66,6 +66,7 @@ const MyProjects = () => {
     API.get('/contractor/projects')
       .then((res) => {
         if (res.success) {
+          setActionError('');
           setProjects(res.projects || []);
           if (selectedProject) {
             const updated = res.projects.find(p => p.project_id === selectedProject.project_id);

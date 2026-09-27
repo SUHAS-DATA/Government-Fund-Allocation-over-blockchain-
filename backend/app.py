@@ -63,13 +63,13 @@ app = FastAPI(
 )
 
 # Configurable CORS (Supports Vercel Deployments, localhost, and custom domains)
-cors_origins = os.getenv("CORS_ORIGINS", "")
+cors_origins = os.getenv("CORS_ORIGINS", "*")
 origins = [o.strip() for o in cors_origins.split(",") if o.strip()]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins if (origins and "*" not in origins) else [],
-    allow_origin_regex=r"^https?://.*" if (not origins or "*" in origins) else None,
+    allow_origin_regex=r"^https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -80,39 +80,39 @@ app.add_middleware(
 async def cors_and_security_middleware(request: Request, call_next):
     # Immediately answer preflight OPTIONS requests with 200 OK and complete CORS headers
     if request.method == "OPTIONS":
-        origin = request.headers.get("origin") or "*"
+        origin = request.headers.get("origin")
+        preflight_headers = {
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
+            "Access-Control-Allow-Headers": request.headers.get("access-control-request-headers") or "*",
+            "Access-Control-Max-Age": "86400",
+        }
+        if origin:
+            preflight_headers["Access-Control-Allow-Origin"] = origin
+            preflight_headers["Access-Control-Allow-Credentials"] = "true"
+        else:
+            preflight_headers["Access-Control-Allow-Origin"] = "*"
         return JSONResponse(
             status_code=200,
             content={"message": "OK"},
-            headers={
-                "Access-Control-Allow-Origin": origin,
-                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
-                "Access-Control-Allow-Headers": request.headers.get("access-control-request-headers") or "*",
-                "Access-Control-Allow-Credentials": "true",
-                "Access-Control-Max-Age": "86400",
-            }
+            headers=preflight_headers
         )
 
     try:
         response = await call_next(request)
     except Exception as exc:
         logging.error(f"Unhandled exception on {request.url.path}: {exc}")
-        origin = request.headers.get("origin") or "*"
         return JSONResponse(
             status_code=500,
             content={"success": False, "message": f"Server processing error: {str(exc)}"},
-            headers={
-                "Access-Control-Allow-Origin": origin,
-                "Access-Control-Allow-Credentials": "true",
-                "Access-Control-Allow-Methods": "*",
-                "Access-Control-Allow-Headers": "*",
-            }
+            headers=_cors_headers(request)
         )
 
     origin = request.headers.get("origin")
     if origin:
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+        response.headers["Access-Control-Allow-Headers"] = "*"
 
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
@@ -207,13 +207,17 @@ async def health():
     }
 
 def _cors_headers(request: Request) -> dict:
-    origin = request.headers.get("origin") or "*"
-    return {
-        "Access-Control-Allow-Origin": origin,
-        "Access-Control-Allow-Credentials": "true",
-        "Access-Control-Allow-Methods": "*",
+    origin = request.headers.get("origin")
+    headers = {
+        "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
         "Access-Control-Allow-Headers": "*",
     }
+    if origin:
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+    else:
+        headers["Access-Control-Allow-Origin"] = "*"
+    return headers
 
 # Uniform Error Handlers with Guaranteed CORS Headers
 @app.exception_handler(HTTPException)

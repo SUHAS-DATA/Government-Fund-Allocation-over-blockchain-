@@ -74,6 +74,8 @@ export const RealtimeProvider = ({ children }) => {
 
       ws.onopen = () => {
         setIsConnected(true);
+        // Server is online, trigger immediate sync so any data missed during cold-start is loaded
+        notifyListeners({ type: 'SERVER_ONLINE', timestamp: Date.now() });
         // Start heartbeat ping every 20 seconds
         if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
         heartbeatIntervalRef.current = setInterval(() => {
@@ -185,7 +187,7 @@ export const RealtimeProvider = ({ children }) => {
       try {
         const res = await API.get('/realtime/status');
         if (res && res.mutation_counter !== undefined) {
-          if (lastMutationTimeRef.current !== 0 && res.last_mutation_time > lastMutationTimeRef.current) {
+          if (lastMutationTimeRef.current === 0 || res.last_mutation_time > lastMutationTimeRef.current) {
             notifyListeners({ type: 'DATA_MUTATED', source: 'polling' });
           }
           lastMutationTimeRef.current = res.last_mutation_time;

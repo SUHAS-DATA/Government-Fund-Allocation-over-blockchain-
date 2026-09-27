@@ -119,7 +119,10 @@ const ContractorDashboard = () => {
     if (!isSilent) setLoading(true);
     API.get('/contractor/dashboard')
       .then((res) => {
-        if (res.success) setData(res);
+        if (res.success) {
+          setData(res);
+          setActionError('');
+        }
       })
       .catch((err) => {
         if (!isSilent) setActionError(err.message || 'Failed to load dashboard data');

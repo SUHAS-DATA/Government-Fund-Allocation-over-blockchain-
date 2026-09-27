@@ -51,6 +51,7 @@ export const getWsUrl = () => {
 
 const api = axios.create({
   baseURL: getApiBaseUrl(),
+  timeout: 60000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -68,10 +69,30 @@ api.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
-// Response interceptor with error handling
+// Response interceptor with automatic cold-start retry & error handling
 api.interceptors.response.use(
   (response) => response.data,
-  (error) => {
+  async (error) => {
+    const config = error.config;
+    // Detect cold-start or temporary network failure (no response or 502-504 Gateway errors)
+    const isColdStartOrNetworkError =
+      !error.response ||
+      (error.response && error.response.status >= 502 && error.response.status <= 504);
+
+    // Automatically retry idempotent GET requests while Render wakes up
+    if (config && isColdStartOrNetworkError && (!config.method || config.method.toLowerCase() === 'get')) {
+      config.__retryCount = config.__retryCount || 0;
+      const MAX_RETRIES = 3;
+
+      if (config.__retryCount < MAX_RETRIES) {
+        config.__retryCount += 1;
+        const delayMs = config.__retryCount * 2500;
+        console.warn(`[API] Cloud server waking up or transient network drop. Retrying ${config.url} (Attempt ${config.__retryCount}/${MAX_RETRIES}) in ${delayMs}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        return api(config);
+      }
+    }
+
     if (error.response) {
       if (error.response.status === 401 && !window.location.href.includes('login')) {
         localStorage.removeItem('govtfund_token');
