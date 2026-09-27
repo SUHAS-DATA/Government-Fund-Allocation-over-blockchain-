@@ -108,23 +108,39 @@ const FinanceDashboard = () => {
 
   const loadFinanceData = (showSpinner = false) => {
     if (showSpinner) setLoading(true);
-    Promise.allSettled([
-      API.get('/finance/dashboard'),
-      API.get('/public/schemes')
-    ]).then(([dashRes, schemesRes]) => {
-      if (dashRes.status === 'fulfilled' && dashRes.value?.success) {
-        setData(dashRes.value);
-      }
-      if (schemesRes.status === 'fulfilled' && schemesRes.value?.schemes) {
-        setSchemesList(schemesRes.value.schemes);
-      }
-    }).finally(() => {
-      if (showSpinner) setLoading(false);
-    });
+    API.get('/finance/dashboard')
+      .then((res) => {
+        if (res.success) {
+          setData(res);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (showSpinner) setLoading(false);
+      });
+  };
+
+  const loadSchemesList = () => {
+    API.get('/public/schemes')
+      .then((res) => {
+        if (res.success && res.schemes && res.schemes.length > 0) {
+          setSchemesList(res.schemes);
+        }
+      })
+      .catch(() => {
+        API.get('/admin/schemes')
+          .then((res) => {
+            if (res.success && res.schemes && res.schemes.length > 0) {
+              setSchemesList(res.schemes);
+            }
+          })
+          .catch(() => {});
+      });
   };
 
   useEffect(() => {
     loadFinanceData(true);
+    loadSchemesList();
   }, []);
 
   useRealtimeSync(() => loadFinanceData(false), { interval: 6000 });

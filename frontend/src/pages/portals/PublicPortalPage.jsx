@@ -120,12 +120,30 @@ const PublicPortalPage = () => {
       if (res.success) setStats(res.stats);
     }).catch(() => { });
 
+    const defaultSchemes = [
+      { code: 'PMGSY', name: 'Pradhan Mantri Gram Sadak Yojana', department: 'Road Transport & Infrastructure', center_share_pct: 60, state_share_pct: 40, description: 'All-weather road connectivity to unconnected rural habitations and highway networks' },
+      { code: 'JAL-JEEVAN', name: 'Jal Jeevan Mission (Clean Water for All)', department: 'Jal Shakti & Rural Water Supply', center_share_pct: 50, state_share_pct: 50, description: 'Potable tap water supply, solar water treatment and wastewater recycling across rural households' },
+      { code: 'NHM', name: 'National Health Mission', department: 'Health & Family Welfare', center_share_pct: 60, state_share_pct: 40, description: 'Universal healthcare infrastructure, sub-center digitization and emergency trauma units' },
+      { code: 'SAMAGRA-SHIKSHA', name: 'Samagra Shiksha Abhiyan', department: 'Primary & Secondary Education', center_share_pct: 60, state_share_pct: 40, description: 'School modernization, STEM laboratories and inclusive smart classrooms across districts' },
+      { code: 'PM-KISAN', name: 'PM Krishi Sinchayee & Cold Chain Grid', department: 'Agriculture & Farmer Welfare', center_share_pct: 60, state_share_pct: 40, description: 'Precision micro-irrigation, cold storage corridors and farm-gate aggregation centers' }
+    ];
+
     API.get('/public/schemes').then((res) => {
-      if (res.success && res.schemes) setSchemes(res.schemes);
+      if (res.success && res.schemes && res.schemes.length > 0) {
+        setSchemes(res.schemes);
+      } else {
+        setSchemes(defaultSchemes);
+      }
     }).catch(() => {
       API.get('/admin/schemes').then((res) => {
-        if (res.success && res.schemes) setSchemes(res.schemes);
-      }).catch(() => { });
+        if (res.success && res.schemes && res.schemes.length > 0) {
+          setSchemes(res.schemes);
+        } else {
+          setSchemes(defaultSchemes);
+        }
+      }).catch(() => {
+        setSchemes(defaultSchemes);
+      });
     }).finally(() => setLoading(false));
   }, []);
 

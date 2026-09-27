@@ -1,5 +1,6 @@
 import random
 import string
+import re
 from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Request, status, Query
@@ -68,6 +69,133 @@ async def get_hierarchy():
         "departments": serialize_doc(departments),
         "schemes": serialize_doc(schemes)
     }
+
+@router.get("/schemes")
+async def get_public_schemes():
+    try:
+        sc_list = list(db.schemes.find().sort("name", 1))
+
+        # If no schemes exist in database, return standard national flagship schemes fallback
+        if not sc_list:
+            sc_list = [
+                {
+                    "code": "PMGSY",
+                    "name": "Pradhan Mantri Gram Sadak Yojana",
+                    "scheme_name": "Pradhan Mantri Gram Sadak Yojana",
+                    "department": "Road Transport & Infrastructure",
+                    "department_name": "Road Transport & Infrastructure",
+                    "description": "All-weather road connectivity to unconnected rural habitations and national highway corridors.",
+                    "target_budget": 5000000000.0,
+                    "budget": 5000000000.0,
+                    "allocated_amount": 3500000000.0,
+                    "disbursed_amount": 2100000000.0,
+                    "remaining_budget": 1500000000.0,
+                    "center_share_pct": 60,
+                    "state_share_pct": 40,
+                    "status": "ACTIVE"
+                },
+                {
+                    "code": "JAL-JEEVAN",
+                    "name": "Jal Jeevan Mission (Clean Water for All)",
+                    "scheme_name": "Jal Jeevan Mission (Clean Water for All)",
+                    "department": "Jal Shakti & Rural Water Supply",
+                    "department_name": "Jal Shakti & Rural Water Supply",
+                    "description": "Potable tap water supply, solar water treatment and wastewater recycling across rural households.",
+                    "target_budget": 3500000000.0,
+                    "budget": 3500000000.0,
+                    "allocated_amount": 2000000000.0,
+                    "disbursed_amount": 1200000000.0,
+                    "remaining_budget": 1500000000.0,
+                    "center_share_pct": 50,
+                    "state_share_pct": 50,
+                    "status": "ACTIVE"
+                },
+                {
+                    "code": "NHM",
+                    "name": "National Health Mission & Rural Clinics",
+                    "scheme_name": "National Health Mission & Rural Clinics",
+                    "department": "Health & Family Welfare",
+                    "department_name": "Health & Family Welfare",
+                    "description": "Universal healthcare infrastructure, sub-center digitization and emergency trauma units.",
+                    "target_budget": 4000000000.0,
+                    "budget": 4000000000.0,
+                    "allocated_amount": 2500000000.0,
+                    "disbursed_amount": 1800000000.0,
+                    "remaining_budget": 1500000000.0,
+                    "center_share_pct": 60,
+                    "state_share_pct": 40,
+                    "status": "ACTIVE"
+                },
+                {
+                    "code": "SAMAGRA-SHIKSHA",
+                    "name": "Samagra Shiksha Abhiyan",
+                    "scheme_name": "Samagra Shiksha Abhiyan",
+                    "department": "Primary & Secondary Education",
+                    "department_name": "Primary & Secondary Education",
+                    "description": "School modernization, STEM laboratories and inclusive smart classrooms across districts.",
+                    "target_budget": 2500000000.0,
+                    "budget": 2500000000.0,
+                    "allocated_amount": 1800000000.0,
+                    "disbursed_amount": 1100000000.0,
+                    "remaining_budget": 700000000.0,
+                    "center_share_pct": 60,
+                    "state_share_pct": 40,
+                    "status": "ACTIVE"
+                },
+                {
+                    "code": "PM-KISAN",
+                    "name": "PM Krishi Sinchayee & Cold Chain Grid",
+                    "scheme_name": "PM Krishi Sinchayee & Cold Chain Grid",
+                    "department": "Agriculture & Farmer Welfare",
+                    "department_name": "Agriculture & Farmer Welfare",
+                    "description": "Precision micro-irrigation, cold storage corridors and farm-gate aggregation centers.",
+                    "target_budget": 2000000000.0,
+                    "budget": 2000000000.0,
+                    "allocated_amount": 1200000000.0,
+                    "disbursed_amount": 750000000.0,
+                    "remaining_budget": 800000000.0,
+                    "center_share_pct": 60,
+                    "state_share_pct": 40,
+                    "status": "ACTIVE"
+                }
+            ]
+            return {"success": True, "schemes": sc_list}
+
+        for s in sc_list:
+            scheme_name = s.get("name", "")
+            target_budget = float(s.get("target_budget") or s.get("allocated_budget") or 0.0)
+
+            allocations = []
+            if scheme_name:
+                allocations = list(db.budget_allocations.find({
+                    "$or": [
+                        {"scheme_name": scheme_name},
+                        {"scheme_name": {"$regex": f"^{re.escape(scheme_name.strip())}$", "$options": "i"}}
+                    ]
+                }))
+
+            total_allocated = sum(float(a.get("amount", 0.0)) for a in allocations)
+            total_disbursed = sum(float(a.get("disbursed_amount", 0.0)) for a in allocations)
+
+            s["scheme_name"] = scheme_name
+            dept = s.get("department") or s.get("department_name") or "Infrastructure"
+            s["department"] = dept
+            s["department_name"] = dept
+            s["allocated_amount"] = total_allocated
+            s["disbursed_amount"] = total_disbursed
+            s["remaining_budget"] = max(0.0, target_budget - total_allocated)
+            s["target_budget"] = target_budget
+            s["budget"] = target_budget if target_budget > 0 else (total_allocated or 1000000000.0)
+            if "center_share_pct" not in s:
+                s["center_share_pct"] = s.get("center_share_pct", 60)
+            if "state_share_pct" not in s:
+                s["state_share_pct"] = s.get("state_share_pct", 40)
+            if "status" not in s:
+                s["status"] = "ACTIVE"
+
+        return {"success": True, "schemes": serialize_doc(sc_list)}
+    except Exception as e:
+        return {"success": False, "message": str(e), "schemes": []}
 
 @router.get("/projects")
 async def get_public_projects(

@@ -176,6 +176,11 @@ app.include_router(public_bp, prefix="/api/public", tags=["Public"])
 app.include_router(notification_bp, prefix="/api/notifications", tags=["Notifications"])
 app.include_router(blockchain_bp, prefix="/api/blockchain", tags=["Blockchain"])
 
+@app.get("/api/schemes", tags=["Public"])
+async def get_api_schemes_alias():
+    from routes.public_routes import get_public_schemes
+    return await get_public_schemes()
+
 # Diagnostic & Health Check API
 @app.get("/api/health")
 async def health():
