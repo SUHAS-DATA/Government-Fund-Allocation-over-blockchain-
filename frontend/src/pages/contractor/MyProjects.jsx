@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  FolderKanban, 
-  Upload, 
-  ShieldCheck, 
-  CheckCircle2, 
-  Clock, 
-  Coins, 
+import {
+  FolderKanban,
+  Upload,
+  ShieldCheck,
+  CheckCircle2,
+  Clock,
+  Coins,
   CreditCard,
   AlertCircle,
   Lock,
@@ -29,6 +29,7 @@ import BlockchainBadge from '../../components/BlockchainBadge';
 import DocumentHashViewer from '../../components/DocumentHashViewer';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
+import { useRealtimeSync } from '../../context/RealtimeContext';
 
 const MyProjects = () => {
   const [projects, setProjects] = useState([]);
@@ -40,11 +41,11 @@ const MyProjects = () => {
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [showFundRequestModal, setShowFundRequestModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
-  
+
   const [activePhaseIndex, setActivePhaseIndex] = useState(0);
   const [fundRequestAmount, setFundRequestAmount] = useState(0);
   const [fundRequestNotes, setFundRequestNotes] = useState('');
-  
+
   // Multi-Proof Submission Form States (Flowchart Deliverables)
   const [percentage, setPercentage] = useState(100);
   const [notes, setNotes] = useState('Groundwork, terrain leveling, and structural concrete culverts completed as per PWD specifications.');
@@ -55,13 +56,13 @@ const MyProjects = () => {
   const [videoUrl, setVideoUrl] = useState('');
   const [otherDocFile, setOtherDocFile] = useState(null);
   const [rejectReason, setRejectReason] = useState('');
-  
+
   const [submitting, setSubmitting] = useState(false);
   const [actionSuccess, setActionSuccess] = useState('');
   const [actionError, setActionError] = useState('');
 
-  const loadProjects = () => {
-    setLoading(true);
+  const loadProjects = (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     API.get('/contractor/projects')
       .then((res) => {
         if (res.success) {
@@ -75,12 +76,16 @@ const MyProjects = () => {
       .catch((err) => {
         setActionError(err.message || 'Failed to load projects');
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (showSpinner) setLoading(false);
+      });
   };
 
   useEffect(() => {
-    loadProjects();
+    loadProjects(true);
   }, []);
+
+  useRealtimeSync(() => loadProjects(false), { interval: 6000 });
 
   const openProjectDetails = async (p) => {
     setSelectedProject(p);
@@ -368,7 +373,7 @@ const MyProjects = () => {
       {/* Selected Project Lifecycle Container */}
       {selectedProject && (
         <div className="card" style={{ marginTop: '24px', borderTop: '4px solid #C2410C' }}>
-          
+
           {/* Project Header */}
           <div className="card-header" style={{ flexWrap: 'wrap', gap: '10px' }}>
             <div>
@@ -486,15 +491,15 @@ const MyProjects = () => {
                     key={idx}
                     style={{
                       background: isLocked ? '#F8FAFC' : '#FFFFFF',
-                      border: isCompleted 
-                        ? '1.5px solid var(--color-success-border)' 
+                      border: isCompleted
+                        ? '1.5px solid var(--color-success-border)'
                         : isRejectedProof || isFundRejected
-                        ? '1.5px solid var(--color-danger-border)' 
-                        : isFundsTransferred
-                        ? '1.5px solid #86EFAC'
-                        : isApprovedForWork 
-                        ? '1.5px solid #FED7AA' 
-                        : '1px solid var(--border-color)',
+                          ? '1.5px solid var(--color-danger-border)'
+                          : isFundsTransferred
+                            ? '1.5px solid #86EFAC'
+                            : isApprovedForWork
+                              ? '1.5px solid #FED7AA'
+                              : '1px solid var(--border-color)',
                       borderRadius: 'var(--radius-sm)',
                       padding: '18px 20px',
                       boxShadow: isLocked ? 'none' : 'var(--shadow-xs)',
@@ -737,7 +742,7 @@ const MyProjects = () => {
       {/* MODAL 2: Submit 4-Category Completion Proof */}
       <Modal title={`Submit Phase #${activePhaseIndex + 1} Completion Proof`} isOpen={showProgressModal} onClose={() => setShowProgressModal(false)} maxWidth="750px">
         <form onSubmit={handleUploadProgress}>
-          
+
           <div style={{ background: 'rgba(15, 118, 110, 0.06)', padding: '12px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid #CCFBF1', marginBottom: '16px', fontSize: '12px', color: '#0F766E' }}>
             <strong>Flowchart Deliverables:</strong> Please provide proof across all 4 statutory categories: Material Bills, Progress Photos, Progress Videos, and Quality Test Documents.
           </div>

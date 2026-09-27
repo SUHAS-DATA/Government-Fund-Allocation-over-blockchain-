@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { RealtimeProvider } from './context/RealtimeContext';
 import { NotificationProvider } from './context/NotificationContext';
 
 // Portal Configuration Helper & Error Screen
@@ -134,8 +135,9 @@ function App() {
 
   return (
     <AuthProvider>
-      <NotificationProvider>
-        <BrowserRouter>
+      <RealtimeProvider>
+        <NotificationProvider>
+          <BrowserRouter>
           <PortalLayout>
             <Routes>
               {/* ========================================================= */}
@@ -296,7 +298,8 @@ function App() {
           </PortalLayout>
         </BrowserRouter>
       </NotificationProvider>
-    </AuthProvider>
+    </RealtimeProvider>
+  </AuthProvider>
   );
 }
 

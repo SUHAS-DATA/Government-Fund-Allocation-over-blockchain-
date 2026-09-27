@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { 
-  Building2, 
-  Coins, 
-  Send, 
-  TrendingUp, 
-  Activity, 
-  ArrowRight, 
+import {
+  Building2,
+  Coins,
+  Send,
+  TrendingUp,
+  Activity,
+  ArrowRight,
   ArrowLeft,
-  ShieldCheck, 
-  FileSpreadsheet, 
+  ShieldCheck,
+  FileSpreadsheet,
   History,
-  CheckCircle2, 
-  Clock, 
+  CheckCircle2,
+  Clock,
   PieChart,
   Landmark,
   Shield,
@@ -31,6 +31,7 @@ import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
 import { useAuth } from '../../context/AuthContext';
+import { useRealtimeSync } from '../../context/RealtimeContext';
 import '../admin/SuperAdminHub.css';
 
 // Sub-components for state operations
@@ -104,7 +105,8 @@ const StateDashboard = () => {
   const [activeProjectsCount, setActiveProjectsCount] = useState(18);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(5);
 
-  useEffect(() => {
+  const loadStateData = (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     API.get('/state/dashboard')
       .then((res) => {
         if (res.success) setData(res);
@@ -112,7 +114,9 @@ const StateDashboard = () => {
       .catch((err) => {
         console.error("State Dashboard error:", err);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (showSpinner) setLoading(false);
+      });
 
     API.get('/public/projects')
       .then((res) => {
@@ -121,8 +125,14 @@ const StateDashboard = () => {
           if (stateProjects.length > 0) setActiveProjectsCount(stateProjects.length);
         }
       })
-      .catch(() => {});
+      .catch(() => { });
+  };
+
+  useEffect(() => {
+    loadStateData(true);
   }, [data?.state_code]);
+
+  useRealtimeSync(() => loadStateData(false), { interval: 6000 });
 
   const setTab = (tabName) => {
     setSearchParams(tabName === 'overview' ? {} : { tab: tabName });
@@ -136,7 +146,7 @@ const StateDashboard = () => {
     ? metrics.remaining_state_treasury_balance
     : Math.max(0, totalReceived - totalAllocated);
 
-  const allocatedPct = totalReceived > 0 
+  const allocatedPct = totalReceived > 0
     ? Math.min(100, Math.round((totalAllocated / totalReceived) * 100))
     : (totalAllocated > 0 ? 100 : 0);
 
@@ -177,16 +187,16 @@ const StateDashboard = () => {
   return (
     <div className="super-admin-root-layout">
       <div className="super-admin-hub-container">
-        
+
         {/* ========================================================= */}
         {/* SUB-MODULE VIEW (When a card has been clicked)            */}
         {/* ========================================================= */}
         {activeTab !== 'overview' ? (
           <div>
             <div className="super-admin-module-bar">
-              <button 
-                type="button" 
-                onClick={() => setTab('overview')} 
+              <button
+                type="button"
+                onClick={() => setTab('overview')}
                 className="super-admin-back-btn"
                 id="back-to-state-hub-btn"
               >
@@ -406,9 +416,9 @@ const StateDashboard = () => {
                   <span className="super-admin-user-name">
                     {user?.name || 'Finance Secretary'} (STATE)
                   </span>
-                  <button 
-                    type="button" 
-                    onClick={logout} 
+                  <button
+                    type="button"
+                    onClick={logout}
                     className="super-admin-logout-btn"
                     title="Sign out of State Portal"
                   >
@@ -530,10 +540,10 @@ const StateDashboard = () => {
             </div>
 
             <div className="super-admin-operations-grid">
-              
+
               {/* CARD 1: Received Funds */}
-              <div 
-                className="super-admin-operation-card card-border-green" 
+              <div
+                className="super-admin-operation-card card-border-green"
                 onClick={() => setTab('received')}
                 id="state-card-received"
               >
@@ -562,8 +572,8 @@ const StateDashboard = () => {
               </div>
 
               {/* CARD 2: State Allocations (DOMINANT FEATURE CARD) */}
-              <div 
-                className="super-admin-operation-card card-border-green card-dominant-allocation" 
+              <div
+                className="super-admin-operation-card card-border-green card-dominant-allocation"
                 onClick={() => setTab('allocations')}
                 id="state-card-allocate"
               >
@@ -591,8 +601,8 @@ const StateDashboard = () => {
                   {/* Clean Green Progress Bar */}
                   <div className="dominant-progress-container">
                     <div className="dominant-progress-track">
-                      <div 
-                        className="dominant-progress-fill" 
+                      <div
+                        className="dominant-progress-fill"
                         style={{ width: `${allocatedPct}%` }}
                       />
                     </div>
@@ -612,8 +622,8 @@ const StateDashboard = () => {
               </div>
 
               {/* CARD 3: District Allocations */}
-              <div 
-                className="super-admin-operation-card card-border-navy" 
+              <div
+                className="super-admin-operation-card card-border-navy"
                 onClick={() => setTab('breakdown')}
                 id="state-card-breakdown"
               >
@@ -642,8 +652,8 @@ const StateDashboard = () => {
               </div>
 
               {/* CARD 4: Projects */}
-              <div 
-                className="super-admin-operation-card card-border-blue" 
+              <div
+                className="super-admin-operation-card card-border-blue"
                 onClick={() => setTab('projects')}
                 id="state-card-projects"
               >
@@ -672,8 +682,8 @@ const StateDashboard = () => {
               </div>
 
               {/* CARD 5: Payment Requests */}
-              <div 
-                className="super-admin-operation-card card-border-gold" 
+              <div
+                className="super-admin-operation-card card-border-gold"
                 onClick={() => setTab('payment_requests')}
                 id="state-card-payment-requests"
               >
@@ -702,8 +712,8 @@ const StateDashboard = () => {
               </div>
 
               {/* CARD 6: Disbursements */}
-              <div 
-                className="super-admin-operation-card card-border-teal" 
+              <div
+                className="super-admin-operation-card card-border-teal"
                 onClick={() => setTab('history')}
                 id="state-card-history"
               >
@@ -737,8 +747,8 @@ const StateDashboard = () => {
               </div>
 
               {/* CARD 7: Blockchain Records */}
-              <div 
-                className="super-admin-operation-card card-border-green" 
+              <div
+                className="super-admin-operation-card card-border-green"
                 onClick={() => setTab('blockchain')}
                 id="state-card-blockchain"
               >
@@ -767,8 +777,8 @@ const StateDashboard = () => {
               </div>
 
               {/* CARD 8: Reports */}
-              <div 
-                className="super-admin-operation-card card-border-navy" 
+              <div
+                className="super-admin-operation-card card-border-navy"
                 onClick={() => setTab('reports')}
                 id="state-card-reports"
               >
@@ -797,8 +807,8 @@ const StateDashboard = () => {
               </div>
 
               {/* CARD 9: Notifications */}
-              <div 
-                className="super-admin-operation-card card-border-purple" 
+              <div
+                className="super-admin-operation-card card-border-purple"
                 onClick={() => setTab('notifications')}
                 id="state-card-notifications"
               >

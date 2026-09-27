@@ -88,15 +88,14 @@ async def blockchain_explorer(
 # --- Document Hash Verification ---
 @router.get("/documents")
 async def get_documents(
-    current_user: dict = Depends(require_roles(["AUDITOR"]))
+    current_user: dict = Depends(require_roles(["AUDITOR", "CONTRACTOR", "DISTRICT", "DEPARTMENT", "STATE", "FINANCE", "SUPER_ADMIN"]))
 ):
     docs = list(db.documents.find().sort("uploaded_at", -1))
     return {"success": True, "documents": serialize_doc(docs)}
 
 @router.post("/verify-document")
 async def verify_document(
-    request: Request,
-    current_user: dict = Depends(require_roles(["AUDITOR"]))
+    request: Request
 ):
     try:
         data = await request.json()

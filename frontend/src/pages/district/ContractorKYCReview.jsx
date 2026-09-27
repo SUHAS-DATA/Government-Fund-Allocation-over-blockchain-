@@ -4,6 +4,7 @@ import API from '../../services/api';
 import DataTable from '../../components/DataTable';
 import DocumentHashViewer from '../../components/DocumentHashViewer';
 import Modal from '../../components/Modal';
+import { useRealtimeSync } from '../../context/RealtimeContext';
 
 const ContractorKYCReview = () => {
   const [contractors, setContractors] = useState([]);
@@ -22,6 +23,8 @@ const ContractorKYCReview = () => {
   useEffect(() => {
     loadContractors();
   }, []);
+
+  useRealtimeSync(loadContractors, { interval: 6000 });
 
   const handleReviewSubmit = async (e) => {
     e.preventDefault();

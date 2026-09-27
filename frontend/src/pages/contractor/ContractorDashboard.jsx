@@ -1,25 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { 
-  FolderKanban, 
-  CreditCard, 
-  FileCheck, 
-  Coins, 
-  TrendingUp, 
-  ShieldCheck, 
-  Upload, 
-  Clock, 
-  CheckCircle2, 
-  AlertTriangle, 
-  ArrowRight, 
+import {
+  FolderKanban,
+  CreditCard,
+  FileCheck,
+  Coins,
+  TrendingUp,
+  ShieldCheck,
+  Upload,
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  ArrowRight,
   ArrowLeft,
-  Building2, 
-  Landmark, 
-  PieChart, 
-  Shield, 
-  GitBranch, 
-  Link2, 
-  Activity, 
+  Building2,
+  Landmark,
+  PieChart,
+  Shield,
+  GitBranch,
+  Link2,
+  Activity,
   LogOut,
   Send,
   Layers,
@@ -35,6 +35,7 @@ import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
 import { useAuth } from '../../context/AuthContext';
+import { useRealtimeSync } from '../../context/RealtimeContext';
 import '../admin/SuperAdminHub.css';
 
 // Subcomponents for contractor operations
@@ -114,21 +115,25 @@ const ContractorDashboard = () => {
   });
   const [bidSubmitting, setBidSubmitting] = useState(false);
 
-  const loadDashboard = () => {
-    setLoading(true);
+  const loadDashboard = (isSilent = false) => {
+    if (!isSilent) setLoading(true);
     API.get('/contractor/dashboard')
       .then((res) => {
         if (res.success) setData(res);
       })
       .catch((err) => {
-        setActionError(err.message || 'Failed to load dashboard data');
+        if (!isSilent) setActionError(err.message || 'Failed to load dashboard data');
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!isSilent) setLoading(false);
+      });
   };
 
   useEffect(() => {
-    loadDashboard();
+    loadDashboard(false);
   }, []);
+
+  useRealtimeSync(loadDashboard, { interval: 6000 });
 
   const setTab = (tabName) => {
     setSearchParams(tabName === 'overview' ? {} : { tab: tabName });
@@ -237,16 +242,16 @@ const ContractorDashboard = () => {
   return (
     <div className="super-admin-root-layout">
       <div className="super-admin-hub-container">
-        
+
         {/* ========================================================= */}
         {/* SUB-MODULE VIEW (When a card has been clicked)            */}
         {/* ========================================================= */}
         {activeTab !== 'overview' ? (
           <div>
             <div className="super-admin-module-bar">
-              <button 
-                type="button" 
-                onClick={() => setTab('overview')} 
+              <button
+                type="button"
+                onClick={() => setTab('overview')}
                 className="super-admin-back-btn"
                 id="back-to-contractor-hub-btn"
               >
@@ -304,8 +309,8 @@ const ContractorDashboard = () => {
                         </div>
                         <div style={{ textAlign: 'right' }}>
                           <div style={{ fontSize: '18px', fontWeight: '900', color: '#006B4F' }}>{p.budget}</div>
-                          <button 
-                            type="button" 
+                          <button
+                            type="button"
                             onClick={() => { setBidForm({ ...bidForm, project_id: p.id }); setTab('apply_bid'); }}
                             style={{ marginTop: '8px', background: '#006B4F', color: '#FFF', border: 'none', padding: '8px 16px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
                           >
@@ -329,24 +334,24 @@ const ContractorDashboard = () => {
                   <form onSubmit={handleBidSubmit}>
                     <div style={{ marginBottom: '16px' }}>
                       <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#102A43', marginBottom: '6px' }}>Select Target Project / Tender ID</label>
-                      <input 
-                        type="text" 
-                        required 
-                        placeholder="e.g. PRJ-KA-204" 
-                        value={bidForm.project_id} 
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. PRJ-KA-204"
+                        value={bidForm.project_id}
                         onChange={(e) => setBidForm({ ...bidForm, project_id: e.target.value })}
                         style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px' }}
                       />
                     </div>
                     <div style={{ marginBottom: '16px' }}>
                       <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#102A43', marginBottom: '6px' }}>Quoted Commercial Bid Amount (in INR)</label>
-                      <input 
-                        type="number" 
-                        required 
+                      <input
+                        type="number"
+                        required
                         min="100000"
                         step="1000"
-                        placeholder="e.g. 142000000" 
-                        value={bidForm.quoted_amount} 
+                        placeholder="e.g. 142000000"
+                        value={bidForm.quoted_amount}
                         onChange={(e) => setBidForm({ ...bidForm, quoted_amount: e.target.value })}
                         style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px' }}
                       />
@@ -358,21 +363,21 @@ const ContractorDashboard = () => {
                     </div>
                     <div style={{ marginBottom: '16px' }}>
                       <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#102A43', marginBottom: '6px' }}>Proposed Completion Timeline (Months)</label>
-                      <input 
-                        type="number" 
-                        required 
-                        min="1" 
+                      <input
+                        type="number"
+                        required
+                        min="1"
                         max="60"
-                        value={bidForm.completion_timeline_months} 
+                        value={bidForm.completion_timeline_months}
                         onChange={(e) => setBidForm({ ...bidForm, completion_timeline_months: e.target.value })}
                         style={{ width: '100%', padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px' }}
                       />
                     </div>
                     <div style={{ marginBottom: '20px' }}>
                       <label style={{ display: 'block', fontSize: '13px', fontWeight: '700', color: '#102A43', marginBottom: '6px' }}>Technical Methodology & Equipment Deployment Plan</label>
-                      <textarea 
-                        required 
-                        rows={4} 
+                      <textarea
+                        required
+                        rows={4}
                         placeholder="Describe technical engineering methodology, machinery mobilization, and safety standards..."
                         value={bidForm.technical_proposal}
                         onChange={(e) => setBidForm({ ...bidForm, technical_proposal: e.target.value })}
@@ -464,9 +469,9 @@ const ContractorDashboard = () => {
                     📸 <strong>Tamper-Proof Proof of Work:</strong> Upload geo-tagged photos with EXIF GPS coordinates and testing certificates. Each file generates an immutable SHA-256 hash registered on the Ethereum blockchain.
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    <button 
-                      type="button" 
-                      onClick={() => setTab('projects')} 
+                    <button
+                      type="button"
+                      onClick={() => setTab('projects')}
                       style={{ background: '#006B4F', color: '#FFF', border: 'none', padding: '14px 20px', borderRadius: '8px', fontWeight: '800', cursor: 'pointer', textAlign: 'center' }}
                     >
                       Open Active Projects to Attach Geo-Evidence →
@@ -611,9 +616,9 @@ const ContractorDashboard = () => {
                 <span className="super-admin-user-name">
                   {contractor?.company_name || user?.name || 'Apex Infrastructure Pvt Ltd'} ({user?.role || 'CONTRACTOR'})
                 </span>
-                <button 
-                  type="button" 
-                  onClick={logout} 
+                <button
+                  type="button"
+                  onClick={logout}
                   className="super-admin-logout-btn"
                   title="Sign out of Contractor Portal"
                 >
@@ -798,9 +803,9 @@ const ContractorDashboard = () => {
             <div className="super-admin-operations-grid">
 
               {/* CARD 1: Available Projects */}
-              <div 
+              <div
                 onClick={() => setTab('available')}
-                className="super-admin-operation-card card-border-blue" 
+                className="super-admin-operation-card card-border-blue"
                 id="con-card-available"
               >
                 <div className="card-top-row">
@@ -828,9 +833,9 @@ const ContractorDashboard = () => {
               </div>
 
               {/* CARD 2: Apply / Bid */}
-              <div 
+              <div
                 onClick={() => setTab('apply_bid')}
-                className="super-admin-operation-card card-border-teal" 
+                className="super-admin-operation-card card-border-teal"
                 id="con-card-apply-bid"
               >
                 <div className="card-top-row">
@@ -858,9 +863,9 @@ const ContractorDashboard = () => {
               </div>
 
               {/* CARD 3: My Bids */}
-              <div 
+              <div
                 onClick={() => setTab('my_bids')}
-                className="super-admin-operation-card card-border-gold" 
+                className="super-admin-operation-card card-border-gold"
                 id="con-card-my-bids"
               >
                 <div className="card-top-row">
@@ -888,9 +893,9 @@ const ContractorDashboard = () => {
               </div>
 
               {/* CARD 4: Contracts */}
-              <div 
+              <div
                 onClick={() => setTab('contracts')}
-                className="super-admin-operation-card card-border-purple" 
+                className="super-admin-operation-card card-border-purple"
                 id="con-card-contracts"
               >
                 <div className="card-top-row">
@@ -918,9 +923,9 @@ const ContractorDashboard = () => {
               </div>
 
               {/* CARD 5: Project Work */}
-              <div 
+              <div
                 onClick={() => setTab('projects')}
-                className="super-admin-operation-card card-border-blue" 
+                className="super-admin-operation-card card-border-blue"
                 id="con-card-projects"
               >
                 <div className="card-top-row">
@@ -948,9 +953,9 @@ const ContractorDashboard = () => {
               </div>
 
               {/* CARD 6: Upload Progress */}
-              <div 
+              <div
                 onClick={() => setTab('upload')}
-                className="super-admin-operation-card card-border-navy" 
+                className="super-admin-operation-card card-border-navy"
                 id="con-card-upload"
               >
                 <div className="card-top-row">
@@ -978,9 +983,9 @@ const ContractorDashboard = () => {
               </div>
 
               {/* CARD 7: Milestones */}
-              <div 
+              <div
                 onClick={() => setTab('milestones')}
-                className="super-admin-operation-card card-border-purple" 
+                className="super-admin-operation-card card-border-purple"
                 id="con-card-milestones"
               >
                 <div className="card-top-row">
@@ -1008,9 +1013,9 @@ const ContractorDashboard = () => {
               </div>
 
               {/* CARD 8: Payment Requests */}
-              <div 
+              <div
                 onClick={() => setTab('payment_requests')}
-                className="super-admin-operation-card card-border-orange" 
+                className="super-admin-operation-card card-border-orange"
                 id="con-card-payment-requests"
               >
                 <div className="card-top-row">
@@ -1038,9 +1043,9 @@ const ContractorDashboard = () => {
               </div>
 
               {/* CARD 9: Payment History */}
-              <div 
+              <div
                 onClick={() => setTab('history')}
-                className="super-admin-operation-card card-border-green" 
+                className="super-admin-operation-card card-border-green"
                 id="con-card-payment-history"
               >
                 <div className="card-top-row">
@@ -1068,9 +1073,9 @@ const ContractorDashboard = () => {
               </div>
 
               {/* CARD 10: Documents */}
-              <div 
+              <div
                 onClick={() => setTab('documents')}
-                className="super-admin-operation-card card-border-navy" 
+                className="super-admin-operation-card card-border-navy"
                 id="con-card-documents"
               >
                 <div className="card-top-row">
@@ -1098,9 +1103,9 @@ const ContractorDashboard = () => {
               </div>
 
               {/* CARD 11: Blockchain Records */}
-              <div 
+              <div
                 onClick={() => setTab('blockchain')}
-                className="super-admin-operation-card card-border-green" 
+                className="super-admin-operation-card card-border-green"
                 id="con-card-blockchain"
               >
                 <div className="card-top-row">
@@ -1128,9 +1133,9 @@ const ContractorDashboard = () => {
               </div>
 
               {/* CARD 12: Profile */}
-              <div 
+              <div
                 onClick={() => setTab('profile')}
-                className="super-admin-operation-card card-border-gold" 
+                className="super-admin-operation-card card-border-gold"
                 id="con-card-profile"
               >
                 <div className="card-top-row">

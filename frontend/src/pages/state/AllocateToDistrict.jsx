@@ -7,6 +7,7 @@ import BlockchainBadge from '../../components/BlockchainBadge';
 import FundAmountInput from '../../components/FundAmountInput';
 
 import { getDistrictsByState, getState } from '../../config/statesDistrictsData';
+import { useRealtimeSync } from '../../context/RealtimeContext';
 
 const AllocateToDistrict = () => {
   const [searchParams] = useSearchParams();
@@ -16,12 +17,12 @@ const AllocateToDistrict = () => {
   const [selectedTransferId, setSelectedTransferId] = useState(searchParams.get('transfer_id') || '');
   const [districtName, setDistrictName] = useState('');
   const [amount, setAmount] = useState(50000000); // 5 Crores
-  
+
   const [submitting, setSubmitting] = useState(false);
   const [successResult, setSuccessResult] = useState(null);
   const [error, setError] = useState('');
 
-  useEffect(() => {
+  const loadReceivedFunds = () => {
     API.get('/state/received-funds').then((res) => {
       if (res.success && res.received_funds?.length > 0) {
         setReceivedFunds(res.received_funds);
@@ -30,7 +31,13 @@ const AllocateToDistrict = () => {
         }
       }
     });
+  };
+
+  useEffect(() => {
+    loadReceivedFunds();
   }, []);
+
+  useRealtimeSync(loadReceivedFunds, { interval: 6000 });
 
   const activeTransfer = receivedFunds.find((f) => f.transfer_id === selectedTransferId);
   const activeStateCode = activeTransfer?.state_code || 'KA';

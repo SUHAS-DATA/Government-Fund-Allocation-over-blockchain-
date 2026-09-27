@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { 
-  FolderKanban, 
-  Plus, 
-  UserCheck, 
-  Lock, 
-  ShieldCheck, 
-  CheckCircle2, 
-  Clock, 
+import {
+  FolderKanban,
+  Plus,
+  UserCheck,
+  Lock,
+  ShieldCheck,
+  CheckCircle2,
+  Clock,
   FileCheck,
   MapPin,
   Coins,
@@ -30,6 +30,7 @@ import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FundAmountInput from '../../components/FundAmountInput';
 import { useAuth } from '../../context/AuthContext';
+import { useRealtimeSync } from '../../context/RealtimeContext';
 import StateDistrictSelector from '../../components/StateDistrictSelector';
 import { getAllStates, getDistrictsByState, getStateForDistrict, getState } from '../../config/statesDistrictsData';
 
@@ -78,11 +79,11 @@ const ProjectsManagement = () => {
 
   const normalizeScheme = (s) => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
 
-  const loadData = (district = selectedDistrict) => {
-    setLoading(true);
+  const loadData = (district = selectedDistrict, showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     const targetDist = isDistrictOfficer ? assignedDistrict : district;
     const query = targetDist ? `?district=${encodeURIComponent(targetDist)}` : '';
-    
+
     API.get(`/district/projects${query}`).then((res) => {
       if (res.success) {
         setProjects(res.projects || []);
@@ -93,7 +94,9 @@ const ProjectsManagement = () => {
           setDistrictFundSummary(res.summary);
         }
       }
-    }).finally(() => setLoading(false));
+    }).finally(() => {
+      if (showSpinner) setLoading(false);
+    });
 
     API.get('/district/contractors').then((res) => {
       if (res.success && res.contractors) {
@@ -118,9 +121,13 @@ const ProjectsManagement = () => {
   };
 
   useEffect(() => {
-    loadData(selectedDistrict);
+    loadData(selectedDistrict, true);
     setFormData((prev) => ({ ...prev, district_name: selectedDistrict }));
   }, [selectedDistrict]);
+
+  useRealtimeSync(() => {
+    loadData(selectedDistrict, false);
+  }, { interval: 6000 });
 
   // Merge schemeBalances and all known schemes so every scheme can be selected
   const displaySchemes = React.useMemo(() => {
@@ -628,7 +635,7 @@ const ProjectsManagement = () => {
             }}>
               <AlertCircle size={16} />
               <span>
-                {currentSchemeData.total_received === 0 
+                {currentSchemeData.total_received === 0
                   ? `No funds have been transferred by State Treasury to ${isDistrictOfficer ? assignedDistrict : selectedDistrict} for '${createForm.scheme_name}' yet.`
                   : `100% of received funds for '${createForm.scheme_name}' in this district are already allocated to existing projects.`
                 }
@@ -686,13 +693,13 @@ const ProjectsManagement = () => {
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
             <button type="button" className="btn btn-secondary" onClick={() => setShowCreateModal(false)}>Cancel</button>
-            <button 
-              type="submit" 
+            <button
+              type="submit"
               className="btn btn-primary"
               disabled={
-                submittingProject || 
-                currentSchemeData.available_balance <= 0 || 
-                createForm.total_budget <= 0 || 
+                submittingProject ||
+                currentSchemeData.available_balance <= 0 ||
+                createForm.total_budget <= 0 ||
                 createForm.total_budget > currentSchemeData.available_balance
               }
             >

@@ -5,6 +5,7 @@ import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
 import FundAmountInput from '../../components/FundAmountInput';
+import { useRealtimeSync } from '../../context/RealtimeContext';
 
 const TransferToState = () => {
   const [searchParams] = useSearchParams();
@@ -27,12 +28,12 @@ const TransferToState = () => {
   const [selectedStateCode, setSelectedStateCode] = useState('MH');
   const [amount, setAmount] = useState(250000000); // 25 Crores
   const [signOffNote, setSignOffNote] = useState('Sanctioned and disbursed by Central Finance Authority.');
-  
+
   const [submitting, setSubmitting] = useState(false);
   const [successResult, setSuccessResult] = useState(null);
   const [error, setError] = useState('');
 
-  useEffect(() => {
+  const loadBudgets = () => {
     API.get('/finance/received-budgets').then((res) => {
       if (res.success) {
         setBudgets(res.budgets || []);
@@ -41,6 +42,10 @@ const TransferToState = () => {
         }
       }
     });
+  };
+
+  useEffect(() => {
+    loadBudgets();
 
     API.get('/finance/states').then((res) => {
       if (res.success && res.states?.length > 0) {
@@ -59,6 +64,8 @@ const TransferToState = () => {
       });
     });
   }, []);
+
+  useRealtimeSync(loadBudgets, { interval: 6000 });
 
   const activeBudget = budgets.find((b) => b.allocation_id === selectedAllocId);
   const availableBalance = activeBudget ? (activeBudget.amount - (activeBudget.disbursed_amount || 0)) : 0;

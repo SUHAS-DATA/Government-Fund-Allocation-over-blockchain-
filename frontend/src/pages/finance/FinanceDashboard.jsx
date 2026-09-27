@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { 
-  Building2, 
-  Coins, 
-  Send, 
-  TrendingUp, 
-  Activity, 
-  ArrowRight, 
+import {
+  Building2,
+  Coins,
+  Send,
+  TrendingUp,
+  Activity,
+  ArrowRight,
   ArrowLeft,
-  ShieldCheck, 
-  FileSpreadsheet, 
+  ShieldCheck,
+  FileSpreadsheet,
   History,
-  CheckCircle2, 
-  Clock, 
+  CheckCircle2,
+  Clock,
   PieChart,
   Landmark,
   Shield,
@@ -29,6 +29,7 @@ import {
 import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
 import { useAuth } from '../../context/AuthContext';
+import { useRealtimeSync } from '../../context/RealtimeContext';
 import '../admin/SuperAdminHub.css';
 
 // Sub-components for finance operations
@@ -105,8 +106,8 @@ const FinanceDashboard = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  useEffect(() => {
-    setLoading(true);
+  const loadFinanceData = (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     Promise.allSettled([
       API.get('/finance/dashboard'),
       API.get('/public/schemes')
@@ -117,8 +118,16 @@ const FinanceDashboard = () => {
       if (schemesRes.status === 'fulfilled' && schemesRes.value?.schemes) {
         setSchemesList(schemesRes.value.schemes);
       }
-    }).finally(() => setLoading(false));
+    }).finally(() => {
+      if (showSpinner) setLoading(false);
+    });
+  };
+
+  useEffect(() => {
+    loadFinanceData(true);
   }, []);
+
+  useRealtimeSync(() => loadFinanceData(false), { interval: 6000 });
 
   const metrics = data?.metrics || {};
   const pendingBudgets = data?.pending_budgets || [];
@@ -176,16 +185,16 @@ const FinanceDashboard = () => {
   return (
     <div className="super-admin-root-layout">
       <div className="super-admin-hub-container">
-        
+
         {/* ========================================================= */}
         {/* SUB-MODULE VIEW (When a card has been clicked)            */}
         {/* ========================================================= */}
         {activeTab !== 'overview' ? (
           <div>
             <div className="super-admin-module-bar">
-              <button 
-                type="button" 
-                onClick={() => setTab('overview')} 
+              <button
+                type="button"
+                onClick={() => setTab('overview')}
                 className="super-admin-back-btn"
                 id="back-to-finance-hub-btn"
               >
@@ -327,7 +336,7 @@ const FinanceDashboard = () => {
 
               {(activeTab === 'disbursements' || activeTab === 'history') && <FinanceHistory />}
               {activeTab === 'blockchain' && <AuditExplorer />}
-              
+
               {activeTab === 'reports' && (
                 <div className="card" style={{ padding: '28px' }}>
                   <div className="card-header" style={{ marginBottom: '20px' }}>
@@ -376,9 +385,9 @@ const FinanceDashboard = () => {
                 <span className="super-admin-user-name">
                   {user?.name || 'Finance Officer'} ({user?.role || 'FINANCE'})
                 </span>
-                <button 
-                  type="button" 
-                  onClick={logout} 
+                <button
+                  type="button"
+                  onClick={logout}
                   className="super-admin-logout-btn"
                   title="Sign out of Finance Portal"
                 >
@@ -462,9 +471,9 @@ const FinanceDashboard = () => {
                   <span>PENDING FUND REQUESTS</span>
                 </div>
                 <span className="fin-overview-value">
-                  <AnimatedCounter 
-                    value={pendingCount} 
-                    prefix={pendingCount < 10 ? '0' : ''} 
+                  <AnimatedCounter
+                    value={pendingCount}
+                    prefix={pendingCount < 10 ? '0' : ''}
                   />
                 </span>
                 <span className="fin-overview-subtext">Awaiting state transfer execution</span>
@@ -504,8 +513,8 @@ const FinanceDashboard = () => {
             <div className="super-admin-operations-grid">
 
               {/* CARD 1: Approved Schemes */}
-              <div 
-                className="super-admin-operation-card card-border-green" 
+              <div
+                className="super-admin-operation-card card-border-green"
                 onClick={() => setTab('schemes')}
                 id="fin-card-schemes"
               >
@@ -534,8 +543,8 @@ const FinanceDashboard = () => {
               </div>
 
               {/* CARD 2: Fund Requests */}
-              <div 
-                className="super-admin-operation-card card-border-gold" 
+              <div
+                className="super-admin-operation-card card-border-gold"
                 onClick={() => setTab('requests')}
                 id="fin-card-requests"
               >
@@ -564,8 +573,8 @@ const FinanceDashboard = () => {
               </div>
 
               {/* CARD 3: Fund Release (FEATURE CARD) */}
-              <div 
-                className="super-admin-operation-card card-border-green card-dominant-allocation" 
+              <div
+                className="super-admin-operation-card card-border-green card-dominant-allocation"
                 onClick={() => setTab('release')}
                 id="fin-card-transfer"
               >
@@ -593,8 +602,8 @@ const FinanceDashboard = () => {
                   {/* Clean Green Progress Bar */}
                   <div className="dominant-progress-container">
                     <div className="dominant-progress-track">
-                      <div 
-                        className="dominant-progress-fill" 
+                      <div
+                        className="dominant-progress-fill"
                         style={{ width: `${disbursedPct}%` }}
                       />
                     </div>
@@ -614,8 +623,8 @@ const FinanceDashboard = () => {
               </div>
 
               {/* CARD 4: State Allocations */}
-              <div 
-                className="super-admin-operation-card card-border-teal" 
+              <div
+                className="super-admin-operation-card card-border-teal"
                 onClick={() => setTab('state_allocations')}
                 id="fin-card-state-allocations"
               >
@@ -644,8 +653,8 @@ const FinanceDashboard = () => {
               </div>
 
               {/* CARD 5: Disbursements */}
-              <div 
-                className="super-admin-operation-card card-border-blue" 
+              <div
+                className="super-admin-operation-card card-border-blue"
                 onClick={() => setTab('disbursements')}
                 id="fin-card-disbursements"
               >
@@ -674,8 +683,8 @@ const FinanceDashboard = () => {
               </div>
 
               {/* CARD 6: Transaction History */}
-              <div 
-                className="super-admin-operation-card card-border-navy" 
+              <div
+                className="super-admin-operation-card card-border-navy"
                 onClick={() => setTab('history')}
                 id="fin-card-history"
               >
@@ -709,8 +718,8 @@ const FinanceDashboard = () => {
               </div>
 
               {/* CARD 7: Blockchain Records */}
-              <div 
-                className="super-admin-operation-card card-border-green" 
+              <div
+                className="super-admin-operation-card card-border-green"
                 onClick={() => setTab('blockchain')}
                 id="fin-card-blockchain"
               >
@@ -739,8 +748,8 @@ const FinanceDashboard = () => {
               </div>
 
               {/* CARD 8: Reports */}
-              <div 
-                className="super-admin-operation-card card-border-gold" 
+              <div
+                className="super-admin-operation-card card-border-gold"
                 onClick={() => setTab('reports')}
                 id="fin-card-reports"
               >
@@ -772,8 +781,8 @@ const FinanceDashboard = () => {
               </div>
 
               {/* CARD 9: Notifications */}
-              <div 
-                className="super-admin-operation-card card-border-purple" 
+              <div
+                className="super-admin-operation-card card-border-purple"
                 onClick={() => setTab('notifications')}
                 id="fin-card-notifications"
               >
@@ -802,8 +811,8 @@ const FinanceDashboard = () => {
               </div>
 
               {/* CARD 10: Settings */}
-              <div 
-                className="super-admin-operation-card card-border-navy" 
+              <div
+                className="super-admin-operation-card card-border-navy"
                 onClick={() => setTab('settings')}
                 id="fin-card-settings"
               >

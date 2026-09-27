@@ -6,6 +6,7 @@ import { useNotifications } from '../context/NotificationContext';
 import API from '../services/api';
 import RoleAccessModal from './RoleAccessModal';
 import { getActivePortal, PORTAL_DETAILS } from '../config/portalConfig';
+import { LiveSyncIndicator } from '../context/RealtimeContext';
 
 const Navbar = ({ onToggleSidebar }) => {
   const { user, logout } = useAuth();
@@ -26,13 +27,13 @@ const Navbar = ({ onToggleSidebar }) => {
         if (res.success && res.financial_years?.length > 0) {
           setFinancialYears(res.financial_years);
           const act = res.financial_years.find((f) => String(f.status).toUpperCase() === 'ACTIVE')
-                   || res.financial_years[0];
+            || res.financial_years[0];
           if (act && act.year) {
             setActiveFY(act.year);
           }
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   };
 
   useEffect(() => {
@@ -298,6 +299,8 @@ const Navbar = ({ onToggleSidebar }) => {
                   </span>
                 )}
               </Link>
+
+              <LiveSyncIndicator />
 
               <span className="role-pill">
                 {user.role?.replace(/_/g, ' ')}

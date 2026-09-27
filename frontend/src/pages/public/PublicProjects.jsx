@@ -4,8 +4,8 @@ import { Search, MapPin, Building2, Coins, ArrowRight, ShieldCheck, Filter } fro
 import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
 import DataTable from '../../components/DataTable';
-
 import StateDistrictSelector from '../../components/StateDistrictSelector';
+import { useRealtimeSync } from '../../context/RealtimeContext';
 
 const PublicProjects = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -14,8 +14,8 @@ const PublicProjects = () => {
   const [selectedState, setSelectedState] = useState(searchParams.get('state') || '');
   const [selectedDistrict, setSelectedDistrict] = useState(searchParams.get('district') || '');
 
-  const loadProjects = (state = selectedState, district = selectedDistrict) => {
-    setLoading(true);
+  const loadProjects = (state = selectedState, district = selectedDistrict, showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     const params = new URLSearchParams();
     if (state) params.append('state', state);
     if (district) params.append('district', district);
@@ -26,12 +26,16 @@ const PublicProjects = () => {
       .then((res) => {
         if (res.success) setProjects(res.projects || []);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (showSpinner) setLoading(false);
+      });
   };
 
   useEffect(() => {
-    loadProjects(selectedState, selectedDistrict);
+    loadProjects(selectedState, selectedDistrict, true);
   }, [selectedState, selectedDistrict, searchParams]);
+
+  useRealtimeSync(() => loadProjects(selectedState, selectedDistrict, false), { interval: 6000 });
 
   const handleStateFilterChange = (st) => {
     setSelectedState(st);

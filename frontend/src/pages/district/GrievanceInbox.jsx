@@ -3,6 +3,7 @@ import { MessageSquareWarning, ShieldCheck } from 'lucide-react';
 import API from '../../services/api';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
+import { useRealtimeSync } from '../../context/RealtimeContext';
 
 const GrievanceInbox = () => {
   const [grievances, setGrievances] = useState([]);
@@ -20,6 +21,8 @@ const GrievanceInbox = () => {
   useEffect(() => {
     loadGrievances();
   }, []);
+
+  useRealtimeSync(loadGrievances, { interval: 6000 });
 
   const handleUpdateStatus = async (e) => {
     e.preventDefault();

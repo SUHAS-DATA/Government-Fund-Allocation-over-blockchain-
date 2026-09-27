@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { 
-  Globe, 
-  FolderKanban, 
-  FileSpreadsheet, 
-  Coins, 
-  QrCode, 
-  Activity, 
-  ShieldCheck, 
-  Search, 
-  MapPin, 
+import {
+  Globe,
+  FolderKanban,
+  FileSpreadsheet,
+  Coins,
+  QrCode,
+  Activity,
+  ShieldCheck,
+  Search,
+  MapPin,
   ExternalLink,
   CheckCircle2,
   AlertCircle,
@@ -118,14 +118,14 @@ const PublicPortalPage = () => {
   useEffect(() => {
     API.get('/public/stats').then((res) => {
       if (res.success) setStats(res.stats);
-    }).catch(() => {});
+    }).catch(() => { });
 
     API.get('/public/schemes').then((res) => {
       if (res.success && res.schemes) setSchemes(res.schemes);
     }).catch(() => {
       API.get('/admin/schemes').then((res) => {
         if (res.success && res.schemes) setSchemes(res.schemes);
-      }).catch(() => {});
+      }).catch(() => { });
     }).finally(() => setLoading(false));
   }, []);
 
@@ -195,16 +195,16 @@ const PublicPortalPage = () => {
   return (
     <div className="super-admin-root-layout">
       <div className="super-admin-hub-container">
-        
+
         {/* ========================================================= */}
         {/* SUB-MODULE VIEW (When a card has been clicked)            */}
         {/* ========================================================= */}
         {activeTab !== 'overview' ? (
           <div>
             <div className="super-admin-module-bar">
-              <button 
-                type="button" 
-                onClick={() => setTab('overview')} 
+              <button
+                type="button"
+                onClick={() => setTab('overview')}
                 className="super-admin-back-btn"
                 id="back-to-public-hub-btn"
               >
@@ -675,8 +675,8 @@ const PublicPortalPage = () => {
             <div className="super-admin-operations-grid">
 
               {/* CARD 1: Search Projects */}
-              <div 
-                className="super-admin-operation-card card-border-blue" 
+              <div
+                className="super-admin-operation-card card-border-blue"
                 onClick={() => setTab('projects')}
                 id="public-card-projects"
               >
@@ -705,8 +705,8 @@ const PublicPortalPage = () => {
               </div>
 
               {/* CARD 2: Search Schemes */}
-              <div 
-                className="super-admin-operation-card card-border-green" 
+              <div
+                className="super-admin-operation-card card-border-green"
                 onClick={() => setTab('schemes')}
                 id="public-card-schemes"
               >
@@ -735,8 +735,8 @@ const PublicPortalPage = () => {
               </div>
 
               {/* CARD 3: Fund Allocation */}
-              <div 
-                className="super-admin-operation-card card-border-gold card-dominant-allocation" 
+              <div
+                className="super-admin-operation-card card-border-gold card-dominant-allocation"
                 onClick={() => setTab('allocation')}
                 id="public-card-allocation"
               >
@@ -762,8 +762,8 @@ const PublicPortalPage = () => {
 
                   <div className="dominant-progress-container">
                     <div className="dominant-progress-track">
-                      <div 
-                        className="dominant-progress-fill" 
+                      <div
+                        className="dominant-progress-fill"
                         style={{ width: '47%' }}
                       />
                     </div>
@@ -783,8 +783,8 @@ const PublicPortalPage = () => {
               </div>
 
               {/* CARD 4: Project Progress */}
-              <div 
-                className="super-admin-operation-card card-border-teal" 
+              <div
+                className="super-admin-operation-card card-border-teal"
                 onClick={() => setTab('progress')}
                 id="public-card-progress"
               >
@@ -813,8 +813,8 @@ const PublicPortalPage = () => {
               </div>
 
               {/* CARD 5: Fund Transactions */}
-              <div 
-                className="super-admin-operation-card card-border-green" 
+              <div
+                className="super-admin-operation-card card-border-green"
                 onClick={() => setTab('explorer')}
                 id="public-card-transactions"
               >
@@ -843,8 +843,8 @@ const PublicPortalPage = () => {
               </div>
 
               {/* CARD 6: QR Verification */}
-              <div 
-                className="super-admin-operation-card card-border-gold" 
+              <div
+                className="super-admin-operation-card card-border-gold"
                 onClick={() => setShowQrModal(true)}
                 id="public-card-qr"
               >
@@ -873,8 +873,8 @@ const PublicPortalPage = () => {
               </div>
 
               {/* CARD 7: Blockchain Verification */}
-              <div 
-                className="super-admin-operation-card card-border-green" 
+              <div
+                className="super-admin-operation-card card-border-green"
                 onClick={() => setTab('explorer')}
                 id="public-card-blockchain"
               >
@@ -903,8 +903,8 @@ const PublicPortalPage = () => {
               </div>
 
               {/* CARD 8: Reports */}
-              <div 
-                className="super-admin-operation-card card-border-navy" 
+              <div
+                className="super-admin-operation-card card-border-navy"
                 onClick={() => setTab('reports')}
                 id="public-card-reports"
               >
@@ -933,8 +933,8 @@ const PublicPortalPage = () => {
               </div>
 
               {/* CARD 9: Complaints / Feedback */}
-              <div 
-                className="super-admin-operation-card card-border-orange" 
+              <div
+                className="super-admin-operation-card card-border-orange"
                 onClick={() => setTab('grievances')}
                 id="public-card-grievance"
               >
@@ -970,7 +970,7 @@ const PublicPortalPage = () => {
 
       {/* QR Code & Geo-Tag Verification Modal */}
       {showQrModal && (
-        <div 
+        <div
           style={{
             position: 'fixed',
             inset: 0,
@@ -984,7 +984,7 @@ const PublicPortalPage = () => {
           }}
           onClick={() => setShowQrModal(false)}
         >
-          <div 
+          <div
             style={{
               backgroundColor: '#FFFFFF',
               borderRadius: '16px',
@@ -1010,8 +1010,8 @@ const PublicPortalPage = () => {
                   <div style={{ fontSize: '12px', color: '#627D98' }}>Enter Project ID printed on physical site signboard</div>
                 </div>
               </div>
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={() => setShowQrModal(false)}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#627D98' }}
               >

@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { 
-  ShieldCheck, 
-  Activity, 
-  AlertTriangle, 
-  Lock, 
-  FileText, 
-  CheckCircle2, 
-  TrendingUp, 
-  ShieldAlert, 
-  History, 
+import {
+  ShieldCheck,
+  Activity,
+  AlertTriangle,
+  Lock,
+  FileText,
+  CheckCircle2,
+  TrendingUp,
+  ShieldAlert,
+  History,
   FileCheck,
   Landmark,
   PieChart,
@@ -32,6 +32,7 @@ import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
 import { useAuth } from '../../context/AuthContext';
+import { useRealtimeSync } from '../../context/RealtimeContext';
 import '../admin/SuperAdminHub.css';
 
 // Sub-components for auditor tabs
@@ -88,14 +89,22 @@ const AuditorDashboard = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  useEffect(() => {
-    setLoading(true);
+  const loadAuditorData = (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     API.get('/auditor/dashboard')
       .then((res) => {
         if (res.success) setData(res);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (showSpinner) setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    loadAuditorData(true);
   }, []);
+
+  useRealtimeSync(() => loadAuditorData(false), { interval: 6000 });
 
   const metrics = data?.metrics || {};
   const totalMonitored = '₹500 Cr';
@@ -165,16 +174,16 @@ const AuditorDashboard = () => {
   return (
     <div className="super-admin-root-layout">
       <div className="super-admin-hub-container">
-        
+
         {/* ========================================================= */}
         {/* SUB-MODULE VIEW (When a card has been clicked)            */}
         {/* ========================================================= */}
         {activeTab !== 'overview' ? (
           <div>
             <div className="super-admin-module-bar">
-              <button 
-                type="button" 
-                onClick={() => setTab('overview')} 
+              <button
+                type="button"
+                onClick={() => setTab('overview')}
                 className="super-admin-back-btn"
                 id="back-to-auditor-hub-btn"
               >
@@ -380,9 +389,9 @@ const AuditorDashboard = () => {
                 <span className="super-admin-user-name">
                   {user?.name || 'Chief Forensic Auditor'} ({user?.role || 'AUDITOR'})
                 </span>
-                <button 
-                  type="button" 
-                  onClick={logout} 
+                <button
+                  type="button"
+                  onClick={logout}
                   className="super-admin-logout-btn"
                   title="Sign out of Auditor Portal"
                 >
@@ -516,8 +525,8 @@ const AuditorDashboard = () => {
             <div className="super-admin-operations-grid">
 
               {/* CARD 1: Assigned Audits */}
-              <div 
-                className="super-admin-operation-card card-border-green" 
+              <div
+                className="super-admin-operation-card card-border-green"
                 onClick={() => setTab('assigned_audits')}
                 id="audit-card-assigned"
               >
@@ -546,8 +555,8 @@ const AuditorDashboard = () => {
               </div>
 
               {/* CARD 2: Projects */}
-              <div 
-                className="super-admin-operation-card card-border-blue" 
+              <div
+                className="super-admin-operation-card card-border-blue"
                 onClick={() => setTab('projects')}
                 id="audit-card-projects"
               >
@@ -576,8 +585,8 @@ const AuditorDashboard = () => {
               </div>
 
               {/* CARD 3: Fund Transactions */}
-              <div 
-                className="super-admin-operation-card card-border-green" 
+              <div
+                className="super-admin-operation-card card-border-green"
                 onClick={() => setTab('transactions')}
                 id="audit-card-transactions"
               >
@@ -606,8 +615,8 @@ const AuditorDashboard = () => {
               </div>
 
               {/* CARD 4: Contractor Records */}
-              <div 
-                className="super-admin-operation-card card-border-gold" 
+              <div
+                className="super-admin-operation-card card-border-gold"
                 onClick={() => setTab('contractors')}
                 id="audit-card-contractors"
               >
@@ -636,8 +645,8 @@ const AuditorDashboard = () => {
               </div>
 
               {/* CARD 5: Documents */}
-              <div 
-                className="super-admin-operation-card card-border-navy" 
+              <div
+                className="super-admin-operation-card card-border-navy"
                 onClick={() => setTab('documents')}
                 id="audit-card-documents"
               >
@@ -666,8 +675,8 @@ const AuditorDashboard = () => {
               </div>
 
               {/* CARD 6: Progress Verification */}
-              <div 
-                className="super-admin-operation-card card-border-teal" 
+              <div
+                className="super-admin-operation-card card-border-teal"
                 onClick={() => setTab('progress')}
                 id="audit-card-progress"
               >
@@ -696,8 +705,8 @@ const AuditorDashboard = () => {
               </div>
 
               {/* CARD 7: Blockchain Verification */}
-              <div 
-                className="super-admin-operation-card card-border-green" 
+              <div
+                className="super-admin-operation-card card-border-green"
                 onClick={() => setTab('explorer')}
                 id="audit-card-blockchain"
               >
@@ -731,8 +740,8 @@ const AuditorDashboard = () => {
               </div>
 
               {/* CARD 8: Fraud / Anomaly Detection */}
-              <div 
-                className="super-admin-operation-card card-border-gold card-dominant-allocation" 
+              <div
+                className="super-admin-operation-card card-border-gold card-dominant-allocation"
                 onClick={() => setTab('anomalies')}
                 id="audit-card-anomalies"
               >
@@ -759,8 +768,8 @@ const AuditorDashboard = () => {
 
                   <div className="dominant-progress-container">
                     <div className="dominant-progress-track">
-                      <div 
-                        className="dominant-progress-fill" 
+                      <div
+                        className="dominant-progress-fill"
                         style={{ width: '15%', backgroundColor: '#D99A00' }}
                       />
                     </div>
@@ -780,8 +789,8 @@ const AuditorDashboard = () => {
               </div>
 
               {/* CARD 9: Audit Reports */}
-              <div 
-                className="super-admin-operation-card card-border-navy" 
+              <div
+                className="super-admin-operation-card card-border-navy"
                 onClick={() => setTab('report')}
                 id="audit-card-reports"
               >
@@ -810,8 +819,8 @@ const AuditorDashboard = () => {
               </div>
 
               {/* CARD 10: Notifications */}
-              <div 
-                className="super-admin-operation-card card-border-red" 
+              <div
+                className="super-admin-operation-card card-border-red"
                 onClick={() => setTab('notifications')}
                 id="audit-card-notifications"
               >

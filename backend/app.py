@@ -1,7 +1,10 @@
 import os
 import logging
+import asyncio
+import time
+import json
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, HTTPException, status
+from fastapi import FastAPI, Request, HTTPException, status, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -12,6 +15,7 @@ import uvicorn
 from database import db, init_indexes
 from seed_data import seed
 import blockchain_service as bcs
+from realtime_manager import realtime_manager
 
 # Routers
 from routes.auth_routes import auth_bp
@@ -35,6 +39,11 @@ logging.basicConfig(
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logging.info("System startup: Initializing database indexes and seed data...")
+    try:
+        loop = asyncio.get_running_loop()
+        realtime_manager.set_loop(loop)
+    except Exception as e:
+        logging.warning(f"Could not bind event loop to realtime_manager: {e}")
     try:
         init_indexes()
     except Exception as e:
@@ -107,7 +116,48 @@ async def cors_and_security_middleware(request: Request, call_next):
 
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
+
+    # Auto-broadcast mutations across all connected devices and laptops
+    if request.method in ["POST", "PUT", "PATCH", "DELETE"] and response.status_code < 400:
+        # Exclude heartbeat or purely internal paths if necessary, but all state-changing endpoints trigger updates
+        realtime_manager.trigger_broadcast("DATA_MUTATED", {
+            "path": request.url.path,
+            "method": request.method,
+            "status_code": response.status_code
+        })
+
     return response
+
+# Real-Time WebSocket Synchronization Hub (Cross-Laptop / Multi-Device)
+@app.websocket("/ws")
+@app.websocket("/api/ws")
+async def websocket_realtime_endpoint(websocket: WebSocket):
+    await realtime_manager.connect(websocket)
+    try:
+        while True:
+            text = await websocket.receive_text()
+            if text == "ping":
+                await websocket.send_text("pong")
+            else:
+                try:
+                    payload = json.loads(text)
+                    if payload.get("type") == "PING":
+                        await websocket.send_json({"type": "PONG", "timestamp": time.time()})
+                except Exception:
+                    pass
+    except WebSocketDisconnect:
+        realtime_manager.disconnect(websocket)
+    except Exception as e:
+        logging.debug(f"Realtime socket ended: {e}")
+        realtime_manager.disconnect(websocket)
+
+@app.get("/api/realtime/status")
+@app.get("/api/realtime/version")
+async def get_realtime_status():
+    return {
+        "success": True,
+        **realtime_manager.get_status()
+    }
 
 # Static file serving for off-chain document repository
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "uploads")

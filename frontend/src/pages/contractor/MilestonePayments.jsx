@@ -4,18 +4,28 @@ import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
 import DataTable from '../../components/DataTable';
+import { useRealtimeSync } from '../../context/RealtimeContext';
 
 const MilestonePayments = () => {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchPayments = (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     API.get('/contractor/payments')
       .then((res) => {
         if (res.success) setPayments(res.payments || []);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (showSpinner) setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    fetchPayments(true);
   }, []);
+
+  useRealtimeSync(() => fetchPayments(false), { interval: 6000 });
 
   const columns = [
     {

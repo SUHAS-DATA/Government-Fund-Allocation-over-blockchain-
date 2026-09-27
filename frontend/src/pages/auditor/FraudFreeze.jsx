@@ -13,7 +13,7 @@ const FraudFreeze = () => {
   const [selectedProject, setSelectedProject] = useState(null);
   const [freezeAction, setFreezeAction] = useState('FREEZE');
   const [reason, setReason] = useState(searchParams.get('reason') || 'Material variance detected in milestone site evidence. Escrow halted pending CAG review.');
-  
+
   const [submitting, setSubmitting] = useState(false);
   const [actionSuccess, setActionSuccess] = useState('');
 

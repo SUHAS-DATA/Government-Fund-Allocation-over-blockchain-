@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { 
-  Calendar, 
-  FileSpreadsheet, 
-  Coins, 
-  CheckCircle2, 
-  FolderKanban, 
-  Building2, 
-  Activity, 
-  ShieldCheck, 
-  Users, 
-  ArrowRight, 
+import {
+  Calendar,
+  FileSpreadsheet,
+  Coins,
+  CheckCircle2,
+  FolderKanban,
+  Building2,
+  Activity,
+  ShieldCheck,
+  Users,
+  ArrowRight,
   ArrowLeft,
   LogOut,
   GitBranch,
@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import API from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useRealtimeSync } from '../../context/RealtimeContext';
 import './SuperAdminHub.css';
 
 // Sub-components for admin operations
@@ -113,8 +114,8 @@ const AdminDashboard = () => {
   };
 
   // Load real telemetry from existing backend endpoints
-  const fetchAllData = async () => {
-    setLoading(true);
+  const fetchAllData = async (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     try {
       const [
         dashRes,
@@ -161,13 +162,15 @@ const AdminDashboard = () => {
     } catch (err) {
       console.error('Error fetching admin telemetry:', err);
     } finally {
-      setLoading(false);
+      if (showSpinner) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAllData();
+    fetchAllData(true);
   }, []);
+
+  useRealtimeSync(() => fetchAllData(false), { interval: 6000 });
 
   // Compute live data figures
   const metrics = dashboardData?.metrics || {};
@@ -176,12 +179,12 @@ const AdminDashboard = () => {
   // Primary Financial figures
   const totalFunds = metrics.sanctioned_union_ceiling || 5000000000; // ₹500 Cr
   const allocatedFunds = metrics.allocated_to_schemes || 1200000000; // ₹120 Cr
-  const remainingFunds = metrics.remaining_unallocated_ceiling !== undefined 
-    ? metrics.remaining_unallocated_ceiling 
+  const remainingFunds = metrics.remaining_unallocated_ceiling !== undefined
+    ? metrics.remaining_unallocated_ceiling
     : Math.max(0, totalFunds - allocatedFunds); // ₹380 Cr
 
-  const utilizationPct = totalFunds > 0 
-    ? Math.min(100, Math.round((allocatedFunds / totalFunds) * 100)) 
+  const utilizationPct = totalFunds > 0
+    ? Math.min(100, Math.round((allocatedFunds / totalFunds) * 100))
     : 24;
 
   // Pending Approvals
@@ -196,8 +199,8 @@ const AdminDashboard = () => {
   const departmentsCount = departmentsList.length > 0 ? departmentsList.length : 24;
   const activeAllocationsCount = metrics.fy_allocations_count || allocationsList.length || 12;
   const blockchainTxCount = blockchainStats.txCount > 0 ? blockchainStats.txCount : 1245;
-  const pendingAuditReviews = metrics.open_fraud_alerts !== undefined && metrics.open_fraud_alerts > 0 
-    ? metrics.open_fraud_alerts 
+  const pendingAuditReviews = metrics.open_fraud_alerts !== undefined && metrics.open_fraud_alerts > 0
+    ? metrics.open_fraud_alerts
     : (auditReportsList.filter(r => r.status === 'OPEN' || r.status === 'PENDING').length || 8);
   const activeUsersCount = usersList.filter(u => u.is_active !== false).length || 32;
 
@@ -206,7 +209,7 @@ const AdminDashboard = () => {
     {
       time: '09:42',
       title: 'Scheme approved',
-      detail: dashboardData?.recent_allocations?.[0]?.scheme_name 
+      detail: dashboardData?.recent_allocations?.[0]?.scheme_name
         ? `${dashboardData.recent_allocations[0].scheme_name} (${formatIndianDenomination(dashboardData.recent_allocations[0].amount)})`
         : 'Education Development Program'
     },
@@ -253,16 +256,16 @@ const AdminDashboard = () => {
   return (
     <div className="super-admin-root-layout">
       <div className="super-admin-hub-container">
-        
+
         {/* ========================================================= */}
         {/* SUB-MODULE VIEW (When a card has been clicked)            */}
         {/* ========================================================= */}
         {activeTab !== 'overview' ? (
           <div>
             <div className="super-admin-module-bar">
-              <button 
-                type="button" 
-                onClick={() => setTab('overview')} 
+              <button
+                type="button"
+                onClick={() => setTab('overview')}
                 className="super-admin-back-btn"
                 id="back-to-super-admin-btn"
               >
@@ -307,9 +310,9 @@ const AdminDashboard = () => {
                 <span className="super-admin-user-name">
                   {user?.name || 'Super Administrator'}
                 </span>
-                <button 
-                  type="button" 
-                  onClick={logout} 
+                <button
+                  type="button"
+                  onClick={logout}
                   className="super-admin-logout-btn"
                   title="Sign out of Super Admin"
                 >
@@ -393,9 +396,9 @@ const AdminDashboard = () => {
                   <span>PENDING APPROVALS</span>
                 </div>
                 <span className="fin-overview-value">
-                  <AnimatedCounter 
-                    value={pendingApprovalsCount} 
-                    prefix={pendingApprovalsCount < 10 ? '0' : ''} 
+                  <AnimatedCounter
+                    value={pendingApprovalsCount}
+                    prefix={pendingApprovalsCount < 10 ? '0' : ''}
                   />
                 </span>
                 <span className="fin-overview-subtext">Awaiting Finance dispatch</span>
@@ -460,8 +463,8 @@ const AdminDashboard = () => {
             <div className="super-admin-operations-grid">
 
               {/* CARD 1: Financial Year */}
-              <div 
-                className="super-admin-operation-card card-border-green" 
+              <div
+                className="super-admin-operation-card card-border-green"
                 onClick={() => setTab('config')}
                 id="card-financial-year"
               >
@@ -490,8 +493,8 @@ const AdminDashboard = () => {
               </div>
 
               {/* CARD 2: Schemes */}
-              <div 
-                className="super-admin-operation-card card-border-blue" 
+              <div
+                className="super-admin-operation-card card-border-blue"
                 onClick={() => setTab('schemes')}
                 id="card-schemes"
               >
@@ -520,8 +523,8 @@ const AdminDashboard = () => {
               </div>
 
               {/* CARD 3: Fund Allocation (FEATURE CARD) */}
-              <div 
-                className="super-admin-operation-card card-border-green card-dominant-allocation" 
+              <div
+                className="super-admin-operation-card card-border-green card-dominant-allocation"
                 onClick={() => setTab('allocation')}
                 id="card-fund-allocation"
               >
@@ -549,8 +552,8 @@ const AdminDashboard = () => {
                   {/* Clean Green Progress Bar */}
                   <div className="dominant-progress-container">
                     <div className="dominant-progress-track">
-                      <div 
-                        className="dominant-progress-fill" 
+                      <div
+                        className="dominant-progress-fill"
                         style={{ width: `${utilizationPct}%` }}
                       />
                     </div>
@@ -570,8 +573,8 @@ const AdminDashboard = () => {
               </div>
 
               {/* CARD 4: Approvals */}
-              <div 
-                className="super-admin-operation-card card-border-gold" 
+              <div
+                className="super-admin-operation-card card-border-gold"
                 onClick={() => setTab('send_finance')}
                 id="card-approvals"
               >
@@ -585,9 +588,9 @@ const AdminDashboard = () => {
                 <div className="card-content-body">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <div className="card-large-title">
-                      <AnimatedCounter 
-                        value={pendingApprovalsCount} 
-                        prefix={pendingApprovalsCount < 10 ? '0' : ''} 
+                      <AnimatedCounter
+                        value={pendingApprovalsCount}
+                        prefix={pendingApprovalsCount < 10 ? '0' : ''}
                         suffix=" Pending"
                       />
                     </div>
@@ -609,8 +612,8 @@ const AdminDashboard = () => {
               </div>
 
               {/* CARD 5: Projects */}
-              <div 
-                className="super-admin-operation-card card-border-navy" 
+              <div
+                className="super-admin-operation-card card-border-navy"
                 onClick={() => setTab('projects')}
                 id="card-projects"
               >
@@ -639,8 +642,8 @@ const AdminDashboard = () => {
               </div>
 
               {/* CARD 6: Departments */}
-              <div 
-                className="super-admin-operation-card card-border-teal" 
+              <div
+                className="super-admin-operation-card card-border-teal"
                 onClick={() => setTab('departments')}
                 id="card-departments"
               >
@@ -669,8 +672,8 @@ const AdminDashboard = () => {
               </div>
 
               {/* CARD 7: Blockchain */}
-              <div 
-                className="super-admin-operation-card card-border-green" 
+              <div
+                className="super-admin-operation-card card-border-green"
                 onClick={() => setTab('monitoring')}
                 id="card-blockchain"
               >
@@ -704,8 +707,8 @@ const AdminDashboard = () => {
               </div>
 
               {/* CARD 8: Audit Reports */}
-              <div 
-                className="super-admin-operation-card card-border-gold" 
+              <div
+                className="super-admin-operation-card card-border-gold"
                 onClick={() => setTab('audits')}
                 id="card-audit-reports"
               >
@@ -718,10 +721,10 @@ const AdminDashboard = () => {
 
                 <div className="card-content-body">
                   <div className="card-large-title">
-                    <AnimatedCounter 
-                      value={pendingAuditReviews} 
-                      prefix={pendingAuditReviews < 10 ? '0' : ''} 
-                      suffix=" Pending Reviews" 
+                    <AnimatedCounter
+                      value={pendingAuditReviews}
+                      prefix={pendingAuditReviews < 10 ? '0' : ''}
+                      suffix=" Pending Reviews"
                     />
                   </div>
                   <div className="card-description-text">
@@ -738,8 +741,8 @@ const AdminDashboard = () => {
               </div>
 
               {/* CARD 9: Users & Access */}
-              <div 
-                className="super-admin-operation-card card-border-navy" 
+              <div
+                className="super-admin-operation-card card-border-navy"
                 onClick={() => setTab('users')}
                 id="card-users-access"
               >
@@ -768,8 +771,8 @@ const AdminDashboard = () => {
               </div>
 
               {/* CARD 10: Notifications */}
-              <div 
-                className="super-admin-operation-card card-border-gold" 
+              <div
+                className="super-admin-operation-card card-border-gold"
                 onClick={() => setTab('notifications')}
                 id="card-notifications"
               >
@@ -798,8 +801,8 @@ const AdminDashboard = () => {
               </div>
 
               {/* CARD 11: Settings */}
-              <div 
-                className="super-admin-operation-card card-border-teal" 
+              <div
+                className="super-admin-operation-card card-border-teal"
                 onClick={() => setTab('settings')}
                 id="card-settings"
               >
@@ -828,8 +831,8 @@ const AdminDashboard = () => {
               </div>
 
               {/* CARD 12: State & District Treasuries */}
-              <div 
-                className="super-admin-operation-card card-border-green" 
+              <div
+                className="super-admin-operation-card card-border-green"
                 onClick={() => setTab('states_districts')}
                 id="card-states-districts"
               >

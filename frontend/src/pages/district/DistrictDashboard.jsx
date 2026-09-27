@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
-import { 
-  Building2, 
-  FolderKanban, 
-  Coins, 
-  UserCheck, 
-  MessageSquareWarning, 
-  Plus, 
-  ShieldCheck, 
+import {
+  Building2,
+  FolderKanban,
+  Coins,
+  UserCheck,
+  MessageSquareWarning,
+  Plus,
+  ShieldCheck,
   TrendingUp,
   MapPin,
   Lock,
@@ -35,6 +35,7 @@ import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
 import { useAuth } from '../../context/AuthContext';
+import { useRealtimeSync } from '../../context/RealtimeContext';
 import { getAllStates, getDistrictsByState, getStateForDistrict, getState } from '../../config/statesDistrictsData';
 import '../admin/SuperAdminHub.css';
 
@@ -123,8 +124,8 @@ const DistrictDashboard = () => {
   const [selectedState, setSelectedState] = useState(isDistrictOfficer ? assignedStateCode : (user?.state_code || 'KA'));
   const [selectedDistrict, setSelectedDistrict] = useState(isDistrictOfficer ? assignedDistrict : 'Belagavi');
 
-  const loadDashboard = (district = selectedDistrict) => {
-    setLoading(true);
+  const loadDashboard = (district = selectedDistrict, showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     const targetDist = isDistrictOfficer ? assignedDistrict : district;
     const query = targetDist ? `?district=${encodeURIComponent(targetDist)}` : '';
     API.get(`/district/dashboard${query}`)
@@ -139,18 +140,25 @@ const DistrictDashboard = () => {
       .catch((err) => {
         console.error("District Dashboard load error:", err);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (showSpinner) setLoading(false);
+      });
   };
 
   useEffect(() => {
     if (isDistrictOfficer) {
       setSelectedDistrict(assignedDistrict);
       setSelectedState(assignedStateCode);
-      loadDashboard(assignedDistrict);
+      loadDashboard(assignedDistrict, true);
     } else {
-      loadDashboard(selectedDistrict);
+      loadDashboard(selectedDistrict, true);
     }
   }, [selectedDistrict, user]);
+
+  useRealtimeSync(() => {
+    const target = isDistrictOfficer ? assignedDistrict : selectedDistrict;
+    loadDashboard(target, false);
+  }, { interval: 6000 });
 
   const setTab = (tabName) => {
     setSearchParams(tabName === 'overview' ? {} : { tab: tabName });
@@ -191,17 +199,17 @@ const DistrictDashboard = () => {
   const receivedFunds = data?.received_funds || [];
 
   // Committed budget across active projects
-  const allocatedProjects = metrics?.total_allocated_to_projects !== undefined 
-    ? metrics.total_allocated_to_projects 
+  const allocatedProjects = metrics?.total_allocated_to_projects !== undefined
+    ? metrics.total_allocated_to_projects
     : recentProjects.reduce((sum, p) => sum + (Number(p.total_budget) || 0), 0);
-  
+
   const totalPaymentsReleased = metrics?.total_payments_released || 0;
-  
+
   const remainingTreasury = metrics?.remaining_district_balance !== undefined
     ? metrics.remaining_district_balance
     : Math.max(0, totalReceived - allocatedProjects);
 
-  const committedPct = totalReceived > 0 
+  const committedPct = totalReceived > 0
     ? Math.min(100, Math.round((allocatedProjects / totalReceived) * 100))
     : (allocatedProjects > 0 ? 100 : 0);
 
@@ -242,16 +250,16 @@ const DistrictDashboard = () => {
   return (
     <div className="super-admin-root-layout">
       <div className="super-admin-hub-container">
-        
+
         {/* ========================================================= */}
         {/* SUB-MODULE VIEW (When a card has been clicked)            */}
         {/* ========================================================= */}
         {activeTab !== 'overview' ? (
           <div>
             <div className="super-admin-module-bar">
-              <button 
-                type="button" 
-                onClick={() => setTab('overview')} 
+              <button
+                type="button"
+                onClick={() => setTab('overview')}
                 className="super-admin-back-btn"
                 id="back-to-district-hub-btn"
               >
@@ -287,7 +295,7 @@ const DistrictDashboard = () => {
                       <span>State Treasury Allocations Received ({currentDistrictName})</span>
                     </div>
                   </div>
-                  
+
                   {receivedFunds.length > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {receivedFunds.map((f, idx) => (
@@ -339,16 +347,16 @@ const DistrictDashboard = () => {
                       <TrendingUp size={20} color="#006B4F" />
                       <span>District Civil Works Progress Tracking</span>
                     </div>
-                    <button 
-                      type="button" 
-                      onClick={() => setTab('projects')} 
+                    <button
+                      type="button"
+                      onClick={() => setTab('projects')}
                       className="super-admin-back-btn"
                     >
                       <FolderKanban size={14} />
                       <span>Manage All Works</span>
                     </button>
                   </div>
-                  
+
                   {recentProjects.length > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                       {recentProjects.map((p, idx) => (
@@ -429,8 +437,8 @@ const DistrictDashboard = () => {
                           <div style={{ fontSize: '13px', color: '#475569', marginTop: '4px' }}>{m.stage} • Target Value: <strong style={{ color: '#006B4F' }}>{m.amount}</strong></div>
                           <div style={{ fontSize: '11px', color: '#7C3AED', fontWeight: '700', marginTop: '4px' }}>Milestone ID: {m.id} • {m.status}</div>
                         </div>
-                        <button 
-                          type="button" 
+                        <button
+                          type="button"
                           onClick={() => setTab('projects')}
                           style={{ background: '#7C3AED', color: '#FFFFFF', border: 'none', padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}
                         >
@@ -449,9 +457,9 @@ const DistrictDashboard = () => {
                       <CreditCard size={20} color="#EA580C" />
                       <span>Contractor Payment Requests & Sanction Requisitions</span>
                     </div>
-                    <button 
-                      type="button" 
-                      onClick={() => setShowRequestFundModal(true)} 
+                    <button
+                      type="button"
+                      onClick={() => setShowRequestFundModal(true)}
                       className="super-admin-back-btn"
                       style={{ background: '#006B4F', color: '#FFFFFF', borderColor: '#006B4F' }}
                     >
@@ -609,9 +617,9 @@ const DistrictDashboard = () => {
                   <span className="super-admin-user-name">
                     {user?.name || 'District Magistrate'} (DISTRICT)
                   </span>
-                  <button 
-                    type="button" 
-                    onClick={logout} 
+                  <button
+                    type="button"
+                    onClick={logout}
                     className="super-admin-logout-btn"
                     title="Sign out of District Portal"
                   >
@@ -790,10 +798,10 @@ const DistrictDashboard = () => {
             </div>
 
             <div className="super-admin-operations-grid">
-              
+
               {/* CARD 1: Received Funds */}
-              <div 
-                className="super-admin-operation-card card-border-green" 
+              <div
+                className="super-admin-operation-card card-border-green"
                 onClick={() => setTab('received')}
                 id="district-card-received"
               >
@@ -827,8 +835,8 @@ const DistrictDashboard = () => {
               </div>
 
               {/* CARD 2: Projects */}
-              <div 
-                className="super-admin-operation-card card-border-blue" 
+              <div
+                className="super-admin-operation-card card-border-blue"
                 onClick={() => setTab('projects')}
                 id="district-card-projects"
               >
@@ -857,8 +865,8 @@ const DistrictDashboard = () => {
               </div>
 
               {/* CARD 3: Contractor Assignment */}
-              <div 
-                className="super-admin-operation-card card-border-gold" 
+              <div
+                className="super-admin-operation-card card-border-gold"
                 onClick={() => setTab('contractors')}
                 id="district-card-contractors"
               >
@@ -894,8 +902,8 @@ const DistrictDashboard = () => {
               </div>
 
               {/* CARD 4: Project Progress */}
-              <div 
-                className="super-admin-operation-card card-border-teal" 
+              <div
+                className="super-admin-operation-card card-border-teal"
                 onClick={() => setTab('progress')}
                 id="district-card-progress"
               >
@@ -924,8 +932,8 @@ const DistrictDashboard = () => {
               </div>
 
               {/* CARD 5: Milestones */}
-              <div 
-                className="super-admin-operation-card card-border-purple" 
+              <div
+                className="super-admin-operation-card card-border-purple"
                 onClick={() => setTab('milestones')}
                 id="district-card-milestones"
               >
@@ -954,8 +962,8 @@ const DistrictDashboard = () => {
               </div>
 
               {/* CARD 6: Payment Requests */}
-              <div 
-                className="super-admin-operation-card card-border-orange" 
+              <div
+                className="super-admin-operation-card card-border-orange"
                 onClick={() => setTab('payments')}
                 id="district-card-payments"
               >
@@ -984,8 +992,8 @@ const DistrictDashboard = () => {
               </div>
 
               {/* CARD 7: Documents */}
-              <div 
-                className="super-admin-operation-card card-border-navy" 
+              <div
+                className="super-admin-operation-card card-border-navy"
                 onClick={() => setTab('documents')}
                 id="district-card-documents"
               >
@@ -1014,8 +1022,8 @@ const DistrictDashboard = () => {
               </div>
 
               {/* CARD 8: Reports */}
-              <div 
-                className="super-admin-operation-card card-border-blue" 
+              <div
+                className="super-admin-operation-card card-border-blue"
                 onClick={() => setTab('reports')}
                 id="district-card-reports"
               >
@@ -1044,8 +1052,8 @@ const DistrictDashboard = () => {
               </div>
 
               {/* CARD 9: Notifications */}
-              <div 
-                className="super-admin-operation-card card-border-gold" 
+              <div
+                className="super-admin-operation-card card-border-gold"
                 onClick={() => setTab('notifications')}
                 id="district-card-notifications"
               >

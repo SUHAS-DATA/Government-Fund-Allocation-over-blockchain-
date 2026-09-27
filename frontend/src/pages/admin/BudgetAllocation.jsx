@@ -7,6 +7,7 @@ import BlockchainBadge from '../../components/BlockchainBadge';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FundAmountInput from '../../components/FundAmountInput';
+import { useRealtimeSync } from '../../context/RealtimeContext';
 
 const BudgetAllocation = () => {
   const [allocations, setAllocations] = useState([]);
@@ -25,13 +26,15 @@ const BudgetAllocation = () => {
     amount: 10000000
   });
 
-  const loadData = (fyFilter = selectedFY) => {
-    setLoading(true);
+  const loadData = (fyFilter = selectedFY, showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     const query = fyFilter && fyFilter !== 'ALL' ? `?fy=${fyFilter}` : '';
-    
+
     API.get(`/admin/allocations${query}`).then((res) => {
       if (res.success) setAllocations(res.allocations || []);
-    }).finally(() => setLoading(false));
+    }).finally(() => {
+      if (showSpinner) setLoading(false);
+    });
 
     API.get('/admin/financial-years').then((res) => {
       if (res.success && res.financial_years?.length > 0) {
@@ -66,8 +69,10 @@ const BudgetAllocation = () => {
   };
 
   useEffect(() => {
-    loadData(selectedFY);
+    loadData(selectedFY, true);
   }, [selectedFY]);
+
+  useRealtimeSync(() => loadData(selectedFY, false), { interval: 6000 });
 
   const handleAllocate = async (e) => {
     e.preventDefault();
@@ -103,21 +108,21 @@ const BudgetAllocation = () => {
   // Selected FY metadata
   const currentFYDoc = selectedFY !== 'ALL' ? financialYears.find(f => f.year === selectedFY) : null;
   const activeFYDoc = financialYears.find(f => f.status === 'ACTIVE');
-  
-  const totalSanctionedInView = currentFYDoc 
-    ? (currentFYDoc.total_budget || 0) 
+
+  const totalSanctionedInView = currentFYDoc
+    ? (currentFYDoc.total_budget || 0)
     : financialYears.reduce((acc, f) => acc + (f.total_budget || 0), 0);
 
   const totalAllocatedInView = allocations.reduce((acc, a) => acc + (a.amount || 0), 0);
-  const remainingCeilingInView = currentFYDoc 
-    ? Math.max(0, currentFYDoc.total_budget - totalAllocatedInView) 
+  const remainingCeilingInView = currentFYDoc
+    ? Math.max(0, currentFYDoc.total_budget - totalAllocatedInView)
     : Math.max(0, totalSanctionedInView - totalAllocatedInView);
 
   // Active selected scheme for modal & ceiling constraints
   const selectedSchemeObj = schemes.find(s => s.name === formData.scheme_name) || schemes[0];
   const schemeTargetCeiling = selectedSchemeObj ? (selectedSchemeObj.target_budget || selectedSchemeObj.allocated_budget || 0) : 0;
-  const schemeAllocatedAmount = selectedSchemeObj?.allocated_amount != null 
-    ? selectedSchemeObj.allocated_amount 
+  const schemeAllocatedAmount = selectedSchemeObj?.allocated_amount != null
+    ? selectedSchemeObj.allocated_amount
     : allocations.filter(a => a.scheme_name === selectedSchemeObj?.name).reduce((sum, a) => sum + (a.amount || 0), 0);
   const schemeRemainingCeiling = Math.max(0, schemeTargetCeiling - schemeAllocatedAmount);
 
