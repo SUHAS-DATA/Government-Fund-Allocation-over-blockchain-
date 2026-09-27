@@ -9,7 +9,6 @@ import {
   Building2,
   Activity,
   ShieldCheck,
-  Users,
   ArrowRight,
   ArrowLeft,
   LogOut,
@@ -103,7 +102,6 @@ const AdminDashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
   const [allocationsList, setAllocationsList] = useState([]);
   const [departmentsList, setDepartmentsList] = useState([]);
-  const [usersList, setUsersList] = useState([]);
   const [blockchainStats, setBlockchainStats] = useState({ txCount: 0, connected: true });
   const [auditReportsList, setAuditReportsList] = useState([]);
   const [schemesList, setSchemesList] = useState([]);
@@ -121,7 +119,6 @@ const AdminDashboard = () => {
         dashRes,
         allocRes,
         deptRes,
-        usersRes,
         bcRes,
         auditRes,
         schemesRes
@@ -129,7 +126,6 @@ const AdminDashboard = () => {
         API.get('/admin/dashboard'),
         API.get('/admin/allocations'),
         API.get('/admin/departments'),
-        API.get('/admin/users'),
         API.get('/admin/blockchain-explorer'),
         API.get('/admin/audit-reports'),
         API.get('/admin/schemes')
@@ -143,9 +139,6 @@ const AdminDashboard = () => {
       }
       if (deptRes.status === 'fulfilled' && deptRes.value?.success) {
         setDepartmentsList(deptRes.value.departments || []);
-      }
-      if (usersRes.status === 'fulfilled' && usersRes.value?.success) {
-        setUsersList(usersRes.value.users || []);
       }
       if (bcRes.status === 'fulfilled' && bcRes.value?.success) {
         setBlockchainStats({
@@ -202,7 +195,6 @@ const AdminDashboard = () => {
   const pendingAuditReviews = metrics.open_fraud_alerts !== undefined && metrics.open_fraud_alerts > 0
     ? metrics.open_fraud_alerts
     : (auditReportsList.filter(r => r.status === 'OPEN' || r.status === 'PENDING').length || 8);
-  const activeUsersCount = usersList.filter(u => u.is_active !== false).length || 32;
 
   // Timeline events
   const recentActivities = [
@@ -450,10 +442,11 @@ const AdminDashboard = () => {
             </div>
 
             {/* ========================================================= */}
-            {/* SECTION 2: CORE OPERATIONS (3 Cards Per Row on Desktop)   */}
+            {/* SECTION 2: CORE OPERATIONS                                */}
             {/* Row 1: [ Financial Year ] [ Schemes ] [ Fund Allocation ] */}
-            {/* Row 2: [ Approvals ] [ Projects ] [ Departments ]         */}
-            {/* Row 3: [ Blockchain ] [ Audit Reports ] [ Users & Access ]*/}
+            {/* Row 2: [ Approvals ] [ Departments ] [ Blockchain ]       */}
+            {/* Row 3: [ Audit Reports ] [ Notifications ] [ Settings ]   */}
+            {/* Row 4: [ Treasury Structure ]                             */}
             {/* ========================================================= */}
             <div className="section-eyebrow-heading">
               <span className="section-bullet" />
@@ -611,37 +604,7 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
-              {/* CARD 5: Projects */}
-              <div
-                className="super-admin-operation-card card-border-navy"
-                onClick={() => setTab('projects')}
-                id="card-projects"
-              >
-                <div className="card-top-row">
-                  <span className="card-category-heading">PROJECTS</span>
-                  <div className="card-mono-icon-container icon-box-navy">
-                    <FolderKanban size={22} />
-                  </div>
-                </div>
-
-                <div className="card-content-body">
-                  <div className="card-large-title">
-                    <AnimatedCounter value={activeProjectsCount} suffix=" Active Projects" />
-                  </div>
-                  <div className="card-description-text">
-                    {onTrackProjectsCount} On Track
-                  </div>
-                </div>
-
-                <div className="card-bottom-row">
-                  <div className="card-action-link">
-                    <span>View Projects</span>
-                    <ArrowRight size={14} className="action-arrow" />
-                  </div>
-                </div>
-              </div>
-
-              {/* CARD 6: Departments */}
+              {/* CARD 5: Departments */}
               <div
                 className="super-admin-operation-card card-border-teal"
                 onClick={() => setTab('departments')}
@@ -671,7 +634,7 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
-              {/* CARD 7: Blockchain */}
+              {/* CARD 6: Blockchain */}
               <div
                 className="super-admin-operation-card card-border-green"
                 onClick={() => setTab('monitoring')}
@@ -706,7 +669,7 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
-              {/* CARD 8: Audit Reports */}
+              {/* CARD 7: Audit Reports */}
               <div
                 className="super-admin-operation-card card-border-gold"
                 onClick={() => setTab('audits')}
@@ -740,37 +703,7 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
-              {/* CARD 9: Users & Access */}
-              <div
-                className="super-admin-operation-card card-border-navy"
-                onClick={() => setTab('users')}
-                id="card-users-access"
-              >
-                <div className="card-top-row">
-                  <span className="card-category-heading">USERS & ACCESS</span>
-                  <div className="card-mono-icon-container icon-box-navy">
-                    <Users size={22} />
-                  </div>
-                </div>
-
-                <div className="card-content-body">
-                  <div className="card-large-title">
-                    <AnimatedCounter value={activeUsersCount} suffix=" Active Users" />
-                  </div>
-                  <div className="card-description-text">
-                    Role-based access enabled
-                  </div>
-                </div>
-
-                <div className="card-bottom-row">
-                  <div className="card-action-link">
-                    <span>Manage Users</span>
-                    <ArrowRight size={14} className="action-arrow" />
-                  </div>
-                </div>
-              </div>
-
-              {/* CARD 10: Notifications */}
+              {/* CARD 8: Notifications */}
               <div
                 className="super-admin-operation-card card-border-gold"
                 onClick={() => setTab('notifications')}
@@ -800,7 +733,7 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
-              {/* CARD 11: Settings */}
+              {/* CARD 9: Settings */}
               <div
                 className="super-admin-operation-card card-border-teal"
                 onClick={() => setTab('settings')}
@@ -830,7 +763,7 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
-              {/* CARD 12: State & District Treasuries */}
+              {/* CARD 10: State & District Treasuries */}
               <div
                 className="super-admin-operation-card card-border-green"
                 onClick={() => setTab('states_districts')}
