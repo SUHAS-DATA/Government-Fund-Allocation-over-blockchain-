@@ -22,7 +22,6 @@ import {
   Calendar,
   Layers,
   MapPin,
-  FolderKanban,
   CreditCard,
   Bell,
   FileText
@@ -38,7 +37,6 @@ import '../admin/SuperAdminHub.css';
 import AllocateToDistrict from './AllocateToDistrict';
 import StateReceivedFunds from './StateReceivedFunds';
 import StateHistory from './StateHistory';
-import ProjectsManagement from '../district/ProjectsManagement';
 import AuditExplorer from '../auditor/AuditExplorer';
 import NotificationsPage from '../common/NotificationsPage';
 
@@ -102,7 +100,6 @@ const StateDashboard = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const [activeProjectsCount, setActiveProjectsCount] = useState(18);
   const [pendingRequestsCount, setPendingRequestsCount] = useState(5);
 
   const loadStateData = (showSpinner = false) => {
@@ -117,15 +114,6 @@ const StateDashboard = () => {
       .finally(() => {
         if (showSpinner) setLoading(false);
       });
-
-    API.get('/public/projects')
-      .then((res) => {
-        if (res.success && res.projects) {
-          const stateProjects = res.projects.filter(p => !p.state_code || p.state_code === (data?.state_code || 'KA'));
-          if (stateProjects.length > 0) setActiveProjectsCount(stateProjects.length);
-        }
-      })
-      .catch(() => { });
   };
 
   useEffect(() => {
@@ -167,8 +155,6 @@ const StateDashboard = () => {
         return 'State-to-District Fund Allocation';
       case 'breakdown':
         return 'District Allocations Matrix';
-      case 'projects':
-        return 'State Public Works & Projects Monitoring';
       case 'payment_requests':
         return 'District Agency Payment Requests & Requisitions';
       case 'history':
@@ -280,10 +266,6 @@ const StateDashboard = () => {
                     </div>
                   )}
                 </div>
-              )}
-
-              {activeTab === 'projects' && (
-                <ProjectsManagement />
               )}
 
               {activeTab === 'payment_requests' && (
@@ -499,13 +481,13 @@ const StateDashboard = () => {
 
               <div className="fin-overview-column">
                 <div className="fin-overview-top-label">
-                  <FolderKanban size={14} color="#0D9488" />
-                  <span>ACTIVE PROJECTS</span>
+                  <Building2 size={14} color="#0D9488" />
+                  <span>DISTRICTS COVERED</span>
                 </div>
                 <span className="fin-overview-value">
-                  <AnimatedCounter value={activeProjectsCount} />
+                  <AnimatedCounter value={districtBreakdown.length || 31} suffix=" Districts" />
                 </span>
-                <span className="fin-overview-subtext">Public works under state monitoring</span>
+                <span className="fin-overview-subtext">Subordinate collectorates allocated</span>
               </div>
 
               <div className="fin-overview-column">
@@ -651,37 +633,7 @@ const StateDashboard = () => {
                 </div>
               </div>
 
-              {/* CARD 4: Projects */}
-              <div
-                className="super-admin-operation-card card-border-blue"
-                onClick={() => setTab('projects')}
-                id="state-card-projects"
-              >
-                <div className="card-top-row">
-                  <span className="card-category-heading">PROJECTS</span>
-                  <div className="card-mono-icon-container icon-box-blue">
-                    <FolderKanban size={22} />
-                  </div>
-                </div>
-
-                <div className="card-content-body">
-                  <div className="card-large-title">
-                    <AnimatedCounter value={activeProjectsCount} suffix=" Projects" />
-                  </div>
-                  <div className="card-description-text">
-                    State infrastructure public works and development scheme execution
-                  </div>
-                </div>
-
-                <div className="card-bottom-row">
-                  <div className="card-action-link">
-                    <span>Monitor Works</span>
-                    <ArrowRight size={14} className="action-arrow" />
-                  </div>
-                </div>
-              </div>
-
-              {/* CARD 5: Payment Requests */}
+              {/* CARD 4: Payment Requests */}
               <div
                 className="super-admin-operation-card card-border-gold"
                 onClick={() => setTab('payment_requests')}
@@ -711,7 +663,7 @@ const StateDashboard = () => {
                 </div>
               </div>
 
-              {/* CARD 6: Disbursements */}
+              {/* CARD 5: Disbursements */}
               <div
                 className="super-admin-operation-card card-border-teal"
                 onClick={() => setTab('history')}
@@ -746,7 +698,7 @@ const StateDashboard = () => {
                 </div>
               </div>
 
-              {/* CARD 7: Blockchain Records */}
+              {/* CARD 6: Blockchain Records */}
               <div
                 className="super-admin-operation-card card-border-green"
                 onClick={() => setTab('blockchain')}
@@ -776,7 +728,7 @@ const StateDashboard = () => {
                 </div>
               </div>
 
-              {/* CARD 8: Reports */}
+              {/* CARD 7: Reports */}
               <div
                 className="super-admin-operation-card card-border-navy"
                 onClick={() => setTab('reports')}
@@ -806,7 +758,7 @@ const StateDashboard = () => {
                 </div>
               </div>
 
-              {/* CARD 9: Notifications */}
+              {/* CARD 8: Notifications */}
               <div
                 className="super-admin-operation-card card-border-purple"
                 onClick={() => setTab('notifications')}
