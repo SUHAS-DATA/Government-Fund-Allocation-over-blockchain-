@@ -37,7 +37,7 @@ import '../admin/SuperAdminHub.css';
 import AllocateToDistrict from './AllocateToDistrict';
 import StateReceivedFunds from './StateReceivedFunds';
 import StateHistory from './StateHistory';
-import AuditExplorer from '../auditor/AuditExplorer';
+import BlockchainExplorer from '../../components/BlockchainExplorer';
 import NotificationsPage from '../common/NotificationsPage';
 
 /**
@@ -333,7 +333,7 @@ const StateDashboard = () => {
               )}
 
               {activeTab === 'blockchain' && (
-                <AuditExplorer />
+                <BlockchainExplorer />
               )}
 
               {activeTab === 'reports' && (

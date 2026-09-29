@@ -15,8 +15,7 @@ Simulates every use case for every actor role:
 4. District Agency: Contractor KYC Review, Project Creation, Escrow Deployment, Milestone Configuration
 5. Contractor: Project Acceptance, Milestone Proof Upload with SHA-256 Digest, Payment Claim
 6. District Agency: Milestone Verification & On-Chain Payment Disbursal
-7. CAG Forensic Auditor: AI Anomaly Review, Emergency Escrow Freeze, Audit Verification, Escrow Unfreeze, CAG Report
-8. Public / Citizen: Transparent Fund Flow Verification, SHA-256 Hash Check, Public Grievance Filing & Tracking
+7. Public / Citizen: Transparent Fund Flow Verification, SHA-256 Hash Check, Public Grievance Filing & Tracking
 """
 
 import sys
@@ -337,55 +336,9 @@ def run_real_world_simulation():
     })
 
     # =========================================================================
-    # ROLE 7: CAG / CHIEF FORENSIC BLOCKCHAIN AUDITOR
+    # ROLE 7: PUBLIC / CITIZEN TRANSPARENCY & OVERSIGHT
     # =========================================================================
-    print_section("7", "CAG / CHIEF FORENSIC BLOCKCHAIN AUDITOR (AUDIT INDIA)")
-
-    aud_h = get_auth("auditor@auditindia.gov.in", "Auditor@123", "CAG Auditor")
-    if not aud_h: return
-
-    # 7.1 Emergency Escrow Freeze Test
-    client.post('/api/auditor/fund-freeze', json={
-        "project_id": ctx["project_id"],
-        "action": "FREEZE",
-        "reason": "CAG Forensic Anomaly Review: Verifying soil compaction core sample test logs."
-    }, headers=aud_h)
-    print_action("7.1", "Execute Emergency Forensic Freeze on Project Escrow", {
-        "Project Under Audit": ctx["project_id"],
-        "Action": "FREEZE ESCROW",
-        "Audit Trigger": "Verification of geotechnical soil compaction core samples",
-        "Project Status": "FROZEN (Smart Contract Disbursals Locked)"
-    })
-
-    # 7.2 Clear Audit & Unfreeze
-    client.post('/api/auditor/fund-freeze', json={
-        "project_id": ctx["project_id"],
-        "action": "UNFREEZE",
-        "reason": "Geotechnical test lab certificates validated and verified 100% compliant."
-    }, headers=aud_h)
-    print_action("7.2", "Complete Forensic Inquiry & Unfreeze Escrow", {
-        "Action": "UNFREEZE ESCROW",
-        "Verification Verdict": "Lab certificates validated by National Institute of Rock Mechanics",
-        "Project Status": "RESTORED TO ACTIVE"
-    })
-
-    # 7.3 Submit Formal CAG Audit Report
-    client.post('/api/auditor/submit-report', json={
-        "project_id": ctx["project_id"],
-        "findings": "Physical milestone inspection conducted and verified. High-grade RCC standard met.",
-        "compliance_score": 98,
-        "status": "APPROVED"
-    }, headers=aud_h)
-    print_action("7.3", "File Formal CAG Forensic Audit Report", {
-        "Project ID": ctx["project_id"],
-        "Forensic Compliance Score": "98 / 100",
-        "Audit Verdict": "APPROVED (Archived in National Audit Registry)"
-    })
-
-    # =========================================================================
-    # ROLE 8: PUBLIC / CITIZEN TRANSPARENCY & OVERSIGHT
-    # =========================================================================
-    print_section("8", "PUBLIC / CITIZEN TRANSPARENCY & GRIEVANCE LODGING")
+    print_section("7", "PUBLIC / CITIZEN TRANSPARENCY & GRIEVANCE LODGING")
 
     # 8.1 Open Ledger Transparency
     res = client.get(f"/api/public/projects/{ctx['project_id']}")
@@ -432,8 +385,7 @@ def run_real_world_simulation():
   {GREEN}[4] Belagavi District{RESET}     : Deployed Smart Contract Escrow {CYAN}(PRJ ID: {ctx['project_id']}){RESET}
   {GREEN}[5] Contractor{RESET}            : Uploaded Photographic Proof with SHA-256 Digest
   {GREEN}[6] District Disbursal{RESET}    : Released Milestone #1 to Contractor {CYAN}(INR 1.50 Cr Disbursed){RESET}
-  {GREEN}[7] CAG Auditor{RESET}           : Executed Freeze / Unfreeze Test & CAG Audit Report {CYAN}(Score: 98/100){RESET}
-  {GREEN}[8] Public / Citizen{RESET}      : Traced Complete Fund Flow & Lodged Grievance {CYAN}(Ticket: {ctx['grv_id']}){RESET}
+  {GREEN}[7] Public / Citizen{RESET}      : Traced Complete Fund Flow & Lodged Grievance {CYAN}(Ticket: {ctx['grv_id']}){RESET}
 """)
 
 if __name__ == "__main__":

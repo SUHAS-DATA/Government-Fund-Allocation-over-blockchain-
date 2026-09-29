@@ -5,7 +5,6 @@ import {
   FileSpreadsheet,
   Building,
   Briefcase,
-  Search,
   Globe,
   ArrowRight,
   ShieldCheck,
@@ -123,28 +122,6 @@ export const PORTALS_DIRECTORY = [
       'Citizen Grievance Redressal'
     ],
     description: 'Open public transparency ledger: trace sanctioned funds to local projects, verify milestone evidence, and report irregularities.'
-  },
-  {
-    id: 'auditor',
-    portalUrl: '/auditor-portal',
-    portalName: 'Auditor Portal',
-    badge: 'Auditor & Inspection Only',
-    tagline: 'CAG Statutory Oversight',
-    icon: Search,
-    accentColor: '#DC2626',
-    lightBg: 'rgba(220, 38, 38, 0.05)',
-    borderColor: '#FCA5A5',
-    allowedRoles: [
-      {
-        id: 'AUDITOR',
-        name: 'Auditor & Inspection',
-        dept: 'Comptroller & Auditor General (CAG) Cell',
-        defaultEmail: 'auditor@auditindia.gov.in',
-        defaultPassword: 'Auditor@123',
-        targetDashboard: '/auditor'
-      }
-    ],
-    description: 'Independent forensic audit, automated anomaly detection, smart contract verification, and emergency fund freeze powers.'
   }
 ];
 
@@ -159,7 +136,7 @@ export const USER_ROLES_CONFIG = [
     accentColor: '#1E3A8A',
     lightBg: '#F0F9FF',
     borderColor: '#BAE6FD',
-    description: 'National budget approval, scheme setup, user accounts management, and audit reports.',
+    description: 'National budget approval, scheme setup, user accounts management, and monitoring.',
     portalUrl: '/admin-portal',
     loginTarget: '/admin-portal',
     dashboardTarget: '/admin',
@@ -234,23 +211,6 @@ export const USER_ROLES_CONFIG = [
     defaultEmail: 'contractor@buildcorp.in',
     defaultPassword: 'Contractor@123',
     tier: 'Tier 5 • Contractor'
-  },
-  {
-    id: 'AUDITOR',
-    title: 'Auditor & Inspection',
-    roleLabel: 'Audit & Inspection Cell',
-    badge: 'Independent Oversight',
-    icon: Search,
-    accentColor: '#DC2626',
-    lightBg: '#FEF2F2',
-    borderColor: '#FECACA',
-    description: 'Automatic fraud & anomaly detection, emergency fund freeze actions, and official audit reports.',
-    portalUrl: '/auditor-portal',
-    loginTarget: '/auditor-portal',
-    dashboardTarget: '/auditor',
-    defaultEmail: 'auditor@auditindia.gov.in',
-    defaultPassword: 'Auditor@123',
-    tier: 'Independent • Auditor'
   },
   {
     id: 'PUBLIC',

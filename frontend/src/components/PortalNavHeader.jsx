@@ -6,7 +6,6 @@ import {
   Building, 
   Briefcase, 
   Globe, 
-  Search,
   ShieldCheck
 } from 'lucide-react';
 import { getActivePortal, PORTAL_DETAILS } from '../config/portalConfig';
@@ -43,14 +42,6 @@ export const PORTALS_LIST = [
     sublabel: 'Citizen Tracking • No Login',
     icon: Globe,
     color: '#059669'
-  },
-  {
-    id: 'AUDITOR',
-    path: '/auditor-portal',
-    label: 'Auditor Portal',
-    sublabel: 'CAG Inspection & Audit',
-    icon: Search,
-    color: '#DC2626'
   }
 ];
 

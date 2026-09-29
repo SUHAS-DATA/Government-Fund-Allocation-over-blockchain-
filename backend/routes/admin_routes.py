@@ -112,7 +112,7 @@ async def dashboard(
 # --- Financial Years ---
 @router.get("/financial-years")
 async def get_financial_years(
-    current_user: dict = Depends(require_roles(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR", "AUDITOR"]))
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR"]))
 ):
     fys = list(db.financial_years.find().sort("year", -1))
     
@@ -195,7 +195,7 @@ async def activate_financial_year(
 # --- Departments ---
 @router.get("/departments")
 async def get_departments(
-    current_user: dict = Depends(require_roles(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR", "AUDITOR"]))
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR"]))
 ):
     depts = list(db.departments.find().sort("name", 1))
     return {"success": True, "departments": serialize_doc(depts)}
@@ -231,7 +231,7 @@ async def create_department(
 # --- States & Districts ---
 @router.get("/states")
 async def get_states(
-    current_user: dict = Depends(require_roles(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR", "AUDITOR"]))
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR"]))
 ):
     st_list = list(db.states.find().sort("name", 1))
     return {"success": True, "states": serialize_doc(st_list)}
@@ -267,7 +267,7 @@ async def create_state(
 async def get_districts(
     state_code: Optional[str] = Query(None),
     state_name: Optional[str] = Query(None),
-    current_user: dict = Depends(require_roles(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR", "AUDITOR"]))
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR"]))
 ):
     query = {}
     if state_code:
@@ -311,7 +311,7 @@ async def create_district(
 # --- Schemes ---
 @router.get("/schemes")
 async def get_schemes(
-    current_user: dict = Depends(require_roles(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR", "AUDITOR"]))
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR"]))
 ):
     sc_list = list(db.schemes.find().sort("name", 1))
     for s in sc_list:
@@ -640,18 +640,10 @@ async def toggle_user_status(
     )
     return {"success": True, "message": f"User status updated to {'Active' if is_active else 'Suspended'}"}
 
-# --- Audit Reports Review ---
-@router.get("/audit-reports")
-async def get_audit_reports(
-    current_user: dict = Depends(require_roles(["SUPER_ADMIN"]))
-):
-    reports = list(db.audit_reports.find().sort("created_at", -1))
-    return {"success": True, "audit_reports": serialize_doc(reports)}
-
 # --- Blockchain Explorer ---
 @router.get("/blockchain-explorer")
 async def admin_blockchain_explorer(
-    current_user: dict = Depends(require_roles(["SUPER_ADMIN", "AUDITOR", "FINANCE", "STATE", "DISTRICT"]))
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT"]))
 ):
     connected = bcs.is_blockchain_connected()
     account = bcs.get_account()

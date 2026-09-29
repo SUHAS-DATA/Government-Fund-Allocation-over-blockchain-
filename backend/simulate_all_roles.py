@@ -1,15 +1,14 @@
 """
 PFMS Blockchain Ledger - Multi-Role End-to-End Simulation Engine
 ================================================================
-Simulates complete governance lifecycle across all 8 roles/actors:
+Simulates complete governance lifecycle across all stakeholder groups:
 1. Super Admin: Central Scheme Budget Sanction on Blockchain
 2. Finance Authority: State Treasury Transfer Authorization
 3. State Treasury: Sub-allocation to Belagavi District Agency
 4. District Agency: Contractor KYC Review, Project Creation, Smart Contract Escrow Deployment, Milestone Setup
 5. Contractor: Project Acceptance, Milestone Progress Upload with SHA-256 Digest, Payment Claim
 6. District Agency: Milestone Verification & On-Chain Payment Disbursal
-7. CAG Forensic Auditor: AI Anomaly Review, Emergency Escrow Freeze, Audit Clearance & Unfreeze
-8. Citizen / Public: Transparent Fund Flow Verification & Public Grievance Submission
+7. Citizen / Public: Transparent Fund Flow Verification & Public Grievance Submission
 """
 
 import sys
@@ -301,55 +300,9 @@ def run_simulation():
                f"Disbursed INR 10,000,000.00 to Contractor Wallet | Blockchain Receipt: {str(tx_hash)[:20]}...")
 
     # -------------------------------------------------------------------------
-    # STEP 7: CAG FORENSIC AUDITOR SIMULATION
+    # STEP 7: CITIZEN / PUBLIC TRANSPARENCY SIMULATION
     # -------------------------------------------------------------------------
-    print_header("ROLE 7: CAG / CHIEF FORENSIC BLOCKCHAIN AUDITOR")
-    
-    auditor_headers = login("auditor@auditindia.gov.in", "Auditor@123", "AUDITOR")
-    if not auditor_headers:
-        return
-
-    # 7.1 Access CAG Master Audit Dashboard
-    res = client.get('/api/auditor/dashboard', headers=auditor_headers)
-    audit_dash = res.get_json() or {}
-    print_step("CAG Auditor", "Accessed National Forensic Audit Matrix & AI Anomaly Engine", 
-               f"Audited Projects: {audit_dash.get('metrics', {}).get('total_audits', 0)} | Open Flagged Escrows: {audit_dash.get('metrics', {}).get('fraud_reports_count', 0)}")
-
-    # 7.2 Execute Forensic Freeze Test on Project Escrow
-    freeze_payload = {
-        "project_id": project_id,
-        "action": "FREEZE",
-        "reason": "Routine CAG Stress-Test Forensic Freeze: Verification of geo-tagged compaction tests."
-    }
-    client.post('/api/auditor/fund-freeze', json=freeze_payload, headers=auditor_headers)
-    print_step("CAG Auditor", "Triggered Emergency Forensic Freeze on Project Escrow", 
-               f"Project {project_id} Status -> FROZEN | Escrow Disbursal Blocked On-Chain")
-
-    # 7.3 Clear Audit & Unfreeze Project Escrow
-    unfreeze_payload = {
-        "project_id": project_id,
-        "action": "UNFREEZE",
-        "reason": "Geotechnical test certificates validated by National Institute of Rock Mechanics."
-    }
-    client.post('/api/auditor/fund-freeze', json=unfreeze_payload, headers=auditor_headers)
-    print_step("CAG Auditor", "Forensic Audit Cleared & Escrow Unfrozen", 
-               f"Project {project_id} Restored to Active Status | Audit Clearance Certificate Issued")
-
-    # 7.4 Submit Formal CAG Audit Report
-    report_payload = {
-        "project_id": project_id,
-        "findings": "Physical milestone inspection conducted and verified. High-grade RCC standard met.",
-        "compliance_score": 98,
-        "status": "APPROVED"
-    }
-    client.post('/api/auditor/submit-report', json=report_payload, headers=auditor_headers)
-    print_step("CAG Auditor", "Submitted Formal Forensic Audit Report (Score: 98/100)", 
-               f"Report Archived in Immutable National Audit Registry | Verdict: APPROVED")
-
-    # -------------------------------------------------------------------------
-    # STEP 8: CITIZEN / PUBLIC TRANSPARENCY SIMULATION
-    # -------------------------------------------------------------------------
-    print_header("ROLE 8: PUBLIC / CITIZEN TRANSPARENCY & GRIEVANCE TRACKING")
+    print_header("ROLE 7: PUBLIC / CITIZEN TRANSPARENCY & GRIEVANCE TRACKING")
     
     # 8.1 Public Platform Statistics (No Auth Required)
     res = client.get('/api/public/stats')
@@ -395,8 +348,7 @@ def run_simulation():
 {BOLD}{GREEN}[PASS] 4. District Agency{RESET}       : Created Project & Deployed Smart Contract Escrow ({session_data.get('project_id')})
 {BOLD}{GREEN}[PASS] 5. Contractor{RESET}            : Uploaded Photographic Proofs with SHA-256 Hashes
 {BOLD}{GREEN}[PASS] 6. District Disbursal{RESET}    : Released Milestone #1 (INR 1.00 Cr) on Ethereum Ledger
-{BOLD}{GREEN}[PASS] 7. CAG Forensic Auditor{RESET}  : Ran Anomaly Review, Emergency Freeze/Unfreeze & CAG Report
-{BOLD}{GREEN}[PASS] 8. Citizen Oversight{RESET}     : Traced Complete Fund Flow & Lodged Grievance Ticket ({ref_id})
+{BOLD}{GREEN}[PASS] 7. Citizen Oversight{RESET}     : Traced Complete Fund Flow & Lodged Grievance Ticket ({ref_id})
 """)
 
 if __name__ == "__main__":

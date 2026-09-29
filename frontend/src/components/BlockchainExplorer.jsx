@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Activity, ShieldCheck, Cpu, RefreshCw, Layers, CheckCircle2, AlertCircle, Filter } from 'lucide-react';
-import API from '../../services/api';
-import { formatCurrency, formatAddress, getContractAddress, copyToClipboard } from '../../services/blockchain';
-import BlockchainBadge from '../../components/BlockchainBadge';
-import TransactionFlowBadge from '../../components/TransactionFlowBadge';
-import DataTable from '../../components/DataTable';
+import { Activity, RefreshCw, Layers } from 'lucide-react';
+import API from '../services/api';
+import { formatCurrency, formatAddress, getContractAddress } from '../services/blockchain';
+import BlockchainBadge from './BlockchainBadge';
+import TransactionFlowBadge from './TransactionFlowBadge';
+import DataTable from './DataTable';
 
-const AuditExplorer = () => {
+const BlockchainExplorer = () => {
   const [transactions, setTransactions] = useState([]);
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -14,23 +14,17 @@ const AuditExplorer = () => {
 
   const loadExplorerData = () => {
     setLoading(true);
-    API.get('/auditor/blockchain-explorer')
-      .then((res) => {
-        if (res.success) {
-          setTransactions(res.transactions || []);
-          if (res.status) setStatus(res.status);
-        }
-      })
-      .catch(() => {
-        // Fallback to /blockchain/status & /blockchain/transactions
-        API.get('/blockchain/status').then((res) => {
-          if (res.success) setStatus(res);
-        });
-        API.get('/blockchain/transactions').then((res) => {
-          if (res.success) setTransactions(res.transactions || []);
-        });
-      })
-      .finally(() => setLoading(false));
+    Promise.allSettled([
+      API.get('/blockchain/status'),
+      API.get('/blockchain/transactions')
+    ]).then(([statusRes, txRes]) => {
+      if (statusRes.status === 'fulfilled' && statusRes.value?.success) {
+        setStatus(statusRes.value);
+      }
+      if (txRes.status === 'fulfilled' && txRes.value?.success) {
+        setTransactions(txRes.value.transactions || []);
+      }
+    }).finally(() => setLoading(false));
   };
 
   useEffect(() => {
@@ -106,7 +100,7 @@ const AuditExplorer = () => {
         <div>
           <h1 className="page-title">
             <Activity size={24} color="var(--color-primary)" />
-            <span>Forensic Blockchain Ledger Explorer</span>
+            <span>Blockchain Ledger Explorer</span>
           </h1>
           <p className="page-subtitle">
             Cryptographic ledger transactions recorded on the local EVM blockchain network with verified gas receipts.
@@ -152,7 +146,7 @@ const AuditExplorer = () => {
 
       {/* Operation Filters */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        {['', 'BUDGET_ALLOCATION', 'STATE_TRANSFER', 'DISTRICT_ALLOCATION', 'PROJECT_ESCROW', 'MILESTONE_PAYMENT', 'FREEZE', 'UNFREEZE', 'AUDIT_REPORT'].map((op) => (
+        {['', 'BUDGET_ALLOCATION', 'STATE_TRANSFER', 'DISTRICT_ALLOCATION', 'PROJECT_ESCROW', 'MILESTONE_PAYMENT'].map((op) => (
           <button
             key={op}
             className={`btn btn-sm ${filterOp === op ? 'btn-primary' : 'btn-secondary'}`}
@@ -169,7 +163,7 @@ const AuditExplorer = () => {
             <Layers size={40} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
             <h3 style={{ fontSize: '16px', color: 'var(--text-main)', marginBottom: '6px' }}>No Blockchain Transactions Yet</h3>
             <p style={{ fontSize: '13px', maxWidth: '440px', margin: '0 auto' }}>
-              Once you perform actions (e.g. Budget Allocation, State Transfer, Milestone Payment, or Project Freeze), the on-chain receipts will appear here in real-time.
+              Once fund releases, state allocations, or milestone payments occur, the on-chain receipts will appear here in real-time.
             </p>
           </div>
         ) : (
@@ -185,4 +179,4 @@ const AuditExplorer = () => {
   );
 };
 
-export default AuditExplorer;
+export default BlockchainExplorer;

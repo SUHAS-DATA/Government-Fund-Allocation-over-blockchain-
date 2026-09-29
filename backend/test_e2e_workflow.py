@@ -158,37 +158,8 @@ def run_tests():
     assert res.status_code == 200, f"Milestone release failed: {res.text}"
     print(f"[SUCCESS] Phase 1 Payment (INR 5 Cr) released to Contractor! On-Chain Tx: {res.json()['blockchain']['tx_hash']}")
 
-    # 15. Auditor Login & Forensic Checks
-    print_step("15. Forensic CAG Auditor Login & Live Audit Checks")
-    res = session.post(f"{BASE_URL}/auth/login", json={"email": "auditor@auditindia.gov.in", "password": "Auditor@123"})
-    assert res.status_code == 200, f"Auditor login failed: {res.text}"
-    auditor_token = res.json()["token"]
-    auditor_headers = {"Authorization": f"Bearer {auditor_token}"}
-
-    # Test Project Freeze & Unfreeze on Ethereum
-    print_step("16. Auditor executes Emergency Smart Contract Fund Freeze & Unfreeze")
-    res = session.post(f"{BASE_URL}/auditor/freeze-project", json={"project_id": project_id, "reason": "Sample test audit inspection"}, headers=auditor_headers)
-    assert res.status_code == 200, f"Freeze failed: {res.text}"
-    print(f"[SUCCESS] Smart Contract Project Frozen on Ethereum! Tx: {res.json()['blockchain']['tx_hash']}")
-
-    res = session.post(f"{BASE_URL}/auditor/unfreeze-project", json={"project_id": project_id, "reason": "Test audit completed successfully"}, headers=auditor_headers)
-    assert res.status_code == 200, f"Unfreeze failed: {res.text}"
-    print(f"[SUCCESS] Smart Contract Project Unfrozen on Ethereum! Tx: {res.json()['blockchain']['tx_hash']}")
-
-    # Auditor Submits CAG Audit Report on Ethereum
-    print_step("17. Auditor Submits Formal CAG Forensic Audit Report")
-    audit_payload = {
-        "project_id": project_id,
-        "compliance_score": 96,
-        "status": "APPROVED",
-        "findings": "Physical site inspection and photographic SHA-256 hashes confirm 100% compliance with PWD engineering specifications."
-    }
-    res = session.post(f"{BASE_URL}/auditor/submit-audit-report", json=audit_payload, headers=auditor_headers)
-    assert res.status_code == 201, f"Audit submit failed: {res.text}"
-    print(f"[SUCCESS] CAG Forensic Audit Report anchored on Ethereum! Tx: {res.json()['blockchain']['tx_hash']}")
-
-    # 18. Citizen Grievance Workflow
-    print_step("18. Public Citizen Grievance Filing & District Resolution")
+    # 15. Citizen Grievance Workflow
+    print_step("15. Public Citizen Grievance Filing & District Resolution")
     grv_payload = {
         "citizen_name": "Sanjay Deshmukh",
         "email": "sanjay.deshmukh@citizen.in",

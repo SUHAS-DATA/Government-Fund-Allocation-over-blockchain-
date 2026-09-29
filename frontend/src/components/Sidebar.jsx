@@ -77,12 +77,6 @@ const Sidebar = ({ collapsed = false, mobileOpen = false, onCloseMobile }) => {
                   <span>Blockchain</span>
                 </NavLink>
               </li>
-              <li>
-                <NavLink to="/admin/audit-reports" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`} title="CAG Forensic Reports & Audit Logs">
-                  <ShieldAlert size={17} />
-                  <span>Audit Logs & Reports</span>
-                </NavLink>
-              </li>
             </ul>
 
             <div className="sidebar-header">Master Data & Planning</div>
@@ -228,27 +222,6 @@ const Sidebar = ({ collapsed = false, mobileOpen = false, onCloseMobile }) => {
               <li><NavLink to="/contractor/my-projects" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><FolderKanban size={17}/><span>My Projects & 3 Phases</span></NavLink></li>
               <li><NavLink to="/contractor/kyc" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><FileCheck size={17}/><span>Business Profile & KYC</span></NavLink></li>
               <li><NavLink to="/contractor/payments" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><CreditCard size={17}/><span>Payment Receipts</span></NavLink></li>
-            </ul>
-
-            <div className="sidebar-header">System</div>
-            <ul className="sidebar-menu">
-              <li><NavLink to="/notifications" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><Bell size={17}/><span>Notifications</span></NavLink></li>
-              <li><NavLink to="/profile" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><Settings size={17}/><span>Settings</span></NavLink></li>
-            </ul>
-          </>
-        );
-
-      case 'AUDITOR':
-        return (
-          <>
-            <div className="sidebar-header">CAG Forensic Cell</div>
-            <ul className="sidebar-menu">
-              <li><NavLink to="/auditor" end className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><LayoutDashboard size={17}/><span>Forensic Dashboard</span></NavLink></li>
-              <li><NavLink to="/auditor/blockchain-explorer" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><Activity size={17}/><span>Blockchain Ledger</span></NavLink></li>
-              <li><NavLink to="/auditor/document-audit" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><FileSearch size={17}/><span>Document Verification</span></NavLink></li>
-              <li><NavLink to="/auditor/anomalies" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><AlertTriangle size={17}/><span>Forensic Anomaly Check</span></NavLink></li>
-              <li><NavLink to="/auditor/fraud-freeze" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><Lock size={17}/><span>Report Fraud & Freeze</span></NavLink></li>
-              <li><NavLink to="/auditor/submit-report" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><ShieldCheck size={17}/><span>Submit CAG Report</span></NavLink></li>
             </ul>
 
             <div className="sidebar-header">System</div>

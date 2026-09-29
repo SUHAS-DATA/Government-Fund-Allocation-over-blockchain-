@@ -9,8 +9,7 @@ and executes real-world actions for every role:
 4. Belagavi District Agency: Contractor KYC, Project Creation, Escrow Deployment, Milestone Setup
 5. Contractor: Project Acceptance, Milestone 1 Proof Upload (SHA-256 Digest), Payment Claim
 6. District Disbursal: Proof Verification & On-Chain Payment Release
-7. CAG Forensic Auditor: AI Anomaly Review, Emergency Escrow Freeze, Audit Verification, Escrow Unfreeze, CAG Report
-8. Public / Citizen: Transparent Fund Flow Traceability, SHA-256 Check, Public Quality Grievance Submission
+7. Public / Citizen: Transparent Fund Flow Traceability, SHA-256 Check, Public Quality Grievance Submission
 """
 
 import sys
@@ -243,46 +242,9 @@ def run_live_simulation():
     })
 
     # -------------------------------------------------------------------------
-    # 7. CAG FORENSIC AUDITOR
+    # 7. CITIZEN / PUBLIC TRACKING
     # -------------------------------------------------------------------------
-    print_banner("7. CAG / CHIEF FORENSIC BLOCKCHAIN AUDITOR - LIVE SIMULATION")
-    aud_token = get_token("auditor@auditindia.gov.in", "Auditor@123")
-    aud_headers = {"Authorization": f"Bearer {aud_token}"}
-
-    # Emergency Freeze
-    session.post(f"{BASE_URL}/auditor/fund-freeze", json={
-        "project_id": ctx["project_id"],
-        "action": "FREEZE",
-        "reason": "CAG Forensic Anomaly Review: Verifying soil compaction test certificates."
-    }, headers=aud_headers)
-
-    # Unfreeze
-    session.post(f"{BASE_URL}/auditor/fund-freeze", json={
-        "project_id": ctx["project_id"],
-        "action": "UNFREEZE",
-        "reason": "Soil compaction test certificates validated 100% compliant."
-    }, headers=aud_headers)
-
-    # Submit Formal Report
-    session.post(f"{BASE_URL}/auditor/submit-report", json={
-        "project_id": ctx["project_id"],
-        "findings": "Physical milestone inspection completed. Quality and compaction standards met.",
-        "compliance_score": 98,
-        "status": "APPROVED"
-    }, headers=aud_headers)
-
-    print_step("CAG Auditor", "Tested Emergency Freeze/Unfreeze & Filed Formal CAG Report", {
-        "Project Under Audit": ctx["project_id"],
-        "Emergency Freeze Test": "PASSED (Escrow locked on blockchain during freeze)",
-        "Forensic Verification": "COMPLIANT (Validated by National Rock Mechanics Lab)",
-        "Compliance Score": "98 / 100 (APPROVED)",
-        "Audit Status": "Archived in National Audit Registry"
-    })
-
-    # -------------------------------------------------------------------------
-    # 8. CITIZEN / PUBLIC TRACKING
-    # -------------------------------------------------------------------------
-    print_banner("8. CITIZEN / PUBLIC TRANSPARENCY & GRIEVANCE TRACKING - LIVE SIMULATION")
+    print_banner("7. CITIZEN / PUBLIC TRANSPARENCY & GRIEVANCE TRACKING - LIVE SIMULATION")
 
     # Query Public Stats
     r = session.get(f"{BASE_URL}/public/stats")

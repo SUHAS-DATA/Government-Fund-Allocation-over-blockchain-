@@ -235,21 +235,13 @@ WALLET_REGISTRY = {
         "department": "Automated Blockchain Escrow & Milestone Disbursal Vault",
         "tier": "Smart Contract Vault",
         "role": "ESCROW"
-    },
-    # Auditor
-    "AUDITOR": {
-        "address": FINANCE_ADDR,
-        "name": "CAG Audit & Inspection Directorate",
-        "department": "Forensic Audit & Public Accounts",
-        "tier": "Oversight & Audit",
-        "role": "AUDITOR"
     }
 }
 
 def get_entity_wallet(entity_type, identifier=None):
     """
     Lookup or generate the authoritative Ethereum address for an entity:
-    - entity_type: 'ADMIN', 'FINANCE', 'STATE', 'DISTRICT', 'CONTRACTOR', 'ESCROW', 'AUDITOR'
+    - entity_type: 'ADMIN', 'FINANCE', 'STATE', 'DISTRICT', 'CONTRACTOR', 'ESCROW'
     - identifier: state_code, district_name, contractor_name or specific key
     """
     key = str(entity_type).upper()
@@ -326,8 +318,6 @@ def get_private_key_for_role(role: str = "FINANCE") -> str:
         key = os.getenv("DISTRICT_PRIVATE_KEY") or os.getenv("FINANCE_PRIVATE_KEY") or os.getenv("BLOCKCHAIN_PRIVATE_KEY")
     elif r == "CONTRACTOR":
         key = os.getenv("CONTRACTOR_PRIVATE_KEY") or os.getenv("FINANCE_PRIVATE_KEY") or os.getenv("BLOCKCHAIN_PRIVATE_KEY")
-    elif r == "AUDITOR":
-        key = os.getenv("AUDITOR_PRIVATE_KEY") or os.getenv("FINANCE_PRIVATE_KEY") or os.getenv("BLOCKCHAIN_PRIVATE_KEY")
     else:
         key = os.getenv("FINANCE_PRIVATE_KEY") or os.getenv("BLOCKCHAIN_PRIVATE_KEY")
         
@@ -554,31 +544,4 @@ def verify_document_hash_onchain(doc_id, computed_hash):
     except Exception as e:
         print(f"Document verification call error: {e}")
         return {"is_match": False, "stored_hash": "", "timestamp": 0}
-
-def freeze_project_onchain(project_id, reason):
-    contract = get_contract()
-    if not contract:
-        return None
-    return execute_contract_transaction(
-        contract.functions.freezeProject(project_id, reason),
-        role="AUDITOR"
-    )
-
-def unfreeze_project_onchain(project_id):
-    contract = get_contract()
-    if not contract:
-        return None
-    return execute_contract_transaction(
-        contract.functions.unfreezeProject(project_id),
-        role="SUPER_ADMIN"
-    )
-
-def submit_audit_report_onchain(audit_id, project_id, auditor_name, compliance_score, verdict):
-    contract = get_contract()
-    if not contract:
-        return None
-    return execute_contract_transaction(
-        contract.functions.submitAuditReport(audit_id, project_id, auditor_name, int(compliance_score), verdict),
-        role="AUDITOR"
-    )
 

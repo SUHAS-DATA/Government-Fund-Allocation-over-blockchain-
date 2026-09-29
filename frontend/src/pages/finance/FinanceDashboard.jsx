@@ -35,7 +35,7 @@ import '../admin/SuperAdminHub.css';
 import ReceivedBudgets from './ReceivedBudgets';
 import TransferToState from './TransferToState';
 import FinanceHistory from './FinanceHistory';
-import AuditExplorer from '../auditor/AuditExplorer';
+import BlockchainExplorer from '../../components/BlockchainExplorer';
 import NotificationsPage from '../common/NotificationsPage';
 import ProfilePage from '../common/ProfilePage';
 
@@ -349,7 +349,7 @@ const FinanceDashboard = () => {
               )}
 
               {(activeTab === 'disbursements' || activeTab === 'history') && <FinanceHistory />}
-              {activeTab === 'blockchain' && <AuditExplorer />}
+              {activeTab === 'blockchain' && <BlockchainExplorer />}
 
               {activeTab === 'notifications' && <NotificationsPage />}
               {activeTab === 'settings' && <ProfilePage />}

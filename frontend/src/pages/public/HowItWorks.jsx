@@ -31,8 +31,8 @@ const HowItWorks = () => {
     },
     {
       num: '06',
-      title: 'Audit Inspection & Fraud Protection',
-      desc: 'Auditors continuously check records, verify documents, freeze funds if any irregularity is detected, and file public audit reports.'
+      title: 'Public Verification on Blockchain',
+      desc: 'Citizens and the public openly verify all fund allocations, project progress, and contractor payments on the tamper-proof blockchain ledger.'
     }
   ];
 

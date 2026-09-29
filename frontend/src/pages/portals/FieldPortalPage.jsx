@@ -70,7 +70,6 @@ const FieldPortalPage = () => {
     if (user.role === 'SUPER_ADMIN') return <Navigate to="/admin" replace />;
     if (user.role === 'FINANCE') return <Navigate to="/finance" replace />;
     if (user.role === 'CONTRACTOR') return <Navigate to="/contractor/dashboard" replace />;
-    if (user.role === 'AUDITOR') return <Navigate to="/auditor" replace />;
     return <Navigate to="/public" replace />;
   }
 
@@ -105,7 +104,6 @@ const FieldPortalPage = () => {
           if (res.user.role === 'SUPER_ADMIN') navigate('/admin');
           else if (res.user.role === 'FINANCE') navigate('/finance');
           else if (res.user.role === 'CONTRACTOR') navigate('/contractor/dashboard');
-          else if (res.user.role === 'AUDITOR') navigate('/auditor');
           else navigate('/public');
         }
       }

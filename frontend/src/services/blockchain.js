@@ -222,14 +222,6 @@ export const KNOWN_ENTITIES = {
     tier: 'Smart Contract Vault',
     color: '#6D28D9',
     bg: '#EDE9FE'
-  },
-  // Auditor
-  '0xB91C1CFECACAa0Ee7A142d267C1f36714E4a8F750020': {
-    name: 'CAG Audit & Inspection Directorate',
-    shortName: 'CAG Auditor',
-    tier: 'Oversight & Audit',
-    color: '#BE123C',
-    bg: '#FFE4E6'
   }
 };
 

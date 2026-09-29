@@ -34,9 +34,8 @@ import BudgetAllocation from './BudgetAllocation';
 import SendToFinance from './SendToFinance';
 import Departments from './Departments';
 import UserManagement from './UserManagement';
-import AuditReportsReview from './AuditReportsReview';
 import StatesDistricts from './StatesDistricts';
-import AuditExplorer from '../auditor/AuditExplorer';
+import BlockchainExplorer from '../../components/BlockchainExplorer';
 import ProjectsManagement from '../district/ProjectsManagement';
 import NotificationsPage from '../common/NotificationsPage';
 
@@ -103,7 +102,6 @@ const AdminDashboard = () => {
   const [allocationsList, setAllocationsList] = useState([]);
   const [departmentsList, setDepartmentsList] = useState([]);
   const [blockchainStats, setBlockchainStats] = useState({ txCount: 0, connected: true });
-  const [auditReportsList, setAuditReportsList] = useState([]);
   const [schemesList, setSchemesList] = useState([]);
 
   const setTab = (t) => {
@@ -120,14 +118,12 @@ const AdminDashboard = () => {
         allocRes,
         deptRes,
         bcRes,
-        auditRes,
         schemesRes
       ] = await Promise.allSettled([
         API.get('/admin/dashboard'),
         API.get('/admin/allocations'),
         API.get('/admin/departments'),
         API.get('/admin/blockchain-explorer'),
-        API.get('/admin/audit-reports'),
         API.get('/admin/schemes')
       ]);
 
@@ -145,9 +141,6 @@ const AdminDashboard = () => {
           txCount: bcRes.value.transactions?.length || 0,
           connected: bcRes.value.status?.connected !== false
         });
-      }
-      if (auditRes.status === 'fulfilled' && auditRes.value?.success) {
-        setAuditReportsList(auditRes.value.audit_reports || []);
       }
       if (schemesRes.status === 'fulfilled' && schemesRes.value?.success) {
         setSchemesList(schemesRes.value.schemes || []);
@@ -192,9 +185,6 @@ const AdminDashboard = () => {
   const departmentsCount = departmentsList.length > 0 ? departmentsList.length : 24;
   const activeAllocationsCount = metrics.fy_allocations_count || allocationsList.length || 12;
   const blockchainTxCount = blockchainStats.txCount > 0 ? blockchainStats.txCount : 1245;
-  const pendingAuditReviews = metrics.open_fraud_alerts !== undefined && metrics.open_fraud_alerts > 0
-    ? metrics.open_fraud_alerts
-    : (auditReportsList.filter(r => r.status === 'OPEN' || r.status === 'PENDING').length || 8);
 
   // Timeline events
   const recentActivities = [
@@ -236,7 +226,6 @@ const AdminDashboard = () => {
       case 'projects': return 'Public Infrastructure Projects';
       case 'departments': return 'Central Ministries & Departments';
       case 'monitoring': return 'Blockchain Transparency Ledger';
-      case 'audits': return 'CAG & Forensic Audit Reports';
       case 'users': return 'User Access Control & RBAC';
       case 'states_districts': return 'State & District Treasuries';
       case 'notifications': return 'National Operational Notifications';
@@ -279,8 +268,7 @@ const AdminDashboard = () => {
               {activeTab === 'send_finance' && <SendToFinance />}
               {activeTab === 'projects' && <ProjectsManagement />}
               {activeTab === 'departments' && <Departments />}
-              {activeTab === 'monitoring' && <AuditExplorer />}
-              {activeTab === 'audits' && <AuditReportsReview />}
+              {activeTab === 'monitoring' && <BlockchainExplorer />}
               {activeTab === 'users' && <UserManagement />}
               {activeTab === 'notifications' && <NotificationsPage />}
               {(activeTab === 'states_districts' || activeTab === 'settings') && <StatesDistricts />}
@@ -669,39 +657,7 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
-              {/* CARD 7: Audit Reports */}
-              <div
-                className="super-admin-operation-card card-border-gold"
-                onClick={() => setTab('audits')}
-                id="card-audit-reports"
-              >
-                <div className="card-top-row">
-                  <span className="card-category-heading">AUDIT REPORTS</span>
-                  <div className="card-mono-icon-container icon-box-gold">
-                    <ShieldCheck size={22} />
-                  </div>
-                </div>
 
-                <div className="card-content-body">
-                  <div className="card-large-title">
-                    <AnimatedCounter
-                      value={pendingAuditReviews}
-                      prefix={pendingAuditReviews < 10 ? '0' : ''}
-                      suffix=" Pending Reviews"
-                    />
-                  </div>
-                  <div className="card-description-text">
-                    Last audit: Today
-                  </div>
-                </div>
-
-                <div className="card-bottom-row">
-                  <div className="card-action-link">
-                    <span>View Reports</span>
-                    <ArrowRight size={14} className="action-arrow" />
-                  </div>
-                </div>
-              </div>
 
               {/* CARD 8: Notifications */}
               <div
@@ -870,7 +826,7 @@ const AdminDashboard = () => {
                   <span>Recent Government Activity</span>
                 </div>
                 <span style={{ fontSize: '11px', color: '#627D98', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-                  Audited System Event Log
+                  System Event Log
                 </span>
               </div>
 

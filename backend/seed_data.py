@@ -232,17 +232,6 @@ def seed():
             "wallet_address": "0x7c852118294e51e653712a81e05800f419140019",
             "is_active": True,
             "created_at": datetime.now(timezone.utc)
-        },
-        # AUDITOR
-        {
-            "name": "Chief Blockchain Forensic Auditor",
-            "email": "auditor@auditindia.gov.in",
-            "password": hash_password("Auditor@123"),
-            "role": "AUDITOR",
-            "department": "Comptroller and Auditor General (CAG) Blockchain Cell",
-            "wallet_address": "0xB91C1CFECACAa0Ee7A142d267C1f36714E4a8F750020",
-            "is_active": True,
-            "created_at": datetime.now(timezone.utc)
         }
     ]
 
@@ -256,8 +245,6 @@ def seed():
             u["wallet_address"] = bcs.get_entity_wallet("DISTRICT", u.get("district_name"))
         elif u["role"] == "CONTRACTOR":
             u["wallet_address"] = bcs.get_entity_wallet("CONTRACTOR", u.get("company_name"))
-        elif u["role"] == "AUDITOR":
-            u["wallet_address"] = bcs.get_entity_wallet("AUDITOR")
 
         existing = db.users.find_one({"email": u["email"]})
         if not existing:
@@ -450,14 +437,6 @@ def sync_multitier_transactions():
             updates["to_entity"] = f"{c_name} (Contractor)"
             updates["transfer_tier"] = "DISTRICT_TO_CONTRACTOR"
             updates["flow_stage"] = f"4. {d_name} District -> {c_name}"
-        elif op == "PROJECT_FROZEN":
-            updates["from_address"] = bcs.get_entity_wallet("AUDITOR")
-            updates["to_address"] = bcs.get_entity_wallet("ESCROW")
-            updates["from_entity"] = "CAG Audit & Inspection Directorate"
-            updates["to_entity"] = "Project Smart Contract Escrow"
-            updates["transfer_tier"] = "AUDITOR_TO_ESCROW"
-            updates["flow_stage"] = "Emergency Oversight Freeze"
-
         if updates:
             db.blockchain_transactions.update_one({"_id": t["_id"]}, {"$set": updates})
 

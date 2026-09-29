@@ -9,7 +9,6 @@ import {
   Landmark, 
   FileSpreadsheet, 
   Briefcase, 
-  Search, 
   CheckCircle2, 
   AlertCircle,
   Sparkles,
@@ -27,7 +26,7 @@ const ROLE_PORTALS = [
     icon: Landmark,
     accentColor: '#1E3A8A',
     lightBg: 'rgba(30, 58, 138, 0.08)',
-    description: 'National budget approval, scheme setup, user account management, and audit reports.',
+    description: 'National budget approval, scheme setup, user account management, and monitoring.',
     defaultEmail: 'admin@govtfund.gov.in',
     defaultPassword: 'Admin@123',
     jurisdictions: [
@@ -101,20 +100,6 @@ const ROLE_PORTALS = [
       { label: 'Karnataka Highway Infra Concessionaires', email: 'contractor.ka@infra.in', pass: 'Contractor@123' },
       { label: 'Southern Roads & Bridges Infrastructure', email: 'contractor.south@infra.in', pass: 'Contractor@123' }
     ]
-  },
-  {
-    id: 'AUDITOR',
-    title: 'Auditor & CAG',
-    badge: 'Audit & Inspection Cell',
-    icon: Search,
-    accentColor: '#B91C1C',
-    lightBg: 'rgba(185, 28, 28, 0.08)',
-    description: 'Detect anomalies, freeze project funds if needed, and submit official audit reports.',
-    defaultEmail: 'auditor@auditindia.gov.in',
-    defaultPassword: 'Auditor@123',
-    jurisdictions: [
-      { label: 'CAG Central Audit Directorate', email: 'auditor@auditindia.gov.in', pass: 'Auditor@123' }
-    ]
   }
 ];
 
@@ -185,9 +170,6 @@ const LoginPage = () => {
             break;
           case 'CONTRACTOR':
             navigate('/contractor/dashboard');
-            break;
-          case 'AUDITOR':
-            navigate('/auditor');
             break;
           default:
             navigate('/');

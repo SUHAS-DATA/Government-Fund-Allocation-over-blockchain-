@@ -78,7 +78,6 @@ const ContractorPortalPage = () => {
     if (user.role === 'SUPER_ADMIN') return <Navigate to="/admin" replace />;
     if (user.role === 'FINANCE') return <Navigate to="/finance" replace />;
     if (user.role === 'STATE' || user.role === 'DISTRICT' || user.role === 'DEPARTMENT') return <Navigate to="/department" replace />;
-    if (user.role === 'AUDITOR') return <Navigate to="/auditor" replace />;
     return <Navigate to="/public" replace />;
   }
 
@@ -102,7 +101,6 @@ const ContractorPortalPage = () => {
           if (res.user.role === 'SUPER_ADMIN') navigate('/admin');
           else if (res.user.role === 'FINANCE') navigate('/finance');
           else if (res.user.role === 'STATE' || res.user.role === 'DISTRICT' || res.user.role === 'DEPARTMENT') navigate('/department');
-          else if (res.user.role === 'AUDITOR') navigate('/auditor');
           else navigate('/public');
         }
       }

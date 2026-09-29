@@ -24,7 +24,6 @@ from routes.finance_routes import finance_bp
 from routes.state_routes import state_bp
 from routes.district_routes import district_bp
 from routes.contractor_routes import contractor_bp
-from routes.auditor_routes import auditor_bp
 from routes.public_routes import public_bp
 from routes.notification_routes import notification_bp
 from routes.blockchain_routes import blockchain_bp
@@ -171,7 +170,6 @@ app.include_router(finance_bp, prefix="/api/finance", tags=["Finance"])
 app.include_router(state_bp, prefix="/api/state", tags=["State"])
 app.include_router(district_bp, prefix="/api/district", tags=["District"])
 app.include_router(contractor_bp, prefix="/api/contractor", tags=["Contractor"])
-app.include_router(auditor_bp, prefix="/api/auditor", tags=["Auditor"])
 app.include_router(public_bp, prefix="/api/public", tags=["Public"])
 app.include_router(notification_bp, prefix="/api/notifications", tags=["Notifications"])
 app.include_router(blockchain_bp, prefix="/api/blockchain", tags=["Blockchain"])

@@ -13,7 +13,7 @@ const DocumentHashViewer = ({ document, showVerifyButton = true }) => {
   const handleVerify = async () => {
     setVerifying(true);
     try {
-      const res = await API.post('/auditor/verify-document', {
+      const res = await API.post('/blockchain/verify-document', {
         document_id: document.document_id,
         doc_hash: document.sha256_hash
       });

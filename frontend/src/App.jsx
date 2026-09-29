@@ -13,12 +13,11 @@ import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import Footer from './components/Footer';
 
-// 5 Dedicated Frontend Portal Entry Pages
+// 4 Dedicated Frontend Portal Entry Pages
 import AdminPortalPage from './pages/portals/AdminPortalPage';
 import FieldPortalPage from './pages/portals/FieldPortalPage';
 import ContractorPortalPage from './pages/portals/ContractorPortalPage';
 import PublicPortalPage from './pages/portals/PublicPortalPage';
-import AuditorPortalPage from './pages/portals/AuditorPortalPage';
 
 // Public Pages
 import PublicProjects from './pages/public/PublicProjects';
@@ -37,7 +36,6 @@ import Schemes from './pages/admin/Schemes';
 import BudgetAllocation from './pages/admin/BudgetAllocation';
 import SendToFinance from './pages/admin/SendToFinance';
 import UserManagement from './pages/admin/UserManagement';
-import AuditReportsReview from './pages/admin/AuditReportsReview';
 
 // Finance Pages
 import FinanceDashboard from './pages/finance/FinanceDashboard';
@@ -64,14 +62,6 @@ import ContractorKYC from './pages/contractor/ContractorKYC';
 import MyProjects from './pages/contractor/MyProjects';
 import MilestonePayments from './pages/contractor/MilestonePayments';
 
-// Auditor Pages
-import AuditorDashboard from './pages/auditor/AuditorDashboard';
-import AuditExplorer from './pages/auditor/AuditExplorer';
-import DocumentAudit from './pages/auditor/DocumentAudit';
-import AnomalyAnalytics from './pages/auditor/AnomalyAnalytics';
-import FraudFreeze from './pages/auditor/FraudFreeze';
-import SubmitAuditReport from './pages/auditor/SubmitAuditReport';
-
 // Common Pages
 import ProfilePage from './pages/common/ProfilePage';
 import NotificationsPage from './pages/common/NotificationsPage';
@@ -86,9 +76,6 @@ const getRoleHome = (role, activePortal) => {
   }
   if (activePortal === PORTAL_TYPES.CONTRACTOR) {
     return '/contractor/dashboard';
-  }
-  if (activePortal === PORTAL_TYPES.AUDITOR) {
-    return '/auditor';
   }
   return '/';
 };
@@ -162,7 +149,6 @@ function App() {
                   <Route path="/admin/send-to-finance" element={<Navigate to="/admin?tab=send_finance" replace />} />
                   <Route path="/admin/users" element={<Navigate to="/admin?tab=users" replace />} />
                   <Route path="/admin/blockchain-explorer" element={<Navigate to="/admin?tab=monitoring" replace />} />
-                  <Route path="/admin/audit-reports" element={<Navigate to="/admin?tab=audits" replace />} />
                   <Route path="/admin/projects" element={<Navigate to="/admin?tab=projects" replace />} />
 
                   {/* Finance Department Dashboards & Operations */}
@@ -267,33 +253,7 @@ function App() {
                 </>
               )}
 
-              {/* ========================================================= */}
-              {/* PORTAL 5 — AUDITOR (VITE_PORTAL=AUDITOR)                  */}
-              {/* Shows ONLY Auditor Login, Dashboard, & Operations         */}
-              {/* ========================================================= */}
-              {activePortal === PORTAL_TYPES.AUDITOR && (
-                <>
-                  {/* Entry Point: Auditor Portal Login */}
-                  <Route path="/" element={<AuditorPortalPage />} />
-                  <Route path="/auditor-portal" element={<AuditorPortalPage />} />
 
-                  {/* Auditor Dashboard & Operations */}
-                  <Route path="/auditor" element={<ProtectedRoute allowedRoles={['AUDITOR']} activePortal={activePortal}><AuditorDashboard /></ProtectedRoute>} />
-                  <Route path="/auditor/dashboard" element={<Navigate to="/auditor" replace />} />
-                  <Route path="/auditor/blockchain-explorer" element={<Navigate to="/auditor?tab=explorer" replace />} />
-                  <Route path="/auditor/document-audit" element={<Navigate to="/auditor?tab=documents" replace />} />
-                  <Route path="/auditor/anomalies" element={<Navigate to="/auditor?tab=anomalies" replace />} />
-                  <Route path="/auditor/fraud-freeze" element={<Navigate to="/auditor?tab=freeze" replace />} />
-                  <Route path="/auditor/submit-report" element={<Navigate to="/auditor?tab=report" replace />} />
-
-                  {/* Common Authenticated Routes */}
-                  <Route path="/profile" element={<ProtectedRoute allowedRoles={['AUDITOR']} activePortal={activePortal}><ProfilePage /></ProtectedRoute>} />
-                  <Route path="/notifications" element={<ProtectedRoute allowedRoles={['AUDITOR']} activePortal={activePortal}><NotificationsPage /></ProtectedRoute>} />
-
-                  {/* Catch-all: Redirect to Auditor Portal Entry */}
-                  <Route path="*" element={<Navigate to="/" replace />} />
-                </>
-              )}
             </Routes>
           </PortalLayout>
         </BrowserRouter>

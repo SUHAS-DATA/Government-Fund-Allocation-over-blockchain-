@@ -94,9 +94,6 @@ const Navbar = ({ onToggleSidebar }) => {
     if (activePortal === 'CONTRACTOR') {
       return '/contractor/dashboard';
     }
-    if (activePortal === 'AUDITOR') {
-      return '/auditor';
-    }
     if (activePortal === 'PUBLIC') {
       return '/public';
     }
@@ -107,7 +104,6 @@ const Navbar = ({ onToggleSidebar }) => {
       case 'DISTRICT':
       case 'DEPARTMENT': return '/department';
       case 'CONTRACTOR': return '/contractor/dashboard';
-      case 'AUDITOR': return '/auditor';
       default: return '/';
     }
   };

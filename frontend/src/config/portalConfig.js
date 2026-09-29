@@ -1,15 +1,14 @@
 /**
  * Portal Deployment Configuration
- * Reads import.meta.env.VITE_PORTAL to dynamically configure the frontend for 5 distinct portal deployments.
- * Valid values: ADMIN | FIELD | CONTRACTOR | PUBLIC | AUDITOR
+ * Reads import.meta.env.VITE_PORTAL to dynamically configure the frontend for 4 distinct portal deployments.
+ * Valid values: ADMIN | FIELD | CONTRACTOR | PUBLIC
  */
 
 export const PORTAL_TYPES = {
   ADMIN: 'ADMIN',
   FIELD: 'FIELD',
   CONTRACTOR: 'CONTRACTOR',
-  PUBLIC: 'PUBLIC',
-  AUDITOR: 'AUDITOR'
+  PUBLIC: 'PUBLIC'
 };
 
 export const VALID_PORTALS = Object.values(PORTAL_TYPES);
@@ -64,14 +63,5 @@ export const PORTAL_DETAILS = {
     allowedRoles: [],
     homePath: () => '/public',
     loginPath: '/public'
-  },
-  AUDITOR: {
-    id: 'AUDITOR',
-    title: 'Auditor & Inspection Portal',
-    badge: 'CAG Statutory Oversight',
-    description: 'Independent audit, anomaly analytics, and emergency fund freeze.',
-    allowedRoles: ['AUDITOR'],
-    homePath: () => '/auditor',
-    loginPath: '/'
   }
 };

@@ -92,8 +92,8 @@ const PublicProjectDetail = () => {
       <div className="page-header">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
-            <span className={`badge ${proj.is_frozen ? 'badge-danger' : proj.status === 'COMPLETED' ? 'badge-success' : 'badge-info'}`}>
-              {proj.is_frozen ? 'FUNDS FROZEN BY AUDITOR' : proj.status}
+            <span className={`badge ${proj.status === 'COMPLETED' ? 'badge-success' : 'badge-info'}`}>
+              {proj.status}
             </span>
             <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>ID: {proj.project_id}</span>
           </div>
@@ -107,26 +107,6 @@ const PublicProjectDetail = () => {
           <span>Report Issue / Complaint</span>
         </Link>
       </div>
-
-      {proj.is_frozen && (
-        <div style={{
-          background: 'var(--color-danger-bg)',
-          border: '1px solid var(--color-danger-border)',
-          borderRadius: 'var(--radius-sm)',
-          padding: '14px 18px',
-          color: 'var(--color-danger)',
-          marginBottom: '24px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px'
-        }}>
-          <AlertTriangle size={24} />
-          <div>
-            <div style={{ fontWeight: '700', fontSize: '13px' }}>EMERGENCY AUDIT HOLD ACTIVE</div>
-            <div style={{ fontSize: '12px' }}>Reason: {proj.freeze_reason || 'Discrepancy detected by auditors.'}</div>
-          </div>
-        </div>
-      )}
 
       {/* 3-Column Financial Breakdown */}
       <div className="grid-3" style={{ marginBottom: '24px' }}>

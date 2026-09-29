@@ -22,7 +22,7 @@ const ADMIN_ROLES = [
     icon: Landmark,
     accentColor: '#1E3A8A',
     lightBg: 'rgba(30, 58, 138, 0.08)',
-    description: 'National budget ceiling management, multi-year national schemes, user access control, and audit reports.',
+    description: 'National budget ceiling management, multi-year national schemes, user access control, and monitoring.',
     defaultEmail: 'admin@govtfund.gov.in',
     defaultPassword: 'Admin@123',
     targetDashboard: '/admin'
@@ -57,7 +57,6 @@ const AdminPortalPage = () => {
     if (user.role === 'FINANCE') return <Navigate to="/finance" replace />;
     if (user.role === 'STATE' || user.role === 'DISTRICT' || user.role === 'DEPARTMENT') return <Navigate to="/department" replace />;
     if (user.role === 'CONTRACTOR') return <Navigate to="/contractor/dashboard" replace />;
-    if (user.role === 'AUDITOR') return <Navigate to="/auditor" replace />;
     return <Navigate to="/public" replace />;
   }
 
@@ -84,8 +83,6 @@ const AdminPortalPage = () => {
             navigate('/department');
           } else if (res.user.role === 'CONTRACTOR') {
             navigate('/contractor/dashboard');
-          } else if (res.user.role === 'AUDITOR') {
-            navigate('/auditor');
           } else {
             navigate('/public');
           }

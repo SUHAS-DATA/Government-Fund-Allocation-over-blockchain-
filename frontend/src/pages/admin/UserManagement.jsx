@@ -55,7 +55,6 @@ const UserManagement = () => {
           <option value="STATE">STATE OFFICER</option>
           <option value="DISTRICT">DISTRICT OFFICER</option>
           <option value="CONTRACTOR">CONTRACTOR</option>
-          <option value="AUDITOR">AUDITOR</option>
         </select>
       )
     },
@@ -91,7 +90,7 @@ const UserManagement = () => {
             <Users size={24} color="var(--color-primary)" />
             <span>User & Role-Based Access Control</span>
           </h1>
-          <p className="page-subtitle">Manage government officers, contractors, and forensic auditor authorization privileges.</p>
+          <p className="page-subtitle">Manage government officers and registered contractors authorization privileges.</p>
         </div>
       </div>
 
