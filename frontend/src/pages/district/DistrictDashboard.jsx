@@ -23,7 +23,6 @@ import {
   Shield,
   Clock,
   LogOut,
-  GitBranch,
   Link2,
   X,
   CreditCard,
@@ -682,51 +681,6 @@ const DistrictDashboard = () => {
               </div>
             </div>
 
-            {/* ========================================================= */}
-            {/* DISTRICT AGENCY WORKFLOW PIPELINE                         */}
-            {/* ========================================================= */}
-            <div className="gov-workflow-card">
-              <div className="gov-workflow-header">
-                <div className="gov-workflow-title">
-                  <GitBranch size={16} color="#006B4F" />
-                  <span>District Agency Operational Workflow</span>
-                </div>
-                <span style={{ fontSize: '11px', color: '#627D98', fontWeight: '700' }}>
-                  6-STAGE FIELD EXECUTION PIPELINE
-                </span>
-              </div>
-              <div className="gov-workflow-steps">
-                <div className="gov-workflow-step active" onClick={() => setTab('received')} style={{ cursor: 'pointer' }}>
-                  <span className="gov-workflow-step-num">1</span>
-                  <span>Received Funds</span>
-                </div>
-                <span className="gov-workflow-arrow">→</span>
-                <div className="gov-workflow-step active" onClick={() => setTab('projects')} style={{ cursor: 'pointer' }}>
-                  <span className="gov-workflow-step-num">2</span>
-                  <span>Create/Manage Projects</span>
-                </div>
-                <span className="gov-workflow-arrow">→</span>
-                <div className="gov-workflow-step active" onClick={() => setTab('contractors')} style={{ cursor: 'pointer' }}>
-                  <span className="gov-workflow-step-num">3</span>
-                  <span>Assign Contractor</span>
-                </div>
-                <span className="gov-workflow-arrow">→</span>
-                <div className="gov-workflow-step active" onClick={() => setTab('progress')} style={{ cursor: 'pointer' }}>
-                  <span className="gov-workflow-step-num">4</span>
-                  <span>Monitor Project</span>
-                </div>
-                <span className="gov-workflow-arrow">→</span>
-                <div className="gov-workflow-step active" onClick={() => setTab('milestones')} style={{ cursor: 'pointer' }}>
-                  <span className="gov-workflow-step-num">5</span>
-                  <span>Verify Milestones</span>
-                </div>
-                <span className="gov-workflow-arrow">→</span>
-                <div className="gov-workflow-step active" onClick={() => setTab('payments')} style={{ cursor: 'pointer' }}>
-                  <span className="gov-workflow-step-num">6</span>
-                  <span>Request Payment</span>
-                </div>
-              </div>
-            </div>
 
             {/* ========================================================= */}
             {/* SECTION 2: 3x3 INTERACTIVE OPERATIONS MODULES GRID        */}
