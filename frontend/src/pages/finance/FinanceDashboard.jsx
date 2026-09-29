@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import {
   Building2,
+  Coins,
   Send,
   TrendingUp,
   Activity,
