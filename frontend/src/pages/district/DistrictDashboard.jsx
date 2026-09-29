@@ -11,7 +11,6 @@ import {
   TrendingUp,
   MapPin,
   Lock,
-  Layers,
   FileSpreadsheet,
   Activity,
   Send,
@@ -21,7 +20,6 @@ import {
   CheckCircle2,
   FileCheck,
   Landmark,
-  PieChart,
   Shield,
   Clock,
   LogOut,
@@ -232,10 +230,6 @@ const DistrictDashboard = () => {
         return 'Milestone Verification & Field Inspection';
       case 'payments':
         return 'Contractor Payment Requests & Requisitions';
-      case 'documents':
-        return 'Statutory Documents & Geo-Tagged Media Evidence';
-      case 'reports':
-        return 'District Utilization & Audit Reports';
       case 'notifications':
         return 'Official District Notifications & Dispatches';
       case 'grievances':
@@ -484,61 +478,6 @@ const DistrictDashboard = () => {
                         </div>
                       </div>
                     ))}
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'documents' && (
-                <div className="card" style={{ padding: '24px' }}>
-                  <div className="card-header" style={{ marginBottom: '20px' }}>
-                    <div className="card-title">
-                      <Layers size={20} color="#1E3A8A" />
-                      <span>Statutory Civil Documents & Geo-Tagged Inspection Records</span>
-                    </div>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px' }}>
-                    {[
-                      { name: 'Measurement Book (MB) Vol-IV', type: 'Civil Engineering Record', date: '2026-09-20', hash: '0x8f2d...3a91', format: 'PDF (Signed)' },
-                      { name: 'Geo-tagged Drone Site Survey Video', type: 'Site Evidence', date: '2026-09-18', hash: '0x3c11...99e4', format: 'MP4 / GPS metadata' },
-                      { name: 'Concrete Compressive Strength Test Lab Report', type: 'Quality Certification', date: '2026-09-15', hash: '0x44ab...ee10', format: 'PDF (Certified)' },
-                      { name: 'Environmental Impact Clearance (EIA)', type: 'Statutory Clearance', date: '2026-08-30', hash: '0x77bc...1122', format: 'PDF (Gazetted)' }
-                    ].map((doc, idx) => (
-                      <div key={idx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                        <div style={{ fontWeight: '800', color: '#102A43', fontSize: '14px' }}>{doc.name}</div>
-                        <div style={{ fontSize: '12px', color: '#627D98' }}>{doc.type} • {doc.format}</div>
-                        <div style={{ fontSize: '11px', fontFamily: 'monospace', color: '#1E3A8A', background: '#EFF6FF', padding: '4px 8px', borderRadius: '4px' }}>
-                          SHA-256: {doc.hash}
-                        </div>
-                        <div style={{ fontSize: '11px', color: '#94A3B8', marginTop: 'auto' }}>Timestamp: {doc.date}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'reports' && (
-                <div className="card" style={{ padding: '24px' }}>
-                  <div className="card-header" style={{ marginBottom: '20px' }}>
-                    <div className="card-title">
-                      <PieChart size={20} color="#0284C7" />
-                      <span>District Public Works Expenditure & Utilization Reports</span>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ fontWeight: '800', color: '#102A43' }}>Quarterly Utilization Certificate (Form 12-C GFR)</div>
-                        <div style={{ fontSize: '12px', color: '#627D98' }}>Period: Q2 FY 2026-27 • Certified for State Finance Department</div>
-                      </div>
-                      <button type="button" onClick={() => window.print()} className="super-admin-back-btn">Download PDF</button>
-                    </div>
-                    <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ fontWeight: '800', color: '#102A43' }}>Scheme-wise District Fund Ledger</div>
-                        <div style={{ fontSize: '12px', color: '#627D98' }}>Complete breakdown of inflows, commitments, and contractor escrow releases</div>
-                      </div>
-                      <button type="button" onClick={() => window.print()} className="super-admin-back-btn">Export Excel</button>
-                    </div>
                   </div>
                 </div>
               )}
@@ -991,67 +930,7 @@ const DistrictDashboard = () => {
                 </div>
               </div>
 
-              {/* CARD 7: Documents */}
-              <div
-                className="super-admin-operation-card card-border-navy"
-                onClick={() => setTab('documents')}
-                id="district-card-documents"
-              >
-                <div className="card-top-row">
-                  <span className="card-category-heading">DOCUMENTS</span>
-                  <div className="card-mono-icon-container icon-box-navy">
-                    <Layers size={22} />
-                  </div>
-                </div>
-
-                <div className="card-content-body">
-                  <div className="card-large-title">
-                    <AnimatedCounter value={metrics?.total_documents || 42} suffix=" Verified Files" />
-                  </div>
-                  <div className="card-description-text">
-                    Geo-tagged inspection photos, measurement books (MB), and SHA-256 proofs
-                  </div>
-                </div>
-
-                <div className="card-bottom-row">
-                  <div className="card-action-link">
-                    <span>Browse Documents</span>
-                    <ArrowRight size={14} className="action-arrow" />
-                  </div>
-                </div>
-              </div>
-
-              {/* CARD 8: Reports */}
-              <div
-                className="super-admin-operation-card card-border-blue"
-                onClick={() => setTab('reports')}
-                id="district-card-reports"
-              >
-                <div className="card-top-row">
-                  <span className="card-category-heading">REPORTS</span>
-                  <div className="card-mono-icon-container icon-box-blue">
-                    <PieChart size={22} />
-                  </div>
-                </div>
-
-                <div className="card-content-body">
-                  <div className="card-large-title">
-                    District Expenditure
-                  </div>
-                  <div className="card-description-text">
-                    Generate utilization certificates (UC), audit summaries, and scheme ledgers
-                  </div>
-                </div>
-
-                <div className="card-bottom-row">
-                  <div className="card-action-link">
-                    <span>View Reports</span>
-                    <ArrowRight size={14} className="action-arrow" />
-                  </div>
-                </div>
-              </div>
-
-              {/* CARD 9: Notifications */}
+              {/* CARD 7: Notifications */}
               <div
                 className="super-admin-operation-card card-border-gold"
                 onClick={() => setTab('notifications')}
