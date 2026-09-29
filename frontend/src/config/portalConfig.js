@@ -20,9 +20,12 @@ export const VALID_PORTALS = Object.values(PORTAL_TYPES);
  */
 export const getActivePortal = () => {
   const envVal = import.meta.env.VITE_PORTAL;
-  if (!envVal || typeof envVal !== 'string' || !envVal.trim()) return null;
+  if (!envVal || typeof envVal !== 'string' || !envVal.trim()) {
+    // Default fallback to ADMIN (Super Admin & Finance) if VITE_PORTAL is not configured in deployment environment
+    return PORTAL_TYPES.ADMIN;
+  }
   const normalized = envVal.trim().toUpperCase();
-  return VALID_PORTALS.includes(normalized) ? normalized : 'INVALID';
+  return VALID_PORTALS.includes(normalized) ? normalized : PORTAL_TYPES.ADMIN;
 };
 
 export const PORTAL_DETAILS = {
