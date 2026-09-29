@@ -9,7 +9,6 @@ import {
   Activity,
   ShieldCheck,
   Search,
-  MapPin,
   ExternalLink,
   CheckCircle2,
   AlertCircle,
@@ -595,94 +594,7 @@ const PublicPortalPage = () => {
             </div>
 
             {/* ========================================================= */}
-            {/* SECTION 2: 7-METRIC PUBLIC DASHBOARD STATS                */}
-            {/* ========================================================= */}
-            <div className="section-eyebrow-heading">
-              <span className="section-bullet" />
-              <span>PUBLIC EXPENDITURE & INFRASTRUCTURE OVERVIEW</span>
-            </div>
-
-            <div className="super-admin-financial-overview-panel grid-7">
-              <div className="fin-overview-column">
-                <div className="fin-overview-top-label">
-                  <FileSpreadsheet size={14} color="#006B4F" />
-                  <span>GOVT SCHEMES</span>
-                </div>
-                <span className="fin-overview-value highlight-green">
-                  <AnimatedCounter value={schemesCount} />
-                </span>
-                <span className="fin-overview-subtext">Active national programs</span>
-              </div>
-
-              <div className="fin-overview-column">
-                <div className="fin-overview-top-label">
-                  <Coins size={14} color="#2563EB" />
-                  <span>TOTAL ALLOCATED</span>
-                </div>
-                <span className="fin-overview-value">
-                  {formatIndianDenomination(totalAllocated)}
-                </span>
-                <span className="fin-overview-subtext">Union sanctioned ceiling</span>
-              </div>
-
-              <div className="fin-overview-column">
-                <div className="fin-overview-top-label">
-                  <MapPin size={14} color="#D97706" />
-                  <span>PROJECT LOCATIONS</span>
-                </div>
-                <span className="fin-overview-value" style={{ fontSize: '18px' }}>
-                  {projectLocationsCount}
-                </span>
-                <span className="fin-overview-subtext">Geocoded site coverage</span>
-              </div>
-
-              <div className="fin-overview-column">
-                <div className="fin-overview-top-label">
-                  <TrendingUp size={14} color="#16A34A" />
-                  <span>PROJECT PROGRESS</span>
-                </div>
-                <span className="fin-overview-value highlight-green">
-                  {avgProgress}%
-                </span>
-                <span className="fin-overview-subtext">Average milestone rate</span>
-              </div>
-
-              <div className="fin-overview-column">
-                <div className="fin-overview-top-label">
-                  <Coins size={14} color="#006B4F" />
-                  <span>FUNDS RELEASED</span>
-                </div>
-                <span className="fin-overview-value">
-                  {formatIndianDenomination(fundsReleased)}
-                </span>
-                <span className="fin-overview-subtext">Treasury disbursements</span>
-              </div>
-
-              <div className="fin-overview-column">
-                <div className="fin-overview-top-label">
-                  <Activity size={14} color="#7C3AED" />
-                  <span>BLOCKCHAIN TXNS</span>
-                </div>
-                <span className="fin-overview-value">
-                  <AnimatedCounter value={verifiedTxCount} />
-                </span>
-                <span className="fin-overview-subtext">Immutable Ethereum logs</span>
-              </div>
-
-              <div className="fin-overview-column">
-                <div className="fin-overview-top-label">
-                  <Layers size={14} color="#0284C7" />
-                  <span>PUBLIC DOCUMENTS</span>
-                </div>
-                <span className="fin-overview-value">
-                  <AnimatedCounter value={publicDocsCount} />
-                </span>
-                <span className="fin-overview-subtext">SHA-256 verified files</span>
-              </div>
-            </div>
-
-            {/* ========================================================= */}
-            {/* SECTION 3: 3x3 INTERACTIVE PUBLIC MODULES GRID            */}
+            {/* PUBLIC TRANSPARENCY MODULES GRID                          */}
             {/* ========================================================= */}
             <div className="section-eyebrow-heading">
               <span className="section-bullet" />
@@ -690,114 +602,6 @@ const PublicPortalPage = () => {
             </div>
 
             <div className="super-admin-operations-grid">
-
-              {/* CARD 1: Search Projects */}
-              <div
-                className="super-admin-operation-card card-border-blue"
-                onClick={() => setTab('projects')}
-                id="public-card-projects"
-              >
-                <div className="card-top-row">
-                  <span className="card-category-heading">SEARCH PROJECTS</span>
-                  <div className="card-mono-icon-container icon-box-blue">
-                    <FolderKanban size={22} />
-                  </div>
-                </div>
-
-                <div className="card-content-body">
-                  <div className="card-large-title">
-                    <AnimatedCounter value={stats?.total_projects || 24} suffix=" Public Works" />
-                  </div>
-                  <div className="card-description-text">
-                    Search active infrastructure works, budgets, contractors, and geo-locations
-                  </div>
-                </div>
-
-                <div className="card-bottom-row">
-                  <div className="card-action-link">
-                    <span>Search Projects</span>
-                    <ArrowRight size={14} className="action-arrow" />
-                  </div>
-                </div>
-              </div>
-
-              {/* CARD 2: Search Schemes */}
-              <div
-                className="super-admin-operation-card card-border-green"
-                onClick={() => setTab('schemes')}
-                id="public-card-schemes"
-              >
-                <div className="card-top-row">
-                  <span className="card-category-heading">SEARCH SCHEMES</span>
-                  <div className="card-mono-icon-container icon-box-green">
-                    <FileSpreadsheet size={22} />
-                  </div>
-                </div>
-
-                <div className="card-content-body">
-                  <div className="card-large-title">
-                    <AnimatedCounter value={schemesCount} suffix=" National Schemes" />
-                  </div>
-                  <div className="card-description-text">
-                    Explore centrally sponsored programs, guidelines, and central:state ratios
-                  </div>
-                </div>
-
-                <div className="card-bottom-row">
-                  <div className="card-action-link">
-                    <span>Search Schemes</span>
-                    <ArrowRight size={14} className="action-arrow" />
-                  </div>
-                </div>
-              </div>
-
-              {/* CARD 3: Fund Allocation */}
-              <div
-                className="super-admin-operation-card card-border-gold card-dominant-allocation"
-                onClick={() => setTab('allocation')}
-                id="public-card-allocation"
-              >
-                <div className="card-top-row">
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span className="card-category-heading">FUND ALLOCATION</span>
-                    <span className="card-feature-pill">
-                      <span>● Multi-Tier Flow</span>
-                    </span>
-                  </div>
-                  <div className="card-mono-icon-container icon-box-gold">
-                    <Coins size={22} />
-                  </div>
-                </div>
-
-                <div className="card-content-body">
-                  <div className="card-large-title" style={{ color: '#006B4F' }}>
-                    {formatIndianDenomination(totalAllocated)}
-                  </div>
-                  <div className="card-description-text" style={{ fontWeight: '700', color: '#102A43' }}>
-                    Central Ministry → State → District DRDA
-                  </div>
-
-                  <div className="dominant-progress-container">
-                    <div className="dominant-progress-track">
-                      <div
-                        className="dominant-progress-fill"
-                        style={{ width: '47%' }}
-                      />
-                    </div>
-                    <div className="dominant-progress-meta">
-                      <span>{formatIndianDenomination(fundsReleased)} Disbursed</span>
-                      <span>100% On-Chain</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="card-bottom-row">
-                  <div className="card-action-link" style={{ color: '#006B4F' }}>
-                    <span>Inspect Allocation</span>
-                    <ArrowRight size={14} className="action-arrow" />
-                  </div>
-                </div>
-              </div>
 
 
               {/* CARD 6: QR Verification */}
