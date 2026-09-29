@@ -8,7 +8,6 @@ import {
   Activity,
   ArrowRight,
   ArrowLeft,
-  ShieldCheck,
   FileSpreadsheet,
   History,
   CheckCircle2,
@@ -188,10 +187,9 @@ const FinanceDashboard = () => {
       case 'pending': return 'Central Sanctions & Fund Requests';
       case 'release': return 'Execute State Treasury Transfers';
       case 'state_allocations': return 'State-wise Allocations & Treasury Accounts';
-      case 'disbursements': return 'State Disbursals Ledger';
+      case 'disbursements':
       case 'history': return 'Audited Disbursal Ledger History';
       case 'blockchain': return 'Ethereum Blockchain Ledger Records';
-      case 'reports': return 'Financial Reconciliation & Audit Reports';
       case 'notifications': return 'Ministry of Finance Notifications';
       case 'settings': return 'Finance Department Profile & Treasury Settings';
       default: return 'Finance Module';
@@ -352,34 +350,6 @@ const FinanceDashboard = () => {
 
               {(activeTab === 'disbursements' || activeTab === 'history') && <FinanceHistory />}
               {activeTab === 'blockchain' && <AuditExplorer />}
-
-              {activeTab === 'reports' && (
-                <div className="card" style={{ padding: '28px' }}>
-                  <div className="card-header" style={{ marginBottom: '20px' }}>
-                    <div className="card-title">
-                      <ShieldCheck size={20} color="#006B4F" />
-                      <span>Financial Reconciliation & Statutory Disbursal Report</span>
-                    </div>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
-                    <div style={{ background: '#F8FAFC', padding: '16px', borderRadius: '8px', border: '1px solid #E2E8F0' }}>
-                      <div style={{ fontSize: '11px', fontWeight: '800', color: '#627D98', textTransform: 'uppercase' }}>Total Sanctioned</div>
-                      <div style={{ fontSize: '20px', fontWeight: '800', color: '#102A43', marginTop: '4px' }}>{formatIndianDenomination(totalVolume)}</div>
-                    </div>
-                    <div style={{ background: '#E6F4EA', padding: '16px', borderRadius: '8px', border: '1px solid #A7F3D0' }}>
-                      <div style={{ fontSize: '11px', fontWeight: '800', color: '#006B4F', textTransform: 'uppercase' }}>Total Released</div>
-                      <div style={{ fontSize: '20px', fontWeight: '800', color: '#006B4F', marginTop: '4px' }}>{formatIndianDenomination(totalDisbursed)}</div>
-                    </div>
-                    <div style={{ background: '#EFF6FF', padding: '16px', borderRadius: '8px', border: '1px solid #BFDBFE' }}>
-                      <div style={{ fontSize: '11px', fontWeight: '800', color: '#2563EB', textTransform: 'uppercase' }}>Pending Balance</div>
-                      <div style={{ fontSize: '20px', fontWeight: '800', color: '#2563EB', marginTop: '4px' }}>{formatIndianDenomination(pendingAmount)}</div>
-                    </div>
-                  </div>
-                  <p style={{ fontSize: '13px', color: '#486581', lineHeight: '1.6' }}>
-                    This statutory report certifies that all state treasury releases adhere to Union Cabinet sanctions, with cryptographic blockchain anchoring under the Public Financial Management System guidelines.
-                  </p>
-                </div>
-              )}
 
               {activeTab === 'notifications' && <NotificationsPage />}
               {activeTab === 'settings' && <ProfilePage />}
@@ -668,37 +638,7 @@ const FinanceDashboard = () => {
                 </div>
               </div>
 
-              {/* CARD 5: Disbursements */}
-              <div
-                className="super-admin-operation-card card-border-blue"
-                onClick={() => setTab('disbursements')}
-                id="fin-card-disbursements"
-              >
-                <div className="card-top-row">
-                  <span className="card-category-heading">DISBURSEMENTS</span>
-                  <div className="card-mono-icon-container icon-box-blue">
-                    <Coins size={22} />
-                  </div>
-                </div>
-
-                <div className="card-content-body">
-                  <div className="card-large-title">
-                    {formatIndianDenomination(totalDisbursed)}
-                  </div>
-                  <div className="card-description-text">
-                    Live record of tranches settled to regional treasuries
-                  </div>
-                </div>
-
-                <div className="card-bottom-row">
-                  <div className="card-action-link">
-                    <span>View Disbursements</span>
-                    <ArrowRight size={14} className="action-arrow" />
-                  </div>
-                </div>
-              </div>
-
-              {/* CARD 6: Transaction History */}
+              {/* CARD 5: Transaction History */}
               <div
                 className="super-admin-operation-card card-border-navy"
                 onClick={() => setTab('history')}
@@ -733,7 +673,7 @@ const FinanceDashboard = () => {
                 </div>
               </div>
 
-              {/* CARD 7: Blockchain Records */}
+              {/* CARD 6: Blockchain Records */}
               <div
                 className="super-admin-operation-card card-border-green"
                 onClick={() => setTab('blockchain')}
@@ -763,40 +703,7 @@ const FinanceDashboard = () => {
                 </div>
               </div>
 
-              {/* CARD 8: Reports */}
-              <div
-                className="super-admin-operation-card card-border-gold"
-                onClick={() => setTab('reports')}
-                id="fin-card-reports"
-              >
-                <div className="card-top-row">
-                  <span className="card-category-heading">REPORTS</span>
-                  <div className="card-mono-icon-container icon-box-gold">
-                    <ShieldCheck size={22} />
-                  </div>
-                </div>
-
-                <div className="card-content-body">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div className="card-large-title">
-                      CAG Compliant
-                    </div>
-                    <span className="card-gold-badge">Audited</span>
-                  </div>
-                  <div className="card-description-text">
-                    Statutory financial reconciliation & disbursal audit statements
-                  </div>
-                </div>
-
-                <div className="card-bottom-row">
-                  <div className="card-action-link">
-                    <span>Generate Reports</span>
-                    <ArrowRight size={14} className="action-arrow" />
-                  </div>
-                </div>
-              </div>
-
-              {/* CARD 9: Notifications */}
+              {/* CARD 7: Notifications */}
               <div
                 className="super-admin-operation-card card-border-purple"
                 onClick={() => setTab('notifications')}
@@ -826,7 +733,7 @@ const FinanceDashboard = () => {
                 </div>
               </div>
 
-              {/* CARD 10: Settings */}
+              {/* CARD 8: Settings */}
               <div
                 className="super-admin-operation-card card-border-navy"
                 onClick={() => setTab('settings')}
