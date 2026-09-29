@@ -20,7 +20,6 @@ import {
   ArrowLeft,
   MessageSquareWarning,
   Eye,
-  History,
   PieChart,
   Shield,
   Layers,
@@ -800,65 +799,6 @@ const PublicPortalPage = () => {
                 </div>
               </div>
 
-              {/* CARD 4: Project Progress */}
-              <div
-                className="super-admin-operation-card card-border-teal"
-                onClick={() => setTab('progress')}
-                id="public-card-progress"
-              >
-                <div className="card-top-row">
-                  <span className="card-category-heading">PROJECT PROGRESS</span>
-                  <div className="card-mono-icon-container icon-box-teal">
-                    <TrendingUp size={22} />
-                  </div>
-                </div>
-
-                <div className="card-content-body">
-                  <div className="card-large-title">
-                    {avgProgress}% Avg Completion
-                  </div>
-                  <div className="card-description-text">
-                    Track civil engineering milestones, physical status, and site verification
-                  </div>
-                </div>
-
-                <div className="card-bottom-row">
-                  <div className="card-action-link">
-                    <span>Track Progress</span>
-                    <ArrowRight size={14} className="action-arrow" />
-                  </div>
-                </div>
-              </div>
-
-              {/* CARD 5: Fund Transactions */}
-              <div
-                className="super-admin-operation-card card-border-green"
-                onClick={() => setTab('explorer')}
-                id="public-card-transactions"
-              >
-                <div className="card-top-row">
-                  <span className="card-category-heading">FUND TRANSACTIONS</span>
-                  <div className="card-mono-icon-container icon-box-green">
-                    <History size={22} />
-                  </div>
-                </div>
-
-                <div className="card-content-body">
-                  <div className="card-large-title">
-                    {formatIndianDenomination(fundsReleased)} Released
-                  </div>
-                  <div className="card-description-text">
-                    Trace transparent disbursements through Treasury to contractor bank accounts
-                  </div>
-                </div>
-
-                <div className="card-bottom-row">
-                  <div className="card-action-link">
-                    <span>Trace Transactions</span>
-                    <ArrowRight size={14} className="action-arrow" />
-                  </div>
-                </div>
-              </div>
 
               {/* CARD 6: QR Verification */}
               <div
@@ -890,35 +830,6 @@ const PublicPortalPage = () => {
                 </div>
               </div>
 
-              {/* CARD 7: Blockchain Verification */}
-              <div
-                className="super-admin-operation-card card-border-green"
-                onClick={() => setTab('explorer')}
-                id="public-card-blockchain"
-              >
-                <div className="card-top-row">
-                  <span className="card-category-heading">BLOCKCHAIN VERIFICATION</span>
-                  <div className="card-mono-icon-container icon-box-green">
-                    <Activity size={22} />
-                  </div>
-                </div>
-
-                <div className="card-content-body">
-                  <div className="card-large-title">
-                    Consensus Verified
-                  </div>
-                  <div className="card-description-text">
-                    Cryptographic audit trail recorded on immutable Ethereum blockchain
-                  </div>
-                </div>
-
-                <div className="card-bottom-row">
-                  <div className="card-action-link">
-                    <span>Inspect Ledger</span>
-                    <ArrowRight size={14} className="action-arrow" />
-                  </div>
-                </div>
-              </div>
 
               {/* CARD 8: Reports */}
               <div
