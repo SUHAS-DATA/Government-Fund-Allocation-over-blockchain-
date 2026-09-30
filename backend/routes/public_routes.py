@@ -3,9 +3,10 @@ import string
 import re
 from datetime import datetime, timezone
 from typing import Optional
-from fastapi import APIRouter, Request, status, Query
+from fastapi import APIRouter, Request, status, Query, Response
 from fastapi.responses import JSONResponse
 from database import db, serialize_doc, compute_project_progress
+import qr_service
 
 router = APIRouter()
 public_bp = router
@@ -262,13 +263,63 @@ async def get_public_project_detail(project_id: str):
     if proj.get("progress_percentage") != calc_prog:
         db.projects.update_one({"project_id": project_id}, {"$set": {"progress_percentage": calc_prog}})
 
+    # Fetch QR code if exists
+    qr_doc = db.qr_codes.find_one({"project_id": project_id})
+
+    # Sanitize sensitive data (ZERO leaks: no bank account, no IFSC)
+    sanitized_proj = dict(proj)
+    sanitized_proj.pop("contractor_bank_account", None)
+
     return {
         "success": True,
-        "project": serialize_doc(proj),
+        "project": serialize_doc(sanitized_proj),
+        "qr_code": serialize_doc(qr_doc),
         "milestones": serialize_doc(milestones),
         "documents": serialize_doc(documents),
         "transactions": serialize_doc(transactions)
     }
+
+# --- Public QR Verification Endpoints (No Login Required) ---
+@router.get("/qr/verify/{qr_id:path}")
+@router.get("/verify/{qr_id:path}")
+async def verify_qr_endpoint(qr_id: str):
+    """
+    Public QR Verification Endpoint:
+    Validates scanned QR code against the database.
+    Does not trust QR data directly.
+    Displays verified public information, status, and blockchain proofs.
+    Omits all private/sensitive credentials.
+    """
+    res = qr_service.verify_project_qr(qr_id)
+    if not res.get("success"):
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content=res
+        )
+    return res
+
+@router.get("/qr/{qr_id}/image")
+async def get_qr_image_endpoint(qr_id: str):
+    """
+    Returns the QR code PNG image directly.
+    """
+    qr_doc = db.qr_codes.find_one({"$or": [{"qr_id": qr_id}, {"project_id": qr_id}]})
+    if not qr_doc or not qr_doc.get("qr_image_data"):
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"success": False, "message": "QR image not found"}
+        )
+    
+    # Extract raw base64 data
+    data_uri = qr_doc["qr_image_data"]
+    if "," in data_uri:
+        b64_part = data_uri.split(",", 1)[1]
+    else:
+        b64_part = data_uri
+        
+    import base64
+    img_bytes = base64.b64decode(b64_part)
+    return Response(content=img_bytes, media_type="image/png")
 
 # --- Public Grievance Portal ---
 @router.post("/grievance", status_code=status.HTTP_201_CREATED)

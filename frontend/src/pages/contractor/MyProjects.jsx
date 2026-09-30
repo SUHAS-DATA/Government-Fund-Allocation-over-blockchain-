@@ -21,9 +21,13 @@ import {
   RotateCcw,
   Ban,
   Building2,
-  Receipt
+  Receipt,
+  QrCode,
+  Download,
+  ExternalLink,
+  Eye
 } from 'lucide-react';
-import API from '../../services/api';
+import API, { getApiBaseUrl } from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
 import DocumentHashViewer from '../../components/DocumentHashViewer';
@@ -41,6 +45,11 @@ const MyProjects = () => {
   const [showProgressModal, setShowProgressModal] = useState(false);
   const [showFundRequestModal, setShowFundRequestModal] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
+  const [showEvidenceModal, setShowEvidenceModal] = useState(false);
+  const [evidencePhaseIndex, setEvidencePhaseIndex] = useState(0);
+  const [evidenceFile, setEvidenceFile] = useState(null);
+  const [evidenceDescription, setEvidenceDescription] = useState('');
+  const [previewEvidence, setPreviewEvidence] = useState(null);
 
   const [activePhaseIndex, setActivePhaseIndex] = useState(0);
   const [fundRequestAmount, setFundRequestAmount] = useState(0);
@@ -109,7 +118,7 @@ const MyProjects = () => {
     try {
       const res = await API.post(`/contractor/projects/${projectId}/accept`);
       if (res.success) {
-        setActionSuccess(`Project ${projectId} Accepted! 3 standardized phases (30%, 40%, 30%) initialized. Phase 1 is ready for Fund Request.`);
+        setActionSuccess(`Project ${projectId} Accepted! Contract ${res.contract_id || ''} confirmed and unique QR code automatically generated.`);
         const detailsRes = await API.get(`/contractor/projects/${projectId}`);
         if (detailsRes.success) {
           setSelectedProject(detailsRes.project);
@@ -122,6 +131,17 @@ const MyProjects = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleDownloadContractorQr = () => {
+    const qrData = projectDetails?.qr_code?.qr_image_data || selectedProject?.qr_code?.qr_image_data;
+    if (!qrData) return;
+    const link = document.createElement('a');
+    link.href = qrData;
+    link.download = `${selectedProject?.contract_id || selectedProject?.project_id}_Official_QR.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // --- Reject Project Assignment ---
@@ -243,6 +263,44 @@ const MyProjects = () => {
       }
     } catch (err) {
       setActionError(err.message || 'Progress upload failed');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // --- Upload Work Evidence (Photos, Progress Images, PDFs, Completion Docs) ---
+  const handleOpenEvidenceModal = (phase) => {
+    setEvidencePhaseIndex(phase.milestone_index);
+    setEvidenceFile(null);
+    setEvidenceDescription(phase.rejection_reason ? `Rectified work evidence for Phase #${phase.milestone_index + 1}` : `Completed work evidence for Phase #${phase.milestone_index + 1}`);
+    setShowEvidenceModal(true);
+  };
+
+  const handleSubmitEvidence = async (e) => {
+    e.preventDefault();
+    if (!selectedProject || !evidenceFile) return;
+    setSubmitting(true);
+    setActionError('');
+    setActionSuccess('');
+
+    const formData = new FormData();
+    formData.append('file', evidenceFile);
+    formData.append('description', evidenceDescription);
+
+    try {
+      const res = await API.post(`/contractor/projects/${selectedProject.project_id}/milestones/${evidencePhaseIndex}/evidence`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      if (res.success) {
+        setActionSuccess(`Work evidence submitted successfully! Evidence Status: Pending Verification.`);
+        setShowEvidenceModal(false);
+        setEvidenceFile(null);
+        setEvidenceDescription('');
+        openProjectDetails(selectedProject);
+        loadProjects();
+      }
+    } catch (err) {
+      setActionError(err.message || 'Failed to upload work evidence.');
     } finally {
       setSubmitting(false);
     }
@@ -463,6 +521,90 @@ const MyProjects = () => {
             </div>
           )}
 
+          {/* QR Verification Section for Accepted Project / Contract */}
+          {(selectedProject.assignment_status === 'ACCEPTED' || selectedProject.contract_status === 'ACCEPTED' || selectedProject.status === 'IN_PROGRESS' || projectDetails?.qr_code || selectedProject.qr_code) && (
+            <div style={{
+              margin: '16px 0 24px 0',
+              padding: '22px 24px',
+              background: 'linear-gradient(135deg, #F0FDF4 0%, #DCFCE7 100%)',
+              border: '2px solid #86EFAC',
+              borderRadius: 'var(--radius-sm)',
+              boxShadow: 'var(--shadow-xs)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '18px' }}>
+                <div style={{ flex: 1, minWidth: '280px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                    <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '800' }}>
+                      <CheckCircle2 size={13} />
+                      <span>Project Accepted</span>
+                    </span>
+                    <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '800' }}>
+                      <CheckCircle2 size={13} />
+                      <span>Contract Accepted</span>
+                    </span>
+                    <span className="badge badge-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: '800' }}>
+                      <QrCode size={13} />
+                      <span>QR Generated</span>
+                    </span>
+                  </div>
+
+                  <h4 style={{ fontSize: '16px', fontWeight: '800', color: '#166534', margin: '4px 0 6px 0' }}>
+                    QR Verification & Official Contract Stamp
+                  </h4>
+
+                  <div style={{ fontSize: '13px', color: '#15803D', lineHeight: 1.5, marginBottom: '14px' }}>
+                    Contract ID: <strong>{projectDetails?.qr_code?.contract_id || selectedProject.contract_id || 'CON-ACCEPTED'}</strong> • QR Status: <strong style={{ color: '#16A34A' }}>ACTIVE</strong>
+                    <br />
+                    Citizens and government inspectors can scan this official QR code at the construction site to verify permitted project milestones, financial commitments, and blockchain transaction receipts without requiring a login.
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <button
+                      className="btn btn-outline btn-sm"
+                      onClick={handleDownloadContractorQr}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#FFFFFF', borderColor: '#16A34A', color: '#166534', fontWeight: '700' }}
+                    >
+                      <Download size={14} />
+                      <span>Download QR</span>
+                    </button>
+
+                    <a
+                      href={`/verify/${projectDetails?.qr_code?.qr_id || selectedProject.qr_id || `QR-${selectedProject.contract_id}`}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-primary btn-sm"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', textDecoration: 'none' }}
+                    >
+                      <ExternalLink size={14} />
+                      <span>View Verification</span>
+                    </a>
+                  </div>
+                </div>
+
+                {/* QR Code Visual Display Card */}
+                {(projectDetails?.qr_code?.qr_image_data || selectedProject.qr_code?.qr_image_data) && (
+                  <div style={{
+                    background: '#FFFFFF',
+                    padding: '12px',
+                    borderRadius: '12px',
+                    border: '1.5px solid #86EFAC',
+                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.06)',
+                    textAlign: 'center'
+                  }}>
+                    <img
+                      src={projectDetails?.qr_code?.qr_image_data || selectedProject.qr_code?.qr_image_data}
+                      alt="Verified Project QR Code"
+                      style={{ width: '115px', height: '115px', display: 'block', borderRadius: '4px' }}
+                    />
+                    <span style={{ fontSize: '10px', fontWeight: '800', color: '#166534', display: 'block', marginTop: '6px', letterSpacing: '0.04em' }}>
+                      SCAN TO VERIFY
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* 3-PHASE SEQUENTIAL LIFECYCLE CARDS */}
           <div style={{ marginTop: '16px', marginBottom: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
@@ -613,6 +755,147 @@ const MyProjects = () => {
                       </div>
                     )}
 
+                    {/* Phase Work Evidence Deliverables (Contractor -> District Verification) */}
+                    {(() => {
+                      const pEvidence = (projectDetails?.evidence || []).filter(
+                        (e) => e.milestone_index === phase.milestone_index || e.milestoneId === phase._id || e.milestoneId === `MS-${selectedProject.project_id}-${phase.milestone_index + 1}`
+                      );
+                      if (pEvidence.length === 0) return null;
+
+                      return (
+                        <div style={{ marginTop: '12px', background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 'var(--radius-sm)', padding: '12px 14px' }}>
+                          <div style={{ fontWeight: '800', fontSize: '13px', color: 'var(--text-main)', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <FileText size={15} color="#0284C7" />
+                              <span>Uploaded Work Evidence ({pEvidence.length})</span>
+                            </div>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                              Deliverables for District Department Verification
+                            </span>
+                          </div>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {pEvidence.map((ev, evIdx) => {
+                              const isImg = ev.file_type?.startsWith('image/') || /\.(jpg|jpeg|png|webp)$/i.test(ev.file_name || '');
+                              const isPdfOrDoc = ev.file_type?.includes('pdf') || /\.(pdf|doc|docx)$/i.test(ev.file_name || '');
+                              const token = localStorage.getItem('govtfund_token') || '';
+                              const fileViewUrl = `${getApiBaseUrl()}/evidence/${ev.evidence_id || ev.evidenceId}/file?token=${token}`;
+                              const fileDownloadUrl = `${fileViewUrl}&download=1`;
+                              const isEvVerified = ev.status === 'VERIFIED';
+                              const isEvRejected = ev.status === 'REJECTED';
+                              const isEvPending = ev.status === 'SUBMITTED' || ev.status === 'DRAFT' || ev.status === 'PENDING';
+
+                              return (
+                                <div
+                                  key={ev.evidence_id || evIdx}
+                                  style={{
+                                    background: '#FFFFFF',
+                                    border: isEvVerified ? '1.5px solid #86EFAC' : isEvRejected ? '1.5px solid #FCA5A5' : '1px solid #CBD5E1',
+                                    borderRadius: '6px',
+                                    padding: '10px 12px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '6px'
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '6px' }}>
+                                    <div>
+                                      <strong style={{ fontSize: '13px', color: 'var(--text-main)' }}>{ev.file_name || `Evidence #${evIdx + 1}`}</strong>
+                                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                        Uploaded: {ev.uploaded_at ? new Date(ev.uploaded_at).toLocaleString('en-IN') : 'Recently'}
+                                      </div>
+                                    </div>
+
+                                    <div>
+                                      {isEvVerified && (
+                                        <span className="badge badge-success" style={{ background: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC', fontWeight: '700' }}>
+                                          ✓ VERIFIED
+                                        </span>
+                                      )}
+                                      {isEvRejected && (
+                                        <span className="badge badge-danger" style={{ background: '#FEE2E2', color: '#991B1B', border: '1px solid #FCA5A5', fontWeight: '700' }}>
+                                          ⚠️ REJECTED
+                                        </span>
+                                      )}
+                                      {isEvPending && (
+                                        <span className="badge badge-warning" style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D', fontWeight: '700' }}>
+                                          ⏳ Pending Verification
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {ev.description && (
+                                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                                      {ev.description}
+                                    </div>
+                                  )}
+
+                                  {/* Inline Preview for Image; View / Download for PDFs & Docs */}
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px', flexWrap: 'wrap' }}>
+                                    {isImg && (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div
+                                          style={{ width: '80px', height: '55px', borderRadius: '4px', overflow: 'hidden', border: '1px solid #CBD5E1', cursor: 'pointer', background: '#F1F5F9' }}
+                                          onClick={() => setPreviewEvidence({ ...ev, url: fileViewUrl })}
+                                          title="Click to view image preview"
+                                        >
+                                          <img src={fileViewUrl} alt={ev.file_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; }} />
+                                        </div>
+                                        <button
+                                          type="button"
+                                          className="btn btn-secondary btn-sm"
+                                          style={{ fontSize: '11px', padding: '3px 8px' }}
+                                          onClick={() => setPreviewEvidence({ ...ev, url: fileViewUrl })}
+                                        >
+                                          <Eye size={12} />
+                                          <span>View Image</span>
+                                        </button>
+                                      </div>
+                                    )}
+
+                                    {isPdfOrDoc && (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                        <a
+                                          href={fileViewUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="btn btn-secondary btn-sm"
+                                          style={{ fontSize: '11px', padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                        >
+                                          <Eye size={12} />
+                                          <span>View</span>
+                                        </a>
+                                        <a
+                                          href={fileDownloadUrl}
+                                          download={ev.file_name}
+                                          className="btn btn-secondary btn-sm"
+                                          style={{ fontSize: '11px', padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                        >
+                                          <Download size={12} />
+                                          <span>Download</span>
+                                        </a>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Rejection Alert Box */}
+                                  {isEvRejected && (ev.rejection_reason || ev.rejectionReason) && (
+                                    <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '4px', padding: '8px 10px', fontSize: '12px', color: '#B91C1C', marginTop: '4px' }}>
+                                      <strong>Rejection Reason:</strong> {ev.rejection_reason || ev.rejectionReason}
+                                      <div style={{ marginTop: '4px', fontSize: '11px', color: '#7F1D1D' }}>
+                                        District Officer requires rectification. Click "[Upload Work Evidence]" below to upload corrected deliverables.
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     {/* Action Bar per Phase */}
                     {!isBankDeactivated && (
                       <div style={{
@@ -636,7 +919,7 @@ const MyProjects = () => {
                           {isLocked && 'Complete preceding phases to unlock this phase.'}
                         </div>
 
-                        <div style={{ display: 'flex', gap: '8px' }}>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                           {/* Request Funds */}
                           {isReadyForFund && (
                             <button
@@ -646,6 +929,19 @@ const MyProjects = () => {
                             >
                               <Coins size={13} />
                               <span>Request Phase Funds ({formatCurrency(phase.amount)})</span>
+                            </button>
+                          )}
+
+                          {/* Upload Work Evidence Button */}
+                          {!isLocked && !isCompleted && (
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              style={{ borderColor: '#0284C7', color: '#0284C7', background: '#F0F9FF', display: 'flex', alignItems: 'center', gap: '5px' }}
+                              onClick={() => handleOpenEvidenceModal(phase)}
+                            >
+                              <Camera size={13} />
+                              <span>Upload Work Evidence</span>
                             </button>
                           )}
 
@@ -899,6 +1195,71 @@ const MyProjects = () => {
             <span>Confirm Reject Project (End)</span>
           </button>
         </div>
+      </Modal>
+
+      {/* MODAL 4: Upload Work Evidence */}
+      <Modal title={`Upload Work Evidence — Phase #${evidencePhaseIndex + 1}`} isOpen={showEvidenceModal} onClose={() => setShowEvidenceModal(false)}>
+        <form onSubmit={handleSubmitEvidence}>
+          <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', padding: '12px 14px', borderRadius: 'var(--radius-sm)', marginBottom: '14px', fontSize: '12px', color: '#1E40AF' }}>
+            Upload site photographs, progress images, PDF completion certificates, or quality test documents for District Department verification.
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Evidence Deliverable File (Images: JPG, PNG, WEBP • Docs: PDF, DOC, DOCX)</label>
+            <input
+              type="file"
+              className="form-control"
+              accept="image/*,.pdf,.doc,.docx"
+              onChange={(e) => setEvidenceFile(e.target.files[0])}
+              required
+            />
+            {evidenceFile && (
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                Selected: <strong>{evidenceFile.name}</strong> ({(evidenceFile.size / 1024).toFixed(1)} KB)
+              </div>
+            )}
+          </div>
+
+          <div className="form-group">
+            <label className="form-label">Evidence Description / Work Remarks</label>
+            <textarea
+              className="form-control"
+              rows="3"
+              placeholder="e.g. Geotagged site photograph showing foundation reinforced concrete curing..."
+              value={evidenceDescription}
+              onChange={(e) => setEvidenceDescription(e.target.value)}
+              required
+            ></textarea>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+            <button type="button" className="btn btn-secondary" onClick={() => setShowEvidenceModal(false)}>
+              Cancel
+            </button>
+            <button type="submit" className="btn btn-primary" disabled={submitting || !evidenceFile} style={{ background: '#0284C7', borderColor: '#0284C7' }}>
+              <Upload size={14} />
+              <span>{submitting ? 'Uploading & Anchoring...' : 'Submit Evidence'}</span>
+            </button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* MODAL 5: Evidence Full Image Preview */}
+      <Modal title={`Evidence Preview: ${previewEvidence?.file_name || 'Work Image'}`} isOpen={!!previewEvidence} onClose={() => setPreviewEvidence(null)} maxWidth="700px">
+        {previewEvidence && (
+          <div style={{ textAlign: 'center' }}>
+            <img
+              src={previewEvidence.url}
+              alt={previewEvidence.file_name}
+              style={{ maxWidth: '100%', maxHeight: '550px', borderRadius: '8px', border: '1px solid #E2E8F0', objectFit: 'contain' }}
+            />
+            <div style={{ marginTop: '12px', fontSize: '12px', color: 'var(--text-secondary)', textAlign: 'left', background: 'var(--bg-subtle)', padding: '10px', borderRadius: '6px' }}>
+              <div><strong>File:</strong> {previewEvidence.file_name}</div>
+              {previewEvidence.description && <div><strong>Description:</strong> {previewEvidence.description}</div>}
+              {previewEvidence.sha256_hash && <div style={{ fontFamily: 'monospace', fontSize: '11px', marginTop: '4px' }}>SHA-256: {previewEvidence.sha256_hash}</div>}
+            </div>
+          </div>
+        )}
       </Modal>
 
     </div>

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Send, CheckCircle2, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Send, CheckCircle2, AlertCircle, ShieldCheck, Landmark, ArrowRight, Eye } from 'lucide-react';
 import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
 import FundAmountInput from '../../components/FundAmountInput';
+import TransactionDetailsModal from '../../components/TransactionDetailsModal';
 
 import { getDistrictsByState, getState } from '../../config/statesDistrictsData';
 import { useRealtimeSync } from '../../context/RealtimeContext';
@@ -17,6 +18,10 @@ const AllocateToDistrict = () => {
   const [selectedTransferId, setSelectedTransferId] = useState(searchParams.get('transfer_id') || '');
   const [districtName, setDistrictName] = useState('');
   const [amount, setAmount] = useState(50000000); // 5 Crores
+
+  const [sourceAccount, setSourceAccount] = useState(null);
+  const [destAccount, setDestAccount] = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [successResult, setSuccessResult] = useState(null);
@@ -53,6 +58,32 @@ const AllocateToDistrict = () => {
       }
     }
   }, [selectedTransferId, activeStateCode, availableDistricts]);
+
+  // Load registered State Treasury bank account
+  useEffect(() => {
+    if (activeStateCode) {
+      API.get(`/bank-accounts/state/${activeStateCode}`)
+        .then((res) => {
+          if (res.success && res.account) {
+            setSourceAccount(res.account);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [activeStateCode]);
+
+  // Load registered District Agency bank account
+  useEffect(() => {
+    if (districtName) {
+      API.get(`/bank-accounts/district/${encodeURIComponent(districtName)}`)
+        .then((res) => {
+          if (res.success && res.account) {
+            setDestAccount(res.account);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [districtName]);
 
   const availableBalance = activeTransfer ? Math.max(0, activeTransfer.amount - (activeTransfer.allocated_to_districts || 0)) : 0;
 
@@ -144,10 +175,16 @@ const AllocateToDistrict = () => {
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap' }}>
             <button className="btn btn-secondary" onClick={() => setSuccessResult(null)}>
               Allocate to Another District
             </button>
+            {successResult.transaction && (
+              <button className="btn btn-secondary" onClick={() => setShowDetailsModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Eye size={16} />
+                <span>View Transaction Details</span>
+              </button>
+            )}
             <button className="btn btn-primary" onClick={() => navigate('/state/history')}>
               <span>View State Allocation History</span>
             </button>
@@ -231,12 +268,84 @@ const AllocateToDistrict = () => {
               />
             </div>
 
+            {/* Registered Bank Account Routing Card */}
+            <div style={{
+              background: '#F8FAFC',
+              border: '1px solid #E2E8F0',
+              borderRadius: 'var(--radius-md)',
+              padding: '16px',
+              marginBottom: '20px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <div style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Landmark size={15} color="var(--color-primary)" />
+                  <span>Registered Bank Account Mapping</span>
+                </div>
+                <span style={{ fontSize: '11px', background: 'var(--color-success-bg)', color: 'var(--color-success)', border: '1px solid var(--color-success-border)', padding: '2px 8px', borderRadius: '10px', fontWeight: '700' }}>
+                  Verified Inter-Treasury Routing
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '14px', alignItems: 'center' }}>
+                {/* Source State Account */}
+                <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 'var(--radius-sm)', padding: '12px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', marginBottom: '4px' }}>
+                    Debit: State Treasury
+                  </div>
+                  <div style={{ fontWeight: '800', fontSize: '12px', color: 'var(--text-main)', marginBottom: '3px' }}>
+                    {sourceAccount?.account_holder_name || `${activeStateObj?.name || activeStateCode} State Treasury`}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                    Bank: <strong>{sourceAccount?.bank_name || 'State Bank of India'}</strong>
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                    A/C: <strong>{sourceAccount?.masked_account_number || 'XXXX XXXX 8472'}</strong>
+                  </div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                    IFSC: {sourceAccount?.ifsc || 'SBIN0004582'}
+                  </div>
+                </div>
+
+                {/* Direction */}
+                <div style={{ textAlign: 'center' }}>
+                  <ArrowRight size={20} color="var(--color-primary)" />
+                </div>
+
+                {/* Destination District Account */}
+                <div style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: 'var(--radius-sm)', padding: '12px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#059669', textTransform: 'uppercase', marginBottom: '4px' }}>
+                    Credit: District Agency
+                  </div>
+                  <div style={{ fontWeight: '800', fontSize: '12px', color: 'var(--text-main)', marginBottom: '3px' }}>
+                    {destAccount?.account_holder_name || `${districtName || 'District'} Development Agency`}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                    Bank: <strong>{destAccount?.bank_name || 'Canara Bank'}</strong>
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                    A/C: <strong>{destAccount?.masked_account_number || 'XXXX XXXX 3914'}</strong>
+                  </div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                    IFSC: {destAccount?.ifsc || 'CNRB0002104'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <button type="submit" className="btn btn-primary btn-lg" style={{ width: '100%', marginTop: '10px' }} disabled={submitting || availableBalance <= 0}>
               <ShieldCheck size={16} />
               <span>{submitting ? 'Executing On-Chain District Allocation...' : 'Allocate Funds to District Agency'}</span>
             </button>
           </form>
         </div>
+      )}
+
+      {/* Transaction Details Modal */}
+      {showDetailsModal && successResult?.transaction && (
+        <TransactionDetailsModal
+          transaction={successResult.transaction}
+          onClose={() => setShowDetailsModal(false)}
+        />
       )}
     </div>
   );

@@ -10,6 +10,9 @@ from bson import ObjectId
 from database import db, serialize_doc, compute_project_progress
 from auth_middleware import require_roles
 import blockchain_service as bcs
+import qr_service
+from realtime_manager import realtime_manager
+import bank_account_service as bas
 
 router = APIRouter()
 district_bp = router
@@ -545,12 +548,16 @@ async def get_project_details(
 
     milestones = list(db.milestones.find({"project_id": project_id}).sort("milestone_index", 1))
     documents = list(db.documents.find({"entity_id": project_id}).sort("uploaded_at", -1))
+    evidence = list(db.evidence.find({"$or": [{"project_id": project_id}, {"projectId": project_id}]}).sort("uploaded_at", -1))
+    qr_doc = db.qr_codes.find_one({"project_id": project_id})
 
     return {
         "success": True,
         "project": serialize_doc(proj),
+        "qr_code": serialize_doc(qr_doc),
         "milestones": serialize_doc(milestones),
-        "documents": serialize_doc(documents)
+        "documents": serialize_doc(documents),
+        "evidence": serialize_doc(evidence)
     }
 
 @router.post("/projects/{project_id}/assign-contractor")
@@ -623,9 +630,13 @@ async def assign_contractor(
         "deactivation_reason": None
     }
 
+    contract_id = proj.get("contract_id") or qr_service.generate_contract_id(project_id)
+
     db.projects.update_one(
         {"project_id": project_id},
         {"$set": {
+            "contract_id": contract_id,
+            "contract_status": "PENDING_ACCEPTANCE",
             "contractor_id": contractor_assigned_id,
             "contractor_email": contractor_email,
             "contractor_name": company_name,
@@ -874,10 +885,16 @@ async def verify_phase_fund_request(
 
     # Decision Node: APPROVE -> Step 10: Allocate Funds & Step 11: Transfer Funds to Contractor Bank Account
     allocated_amount = phase.get("amount", 0.0)
-    bank_acc = proj.get("contractor_bank_account") or {
-        "bank_name": "State Bank of India",
-        "account_number": "SBIN-992834710293",
-        "ifsc_code": "SBIN0001234",
+
+    # Resolve Authoritative Bank Accounts (Entity -> Account Mapping)
+    source_account = bas.get_or_create_district_account(proj.get("district_name", "Belagavi"), proj.get("state_code", "KA"))
+    destination_account = bas.get_or_create_contractor_account(proj.get("contractor_id", "CON-001"), proj.get("contractor_name"))
+
+    bank_acc = {
+        "bank_name": destination_account.get("bank_name", "State Bank of India"),
+        "account_number": destination_account.get("account_number", "SBIN-992834710293"),
+        "masked_account_number": bas.mask_account_number(destination_account.get("account_number")),
+        "ifsc_code": destination_account.get("ifsc", "SBIN0001234"),
         "wallet_address": proj.get("contractor_wallet", "0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
     }
 
@@ -895,18 +912,21 @@ async def verify_phase_fund_request(
     except Exception as e:
         print(f"Warning executing bank transfer transaction on blockchain: {e}")
 
+    now_utc = datetime.now(timezone.utc)
     db.milestones.update_one(
         {"project_id": project_id, "milestone_index": milestone_index},
         {"$set": {
             "status": "FUNDS_TRANSFERRED",
             "phase_status": "FUNDS_TRANSFERRED",
             "funds_approved_by": current_user["name"],
-            "funds_approved_at": datetime.now(timezone.utc),
-            "funds_transferred_at": datetime.now(timezone.utc),
+            "funds_approved_at": now_utc,
+            "funds_transferred_at": now_utc,
             "sender_address": from_dist,
             "receiver_address": to_contractor,
             "sender_department": f"{proj.get('district_name')} District Implementing Agency",
             "receiver_department": f"{proj.get('contractor_name')} (Contractor)",
+            "source_account_id": source_account.get("account_id"),
+            "destination_account_id": destination_account.get("account_id"),
             "transfer_tx_hash": tx_hash,
             "blockchainTxHash": tx_hash,
             "senderAddress": from_dist,
@@ -915,9 +935,25 @@ async def verify_phase_fund_request(
             "receiverDepartment": f"{proj.get('contractor_name')} (Contractor)",
             "amount": allocated_amount,
             "projectId": project_id,
-            "timestamp": datetime.now(timezone.utc),
+            "timestamp": now_utc,
             "fund_rejection_reason": None
         }}
+    )
+
+    # Create Authoritative Unified Financial Transaction Record
+    financial_tx = bas.record_financial_transaction(
+        transaction_type="DISTRICT_TO_CONTRACTOR",
+        source_account=source_account,
+        destination_account=destination_account,
+        amount=allocated_amount,
+        purpose=f"Phase #{milestone_index + 1} Advance / Fund Release for Project {project_id}",
+        blockchain_tx_hash=tx_hash,
+        blockchain_block=block_num,
+        related_project_id=project_id,
+        related_contract_id=proj.get("contract_id"),
+        related_milestone_index=milestone_index,
+        created_by=current_user["name"],
+        status="COMPLETED"
     )
 
     # Record On-Chain Bank Transfer Ledger Entry
@@ -934,7 +970,7 @@ async def verify_phase_fund_request(
         "to_address": to_contractor,
         "receiverAddress": to_contractor,
         "from_entity": f"{proj.get('district_name')} District Development Agency",
-        "to_entity": f"{proj.get('contractor_name')} ({bank_acc.get('bank_name')} A/C: {bank_acc.get('account_number')})",
+        "to_entity": f"{proj.get('contractor_name')} ({bank_acc.get('bank_name')} A/C: {bank_acc.get('masked_account_number')})",
         "sender_department": f"{proj.get('district_name')} District Implementing Agency",
         "senderDepartment": f"{proj.get('district_name')} District Implementing Agency",
         "receiver_department": f"{proj.get('contractor_name')} (Contractor)",
@@ -942,23 +978,41 @@ async def verify_phase_fund_request(
         "transfer_tier": "DISTRICT_ESCROW_TO_CONTRACTOR_BANK",
         "flow_stage": f"4. Disbursal Phase #{milestone_index + 1}: District -> Contractor Bank Account",
         "amount": allocated_amount,
-        "details": f"Phase #{milestone_index + 1} Allocated Funds Transferred to {proj.get('contractor_name')} Bank Account ({bank_acc.get('bank_name')} A/C: {bank_acc.get('account_number')}, IFSC: {bank_acc.get('ifsc_code')})",
-        "timestamp": datetime.now(timezone.utc)
+        "details": f"Phase #{milestone_index + 1} Allocated Funds Transferred to {proj.get('contractor_name')} Bank Account ({bank_acc.get('bank_name')} A/C: {bank_acc.get('masked_account_number')}, IFSC: {bank_acc.get('ifsc_code')})",
+        "timestamp": now_utc
     })
 
     if proj.get("contractor_id"):
         db.notifications.insert_one({
             "recipient_user_id": proj.get("contractor_id"),
             "title": f"Phase #{milestone_index + 1} Funds Transferred to Bank Account (INR {allocated_amount:,.2f})",
-            "message": f"District Officer approved and transferred INR {allocated_amount:,.2f} to your {bank_acc.get('bank_name')} account ({bank_acc.get('account_number')}). You may now execute work.",
+            "message": f"District Officer approved and transferred INR {allocated_amount:,.2f} to your {bank_acc.get('bank_name')} account ({bank_acc.get('masked_account_number')}). You may now execute work.",
             "link": f"/contractor/my-projects?project_id={project_id}",
             "read": False,
-            "created_at": datetime.now(timezone.utc)
+            "created_at": now_utc
         })
+
+    # Real-Time WebSocket Synchronization Broadcast
+    realtime_manager.trigger_broadcast("TRANSACTION_COMPLETED", {
+        "transaction_id": financial_tx["transaction_id"],
+        "transaction_type": "DISTRICT_TO_CONTRACTOR",
+        "amount": allocated_amount,
+        "source_entity": source_account.get("account_holder_name"),
+        "destination_entity": destination_account.get("account_holder_name"),
+        "blockchain_tx_hash": tx_hash
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "transactions",
+        "action": "TRANSACTION_COMPLETED",
+        "transaction_id": financial_tx["transaction_id"]
+    })
 
     return {
         "success": True,
-        "message": f"Phase #{milestone_index + 1} funds (INR {allocated_amount:,.2f}) allocated and transferred to Contractor Bank Account ({bank_acc.get('bank_name')} A/C: {bank_acc.get('account_number')}).",
+        "message": f"Phase #{milestone_index + 1} funds (INR {allocated_amount:,.2f}) allocated and transferred to Contractor Bank Account ({bank_acc.get('bank_name')} A/C: {bank_acc.get('masked_account_number')}).",
+        "transaction": serialize_doc(financial_tx),
+        "source_account": bas.serialize_bank_account(source_account),
+        "destination_account": bas.serialize_bank_account(destination_account),
         "blockchain": {
             "tx_hash": tx_hash,
             "block_number": block_num
@@ -995,10 +1049,27 @@ async def transfer_to_contractor(
 
     # Find project if registered in MongoDB
     proj = db.projects.find_one({"project_id": project_id})
-    if proj and proj.get("contractor_name"):
-        contractor_name = proj.get("contractor_name")
+    if proj:
+        tot_budget = float(proj.get("total_budget", 0.0) or proj.get("allocated_budget", 0.0))
+        rel_amt = float(proj.get("released_amount", 0.0))
+        rem_budget = max(0.0, tot_budget - rel_amt)
+        if amount > rem_budget and tot_budget > 0:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "success": False,
+                    "message": f"Insufficient available balance. Transfer amount (INR {amount:,.2f}) exceeds remaining project budget (INR {rem_budget:,.2f})"
+                }
+            )
+
+        if proj.get("contractor_name"):
+            contractor_name = proj.get("contractor_name")
         if not contractor_wallet:
             contractor_wallet = proj.get("contractor_wallet")
+
+    # Resolve Authoritative Bank Accounts (Entity -> Account Mapping)
+    source_account = bas.get_or_create_district_account(district_name, proj.get("state_code", "KA") if proj else "KA")
+    destination_account = bas.get_or_create_contractor_account(proj.get("contractor_id") if proj else contractor_name, contractor_name)
 
     rand_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
     transfer_id = f"TRF-CON-{rand_suffix}"
@@ -1034,6 +1105,14 @@ async def transfer_to_contractor(
         "amount": amount,
         "notes": notes,
         "transferred_by": current_user["name"],
+        "source_account_id": source_account.get("account_id"),
+        "source_bank_name": source_account.get("bank_name"),
+        "source_masked_account": bas.mask_account_number(source_account.get("account_number")),
+        "source_ifsc": source_account.get("ifsc"),
+        "destination_account_id": destination_account.get("account_id"),
+        "destination_bank_name": destination_account.get("bank_name"),
+        "destination_masked_account": bas.mask_account_number(destination_account.get("account_number")),
+        "destination_ifsc": destination_account.get("ifsc"),
         "sender_address": from_dist,
         "senderAddress": from_dist,
         "receiver_address": to_contractor,
@@ -1049,6 +1128,21 @@ async def transfer_to_contractor(
         "timestamp": now_utc
     }
     db.contractor_transfers.insert_one(transfer_doc)
+
+    # Create Authoritative Unified Financial Transaction Record
+    financial_tx = bas.record_financial_transaction(
+        transaction_type="DISTRICT_TO_CONTRACTOR",
+        source_account=source_account,
+        destination_account=destination_account,
+        amount=amount,
+        purpose=notes,
+        blockchain_tx_hash=tx_hash,
+        blockchain_block=block_num,
+        related_project_id=project_id,
+        related_contract_id=proj.get("contract_id") if proj else None,
+        created_by=current_user["name"],
+        status="COMPLETED"
+    )
 
     if proj:
         new_released = proj.get("released_amount", 0.0) + amount
@@ -1087,10 +1181,28 @@ async def transfer_to_contractor(
             "timestamp": now_utc
         })
 
+    # Real-Time WebSocket Synchronization Broadcast
+    realtime_manager.trigger_broadcast("TRANSACTION_COMPLETED", {
+        "transaction_id": financial_tx["transaction_id"],
+        "transaction_type": "DISTRICT_TO_CONTRACTOR",
+        "amount": amount,
+        "source_entity": source_account.get("account_holder_name"),
+        "destination_entity": destination_account.get("account_holder_name"),
+        "blockchain_tx_hash": tx_hash
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "transactions",
+        "action": "TRANSACTION_COMPLETED",
+        "transaction_id": financial_tx["transaction_id"]
+    })
+
     return {
         "success": True,
         "message": f"Funds (INR {amount:,.2f}) successfully transferred to {contractor_name} and recorded on blockchain",
         "transfer": serialize_doc(transfer_doc),
+        "transaction": serialize_doc(financial_tx),
+        "source_account": bas.serialize_bank_account(source_account),
+        "destination_account": bas.serialize_bank_account(destination_account),
         "blockchain": {
             "tx_hash": tx_hash,
             "block_number": block_num
@@ -1153,11 +1265,41 @@ async def handle_milestone_verification(project_id: str, milestone_index: int, r
             {"$set": {
                 "status": "REJECTED_NEEDS_RECTIFICATION",
                 "phase_status": "REJECTED_NEEDS_RECTIFICATION",
+                "evidence_status": "REJECTED",
                 "rejection_reason": remarks,
                 "rejected_by": current_user["name"],
                 "rejected_at": datetime.now(timezone.utc)
             }}
         )
+
+        # Update matching records in db.evidence
+        db.evidence.update_many(
+            {"$and": [
+                {"$or": [{"project_id": project_id}, {"projectId": project_id}]},
+                {"$or": [{"milestone_index": milestone_index}, {"milestoneId": f"MS-{project_id}-{milestone_index + 1}"}]}
+            ]},
+            {"$set": {
+                "status": "REJECTED",
+                "rejection_reason": remarks,
+                "rejectionReason": remarks,
+                "rejected_at": datetime.now(timezone.utc),
+                "rejected_by": current_user["name"]
+            }}
+        )
+
+        # Real-time WebSocket synchronization broadcast
+        realtime_manager.trigger_broadcast("EVIDENCE_REJECTED", {
+            "project_id": project_id,
+            "milestone_index": milestone_index,
+            "status": "REJECTED",
+            "rejection_reason": remarks
+        })
+        realtime_manager.trigger_broadcast("DATA_MUTATED", {
+            "entity": "evidence",
+            "project_id": project_id,
+            "milestone_index": milestone_index,
+            "action": "EVIDENCE_REJECTED"
+        })
 
         if proj.get("contractor_id"):
             db.notifications.insert_one({
@@ -1199,6 +1341,7 @@ async def handle_milestone_verification(project_id: str, milestone_index: int, r
         {"$set": {
             "status": "COMPLETED",
             "phase_status": "COMPLETED",
+            "evidence_status": "VERIFIED",
             "progress_percentage": 100,
             "blockchain_tx_hash": tx_hash,
             "blockchain_block": block_num,
@@ -1207,6 +1350,37 @@ async def handle_milestone_verification(project_id: str, milestone_index: int, r
             "rejection_reason": None
         }}
     )
+
+    # Mark all evidence for this milestone as VERIFIED
+    db.evidence.update_many(
+        {"$and": [
+            {"$or": [{"project_id": project_id}, {"projectId": project_id}]},
+            {"$or": [{"milestone_index": milestone_index}, {"milestoneId": f"MS-{project_id}-{milestone_index + 1}"}]}
+        ]},
+        {"$set": {
+            "status": "VERIFIED",
+            "verified_at": datetime.now(timezone.utc),
+            "verifiedAt": datetime.now(timezone.utc),
+            "verified_by": current_user["name"],
+            "verifiedBy": current_user["name"],
+            "rejection_reason": None,
+            "rejectionReason": None
+        }}
+    )
+
+    # Real-time WebSocket synchronization broadcast
+    realtime_manager.trigger_broadcast("EVIDENCE_VERIFIED", {
+        "project_id": project_id,
+        "milestone_index": milestone_index,
+        "status": "VERIFIED",
+        "verified_by": current_user["name"]
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "evidence",
+        "project_id": project_id,
+        "milestone_index": milestone_index,
+        "action": "EVIDENCE_VERIFIED"
+    })
 
     next_phase = db.milestones.find_one({"project_id": project_id, "milestone_index": milestone_index + 1})
     if next_phase:
@@ -1465,3 +1639,248 @@ async def update_grievance_status(
         }}
     )
     return {"success": True, "message": f"Grievance {reference_id} status updated to {new_status}"}
+
+# --- Work Evidence Inspection and District Verification ---
+@router.get("/projects/{project_id}/milestones/{milestone_index}/evidence")
+@router.get("/projects/{project_id}/phases/{milestone_index}/evidence")
+async def list_district_milestone_evidence(
+    project_id: str,
+    milestone_index: int,
+    current_user: dict = Depends(require_roles(["DISTRICT"]))
+):
+    """Retrieve all submitted evidence items for a milestone under the district's jurisdiction"""
+    proj = db.projects.find_one({"project_id": project_id})
+    if not proj:
+        return JSONResponse(status_code=404, content={"success": False, "message": "Project not found"})
+
+    allowed, err_msg = check_district_access(proj.get("district_name"), current_user)
+    if not allowed:
+        return JSONResponse(status_code=403, content={"success": False, "message": err_msg})
+
+    milestone = db.milestones.find_one({"project_id": project_id, "milestone_index": milestone_index})
+
+    evidence_list = list(db.evidence.find({
+        "$and": [
+            {"$or": [{"project_id": project_id}, {"projectId": project_id}]},
+            {"$or": [{"milestone_index": milestone_index}, {"milestoneId": f"MS-{project_id}-{milestone_index + 1}"}]}
+        ]
+    }).sort("uploaded_at", -1))
+
+    return {
+        "success": True,
+        "project_id": project_id,
+        "project_name": proj.get("name"),
+        "contractor_name": proj.get("contractor_name"),
+        "milestone_index": milestone_index,
+        "milestone_title": milestone.get("title") if milestone else f"Phase #{milestone_index + 1}",
+        "evidence_count": len(evidence_list),
+        "evidence": serialize_doc(evidence_list)
+    }
+
+@router.post("/evidence/{evidence_id}/verify")
+@router.post("/projects/{project_id}/milestones/{milestone_index}/evidence/{evidence_id}/verify")
+async def verify_work_evidence(
+    evidence_id: str,
+    request: Request,
+    project_id: Optional[str] = None,
+    milestone_index: Optional[int] = None,
+    current_user: dict = Depends(require_roles(["DISTRICT"]))
+):
+    """
+    District Officer verifies an uploaded work evidence record.
+    Sets evidence status to VERIFIED, records verifiedAt & verifiedBy,
+    and updates milestone eligibility for next project/payment workflow.
+    """
+    ev = db.evidence.find_one({
+        "$or": [{"evidence_id": evidence_id}, {"evidenceId": evidence_id}]
+    })
+    if not ev:
+        return JSONResponse(status_code=404, content={"success": False, "message": "Evidence record not found"})
+
+    proj_id = ev.get("project_id") or ev.get("projectId") or project_id
+    proj = db.projects.find_one({"project_id": proj_id})
+    if not proj:
+        return JSONResponse(status_code=404, content={"success": False, "message": "Associated project not found"})
+
+    allowed, err_msg = check_district_access(proj.get("district_name"), current_user)
+    if not allowed:
+        return JSONResponse(status_code=403, content={"success": False, "message": err_msg})
+
+    if proj.get("is_frozen"):
+        return JSONResponse(status_code=403, content={"success": False, "message": "Project is FROZEN by audit hold."})
+
+    m_idx = ev.get("milestone_index", milestone_index or 0)
+    now_utc = datetime.now(timezone.utc)
+
+    # Update evidence record to VERIFIED
+    db.evidence.update_one(
+        {"$or": [{"evidence_id": evidence_id}, {"evidenceId": evidence_id}]},
+        {"$set": {
+            "status": "VERIFIED",
+            "verified_at": now_utc,
+            "verifiedAt": now_utc,
+            "verified_by": current_user["name"],
+            "verifiedBy": current_user["name"],
+            "rejection_reason": None,
+            "rejectionReason": None
+        }}
+    )
+
+    # Check remaining pending evidence for this milestone
+    pending_count = db.evidence.count_documents({
+        "$and": [
+            {"$or": [{"project_id": proj_id}, {"projectId": proj_id}]},
+            {"$or": [{"milestone_index": m_idx}, {"milestoneId": f"MS-{proj_id}-{m_idx + 1}"}]},
+            {"status": {"$in": ["SUBMITTED", "PENDING", "DRAFT"]}}
+        ]
+    })
+
+    if pending_count == 0:
+        db.milestones.update_one(
+            {"project_id": proj_id, "milestone_index": m_idx},
+            {"$set": {
+                "evidence_status": "VERIFIED",
+                "verified_by": current_user["name"]
+            }}
+        )
+
+    # Notify contractor
+    if proj.get("contractor_id"):
+        db.notifications.insert_one({
+            "recipient_user_id": proj.get("contractor_id"),
+            "title": f"Work Evidence Verified: {proj.get('name')}",
+            "message": f"Work evidence '{ev.get('file_name', evidence_id)}' for Phase #{m_idx + 1} was verified by District Officer.",
+            "link": f"/contractor/my-projects?project_id={proj_id}",
+            "read": False,
+            "created_at": now_utc
+        })
+
+    # Real-time WebSocket synchronization broadcast (Zero manual refresh)
+    realtime_manager.trigger_broadcast("EVIDENCE_VERIFIED", {
+        "project_id": proj_id,
+        "milestone_index": m_idx,
+        "evidence_id": evidence_id,
+        "status": "VERIFIED",
+        "verified_by": current_user["name"]
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "evidence",
+        "project_id": proj_id,
+        "milestone_index": m_idx,
+        "action": "EVIDENCE_VERIFIED"
+    })
+
+    updated_ev = db.evidence.find_one({"$or": [{"evidence_id": evidence_id}, {"evidenceId": evidence_id}]})
+    return {
+        "success": True,
+        "message": f"Evidence {evidence_id} successfully verified. Status: VERIFIED.",
+        "evidence_status": "VERIFIED",
+        "evidence": serialize_doc(updated_ev)
+    }
+
+@router.post("/evidence/{evidence_id}/reject")
+@router.post("/projects/{project_id}/milestones/{milestone_index}/evidence/{evidence_id}/reject")
+async def reject_work_evidence(
+    evidence_id: str,
+    request: Request,
+    project_id: Optional[str] = None,
+    milestone_index: Optional[int] = None,
+    current_user: dict = Depends(require_roles(["DISTRICT"]))
+):
+    """
+    District Officer rejects an uploaded work evidence record.
+    Requires a non-empty rejection reason. Sets evidence status to REJECTED.
+    Notifies contractor and updates milestone to REJECTED_NEEDS_RECTIFICATION.
+    """
+    ev = db.evidence.find_one({
+        "$or": [{"evidence_id": evidence_id}, {"evidenceId": evidence_id}]
+    })
+    if not ev:
+        return JSONResponse(status_code=404, content={"success": False, "message": "Evidence record not found"})
+
+    proj_id = ev.get("project_id") or ev.get("projectId") or project_id
+    proj = db.projects.find_one({"project_id": proj_id})
+    if not proj:
+        return JSONResponse(status_code=404, content={"success": False, "message": "Associated project not found"})
+
+    allowed, err_msg = check_district_access(proj.get("district_name"), current_user)
+    if not allowed:
+        return JSONResponse(status_code=403, content={"success": False, "message": err_msg})
+
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
+    rejection_reason = (data.get("rejection_reason") or data.get("remarks") or data.get("reason") or "").strip()
+    if not rejection_reason:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Rejection reason is required. Please provide feedback on what was deficient."}
+        )
+
+    m_idx = ev.get("milestone_index", milestone_index or 0)
+    now_utc = datetime.now(timezone.utc)
+
+    # Update evidence record to REJECTED
+    db.evidence.update_one(
+        {"$or": [{"evidence_id": evidence_id}, {"evidenceId": evidence_id}]},
+        {"$set": {
+            "status": "REJECTED",
+            "rejection_reason": rejection_reason,
+            "rejectionReason": rejection_reason,
+            "rejected_at": now_utc,
+            "rejected_by": current_user["name"],
+            "verified_at": None,
+            "verified_by": None
+        }}
+    )
+
+    # Update parent milestone to trigger rectification loop
+    db.milestones.update_one(
+        {"project_id": proj_id, "milestone_index": m_idx},
+        {"$set": {
+            "status": "REJECTED_NEEDS_RECTIFICATION",
+            "phase_status": "REJECTED_NEEDS_RECTIFICATION",
+            "evidence_status": "REJECTED",
+            "rejection_reason": rejection_reason,
+            "rejected_at": now_utc,
+            "rejected_by": current_user["name"]
+        }}
+    )
+
+    # Notify contractor with reason
+    if proj.get("contractor_id"):
+        db.notifications.insert_one({
+            "recipient_user_id": proj.get("contractor_id"),
+            "title": f"Phase #{m_idx + 1} Work Evidence Rejected",
+            "message": f"Work evidence for {proj.get('name')} was rejected by District Officer. Reason: \"{rejection_reason}\". Please rectify site work and upload corrected evidence.",
+            "link": f"/contractor/my-projects?project_id={proj_id}",
+            "read": False,
+            "created_at": now_utc
+        })
+
+    # Real-time WebSocket synchronization broadcast (Zero manual refresh)
+    realtime_manager.trigger_broadcast("EVIDENCE_REJECTED", {
+        "project_id": proj_id,
+        "milestone_index": m_idx,
+        "evidence_id": evidence_id,
+        "status": "REJECTED",
+        "rejection_reason": rejection_reason,
+        "rejected_by": current_user["name"]
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "evidence",
+        "project_id": proj_id,
+        "milestone_index": m_idx,
+        "action": "EVIDENCE_REJECTED"
+    })
+
+    updated_ev = db.evidence.find_one({"$or": [{"evidence_id": evidence_id}, {"evidenceId": evidence_id}]})
+    return {
+        "success": True,
+        "message": "Work evidence rejected. Contractor notified with rejection reason for rectification.",
+        "evidence_status": "REJECTED",
+        "rejection_reason": rejection_reason,
+        "evidence": serialize_doc(updated_ev)
+    }

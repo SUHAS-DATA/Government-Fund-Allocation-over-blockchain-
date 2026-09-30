@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { CreditCard } from 'lucide-react';
+import { CreditCard, Eye, ShieldCheck, Landmark, CheckCircle2 } from 'lucide-react';
 import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
 import DataTable from '../../components/DataTable';
+import TransactionDetailsModal from '../../components/TransactionDetailsModal';
 import { useRealtimeSync } from '../../context/RealtimeContext';
 
 const MilestonePayments = () => {
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedTx, setSelectedTx] = useState(null);
+  const [autoVerifyModal, setAutoVerifyModal] = useState(false);
 
   const fetchPayments = (showSpinner = false) => {
     if (showSpinner) setLoading(true);
@@ -16,6 +19,7 @@ const MilestonePayments = () => {
       .then((res) => {
         if (res.success) setPayments(res.payments || []);
       })
+      .catch((err) => console.error('Error fetching payments:', err))
       .finally(() => {
         if (showSpinner) setLoading(false);
       });
@@ -27,23 +31,145 @@ const MilestonePayments = () => {
 
   useRealtimeSync(() => fetchPayments(false), { interval: 6000 });
 
+  const handleOpenModal = (tx, verifyNow = false) => {
+    setSelectedTx(tx);
+    setAutoVerifyModal(verifyNow);
+  };
+
   const columns = [
     {
-      header: 'Payment / Tx Hash',
-      accessor: 'tx_hash',
-      render: (r) => <BlockchainBadge txHash={r.tx_hash} blockNumber={r.block_number} />
+      header: 'Transaction ID',
+      accessor: 'transaction_id',
+      render: (r) => (
+        <div>
+          <strong style={{ color: 'var(--color-primary)', fontFamily: 'monospace', fontSize: '13px' }}>
+            {r.transaction_id || r.tx_hash?.substring(0, 14) + '...'}
+          </strong>
+          {r.related_project_id && (
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+              Project: <span style={{ fontFamily: 'monospace' }}>{r.related_project_id}</span>
+            </div>
+          )}
+        </div>
+      )
     },
-    { header: 'Project ID', accessor: 'entity_id', render: (r) => <strong style={{ color: 'var(--color-primary)', fontFamily: 'monospace' }}>{r.entity_id}</strong> },
     {
-      header: 'Disbursed Amount',
-      accessor: 'amount',
-      render: (r) => <span style={{ fontWeight: '700', color: 'var(--color-success)' }}>{formatCurrency(r.amount)}</span>
+      header: 'From (District Agency)',
+      accessor: 'source_entity_name',
+      render: (r) => (
+        <div>
+          <div style={{ fontWeight: '700', fontSize: '12px', color: 'var(--text-main)' }}>
+            {r.source_entity_name || 'District Development Agency'}
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+            {r.source_masked_account || 'XXXX XXXX 3914'}
+          </div>
+          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+            {r.source_bank_name || 'Canara Bank'}
+          </div>
+        </div>
+      )
     },
-    { header: 'Payment Purpose', accessor: 'details' },
+    {
+      header: 'To (Contractor A/C)',
+      accessor: 'destination_entity_name',
+      render: (r) => (
+        <div>
+          <div style={{ fontWeight: '700', fontSize: '12px', color: 'var(--text-main)' }}>
+            {r.destination_entity_name || 'Registered Contractor Account'}
+          </div>
+          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+            {r.destination_masked_account || 'XXXX XXXX 0293'}
+          </div>
+          <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+            {r.destination_bank_name || 'State Bank of India'}
+          </div>
+        </div>
+      )
+    },
+    {
+      header: 'Amount',
+      accessor: 'amount',
+      render: (r) => (
+        <span style={{ fontWeight: '800', color: 'var(--color-success)', fontSize: '14px' }}>
+          {formatCurrency(r.amount)}
+        </span>
+      )
+    },
     {
       header: 'Receipt Date',
-      accessor: 'timestamp',
-      render: (r) => new Date(r.timestamp).toLocaleString()
+      accessor: 'created_at',
+      render: (r) => (
+        <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+          {new Date(r.created_at || r.timestamp || Date.now()).toLocaleString()}
+        </span>
+      )
+    },
+    {
+      header: 'Status',
+      accessor: 'status',
+      render: (r) => (
+        <span style={{
+          background: 'var(--color-success-bg)',
+          color: 'var(--color-success)',
+          padding: '3px 8px',
+          borderRadius: '10px',
+          fontSize: '11px',
+          fontWeight: '700',
+          border: '1px solid var(--color-success-border)'
+        }}>
+          {r.status || 'COMPLETED'}
+        </span>
+      )
+    },
+    {
+      header: 'Blockchain Status',
+      accessor: 'blockchain_tx_hash',
+      render: (r) => {
+        const hash = r.blockchain_tx_hash || r.tx_hash;
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px',
+              fontSize: '11px',
+              fontWeight: '700',
+              color: '#059669'
+            }}>
+              <CheckCircle2 size={12} />
+              {r.blockchain_status || 'VERIFIED'}
+            </span>
+            <BlockchainBadge txHash={hash} blockNumber={r.blockchain_block || r.block_number} />
+          </div>
+        );
+      }
+    },
+    {
+      header: 'Actions',
+      accessor: '_id',
+      render: (r) => (
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => handleOpenModal(r, false)}
+            style={{ fontSize: '11px', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+            title="View complete transaction payload & bank details"
+          >
+            <Eye size={12} />
+            <span>View</span>
+          </button>
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => handleOpenModal(r, true)}
+            style={{ fontSize: '11px', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+            title="Verify against on-chain smart contract receipt"
+          >
+            <ShieldCheck size={12} />
+            <span>Verify</span>
+          </button>
+        </div>
+      )
     }
   ];
 
@@ -53,17 +179,37 @@ const MilestonePayments = () => {
         <div>
           <h1 className="page-title">
             <CreditCard size={24} color="var(--color-primary)" />
-            <span>Milestone Payment Receipts</span>
+            <span>District → Contractor Payment Receipts</span>
           </h1>
-          <p className="page-subtitle">Verifiable smart contract escrow disbursements transferred to your contractor wallet.</p>
+          <p className="page-subtitle">
+            Immutable log of milestone fund transfers directly to your verified contractor bank account with cryptographic blockchain proof.
+          </p>
         </div>
       </div>
 
       <div className="card">
-        <DataTable columns={columns} data={payments} searchKey="entity_id" searchPlaceholder="Search by Project ID..." />
+        <DataTable
+          columns={columns}
+          data={payments}
+          searchKey="transaction_id"
+          searchPlaceholder="Search by Transaction ID, project, or purpose..."
+        />
       </div>
+
+      {selectedTx && (
+        <TransactionDetailsModal
+          isOpen={true}
+          transaction={selectedTx}
+          autoVerify={autoVerifyModal}
+          onClose={() => {
+            setSelectedTx(null);
+            setAutoVerifyModal(false);
+          }}
+        />
+      )}
     </div>
   );
 };
 
 export default MilestonePayments;
+

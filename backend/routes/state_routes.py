@@ -8,6 +8,8 @@ from bson import ObjectId
 from database import db, serialize_doc
 from auth_middleware import require_roles
 import blockchain_service as bcs
+from realtime_manager import realtime_manager
+import bank_account_service as bas
 
 router = APIRouter()
 state_bp = router
@@ -147,9 +149,13 @@ async def allocate_to_district(
             status_code=status.HTTP_400_BAD_REQUEST,
             content={
                 "success": False,
-                "message": f"Requested amount (INR {amount:,.2f}) exceeds remaining state transfer balance (INR {available_balance:,.2f})"
+                "message": f"Insufficient available balance. Requested amount (INR {amount:,.2f}) exceeds remaining state transfer balance (INR {available_balance:,.2f})"
             }
         )
+
+    # Resolve Authoritative Bank Accounts (Entity -> Account Mapping)
+    source_account = bas.get_or_create_state_account(trf.get("state_code", "KA"), trf.get("state_name"))
+    destination_account = bas.get_or_create_district_account(district_name, trf.get("state_code", "KA"))
 
     dist_alloc_id = generate_district_alloc_id(district_name)
 
@@ -204,6 +210,14 @@ async def allocate_to_district(
         "district_name": district_name,
         "amount": amount,
         "allocated_by": current_user["name"],
+        "source_account_id": source_account.get("account_id"),
+        "source_bank_name": source_account.get("bank_name"),
+        "source_masked_account": bas.mask_account_number(source_account.get("account_number")),
+        "source_ifsc": source_account.get("ifsc"),
+        "destination_account_id": destination_account.get("account_id"),
+        "destination_bank_name": destination_account.get("bank_name"),
+        "destination_masked_account": bas.mask_account_number(destination_account.get("account_number")),
+        "destination_ifsc": destination_account.get("ifsc"),
         "sender_address": from_state,
         "senderAddress": from_state,
         "receiver_address": to_dist,
@@ -220,7 +234,23 @@ async def allocate_to_district(
     }
     db.district_allocations.insert_one(dist_doc)
 
-    # 3. Update State Transfer Record
+    # 3. Create Authoritative Unified Financial Transaction Record
+    financial_tx = bas.record_financial_transaction(
+        transaction_type="STATE_TO_DISTRICT",
+        source_account=source_account,
+        destination_account=destination_account,
+        amount=amount,
+        purpose=f"State fund allocation from {state_title} Treasury to {district_name} District Agency for {trf.get('scheme_name')}",
+        blockchain_tx_hash=tx_hash,
+        blockchain_block=block_num,
+        related_scheme_id=trf.get("scheme_code"),
+        related_scheme_name=trf.get("scheme_name"),
+        related_allocation_id=transfer_id,
+        created_by=current_user["name"],
+        status="COMPLETED"
+    )
+
+    # 4. Update State Transfer Record
     db.state_transfers.update_one(
         {"transfer_id": transfer_id},
         {"$set": {
@@ -229,7 +259,7 @@ async def allocate_to_district(
         }}
     )
 
-    # 4. Log to Global Blockchain Transactions Collection
+    # 5. Log to Global Blockchain Transactions Collection
     if tx_hash:
         db.blockchain_transactions.insert_one({
             "tx_hash": tx_hash,
@@ -256,7 +286,7 @@ async def allocate_to_district(
             "timestamp": now_utc
         })
 
-    # 5. Notify District Collector
+    # 6. Notify District Collector
     db.notifications.insert_one({
         "recipient_role": "DISTRICT",
         "recipient_district": district_name,
@@ -268,10 +298,28 @@ async def allocate_to_district(
         "created_at": datetime.now(timezone.utc)
     })
 
+    # 7. Real-Time WebSocket Synchronization Broadcast
+    realtime_manager.trigger_broadcast("TRANSACTION_COMPLETED", {
+        "transaction_id": financial_tx["transaction_id"],
+        "transaction_type": "STATE_TO_DISTRICT",
+        "amount": amount,
+        "source_entity": source_account.get("account_holder_name"),
+        "destination_entity": destination_account.get("account_holder_name"),
+        "blockchain_tx_hash": tx_hash
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "transactions",
+        "action": "TRANSACTION_COMPLETED",
+        "transaction_id": financial_tx["transaction_id"]
+    })
+
     return {
         "success": True,
         "message": f"Funds successfully allocated to {district_name} District and logged on blockchain",
         "allocation": serialize_doc(dist_doc),
+        "transaction": serialize_doc(financial_tx),
+        "source_account": bas.serialize_bank_account(source_account),
+        "destination_account": bas.serialize_bank_account(destination_account),
         "blockchain": {
             "tx_hash": tx_hash,
             "block_number": block_num

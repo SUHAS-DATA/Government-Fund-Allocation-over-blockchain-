@@ -22,6 +22,7 @@ import PublicPortalPage from './pages/portals/PublicPortalPage';
 // Public Pages
 import PublicProjects from './pages/public/PublicProjects';
 import PublicProjectDetail from './pages/public/PublicProjectDetail';
+import PublicVerificationPage from './pages/public/PublicVerificationPage';
 import PublicExplorer from './pages/public/PublicExplorer';
 import GrievancePortal from './pages/public/GrievancePortal';
 import GrievanceTrack from './pages/public/GrievanceTrack';
@@ -127,6 +128,12 @@ function App() {
           <BrowserRouter>
           <PortalLayout>
             <Routes>
+              {/* ========================================================= */}
+              {/* Universal Public QR Verification (No Login Required)      */}
+              {/* ========================================================= */}
+              <Route path="/verify/:qrId" element={<PublicVerificationPage />} />
+              <Route path="/public/verify/:qrId" element={<PublicVerificationPage />} />
+              <Route path="/verify-project/:qrId" element={<PublicVerificationPage />} />
               {/* ========================================================= */}
               {/* PORTAL 1 — ADMIN (VITE_PORTAL=ADMIN)                      */}
               {/* Shows ONLY Super Admin and Finance Department             */}

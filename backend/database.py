@@ -115,6 +115,59 @@ def init_indexes():
     except Exception as e:
         pass
 
+    # 13. QR Codes collection
+    try:
+        db.qr_codes.create_index([("qr_id", ASCENDING)], unique=True, sparse=True)
+        db.qr_codes.create_index([("project_id", ASCENDING)], unique=True, sparse=True)
+        db.qr_codes.create_index([("contract_id", ASCENDING)], sparse=True)
+        db.qr_codes.create_index([("status", ASCENDING)])
+    except Exception as e:
+        print(f"Warning initializing qr_codes index: {e}")
+
+    # 14. Evidence collection
+    try:
+        db.evidence.create_index([("evidence_id", ASCENDING)], unique=True, sparse=True)
+        db.evidence.create_index([("evidenceId", ASCENDING)], unique=True, sparse=True)
+        db.evidence.create_index([("project_id", ASCENDING), ("milestone_index", ASCENDING)])
+        db.evidence.create_index([("projectId", ASCENDING), ("milestoneId", ASCENDING)])
+        db.evidence.create_index([("contractor_id", ASCENDING)])
+        db.evidence.create_index([("district_name", ASCENDING)])
+        db.evidence.create_index([("status", ASCENDING)])
+        db.evidence.create_index([("uploaded_at", DESCENDING)])
+    except Exception as e:
+        print(f"Warning initializing evidence index: {e}")
+
+    # 15. Bank Accounts collection
+    try:
+        db.bank_accounts.create_index([("account_id", ASCENDING)], unique=True, sparse=True)
+        db.bank_accounts.create_index([("entity_id", ASCENDING)])
+        db.bank_accounts.create_index([("entity_type", ASCENDING)])
+        db.bank_accounts.create_index([("state_code", ASCENDING)])
+        db.bank_accounts.create_index([("district_name", ASCENDING)])
+        db.bank_accounts.create_index([("contractor_id", ASCENDING)])
+    except Exception as e:
+        print(f"Warning initializing bank_accounts index: {e}")
+
+    # 16. Financial Transactions collection
+    try:
+        db.financial_transactions.create_index([("transaction_id", ASCENDING)], unique=True, sparse=True)
+        db.financial_transactions.create_index([("transaction_type", ASCENDING)])
+        db.financial_transactions.create_index([("source_account_id", ASCENDING)])
+        db.financial_transactions.create_index([("destination_account_id", ASCENDING)])
+        db.financial_transactions.create_index([("related_project_id", ASCENDING)])
+        db.financial_transactions.create_index([("related_allocation_id", ASCENDING)])
+        db.financial_transactions.create_index([("blockchain_tx_hash", ASCENDING)])
+        db.financial_transactions.create_index([("created_at", DESCENDING)])
+    except Exception as e:
+        print(f"Warning initializing financial_transactions index: {e}")
+
+    # Auto-seed standard Central, State, and District bank accounts
+    try:
+        import bank_account_service as bas
+        bas.seed_default_bank_accounts()
+    except Exception as e:
+        pass
+
     print("MongoDB indexes verified for database:", DB_NAME)
 
 def serialize_doc(doc):

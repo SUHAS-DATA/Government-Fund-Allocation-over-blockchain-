@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Send, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Send, ShieldCheck, CheckCircle2, AlertCircle, Landmark, ArrowRight, Eye } from 'lucide-react';
 import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
 import FundAmountInput from '../../components/FundAmountInput';
+import TransactionDetailsModal from '../../components/TransactionDetailsModal';
 import { useRealtimeSync } from '../../context/RealtimeContext';
 
 const TransferToState = () => {
@@ -29,6 +30,10 @@ const TransferToState = () => {
   const [amount, setAmount] = useState(250000000); // 25 Crores
   const [signOffNote, setSignOffNote] = useState('Sanctioned and disbursed by Central Finance Authority.');
 
+  const [centralAccount, setCentralAccount] = useState(null);
+  const [stateAccount, setStateAccount] = useState(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+
   const [submitting, setSubmitting] = useState(false);
   const [successResult, setSuccessResult] = useState(null);
   const [error, setError] = useState('');
@@ -47,6 +52,10 @@ const TransferToState = () => {
   useEffect(() => {
     loadBudgets();
 
+    API.get('/bank-accounts/central').then((res) => {
+      if (res.success) setCentralAccount(res.account);
+    });
+
     API.get('/finance/states').then((res) => {
       if (res.success && res.states?.length > 0) {
         setStates(res.states);
@@ -64,6 +73,14 @@ const TransferToState = () => {
       });
     });
   }, []);
+
+  useEffect(() => {
+    if (selectedStateCode) {
+      API.get(`/bank-accounts/state/${selectedStateCode}`).then((res) => {
+        if (res.success) setStateAccount(res.account);
+      });
+    }
+  }, [selectedStateCode]);
 
   useRealtimeSync(loadBudgets, { interval: 6000 });
 
@@ -162,10 +179,16 @@ const TransferToState = () => {
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '14px' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap' }}>
             <button className="btn btn-secondary" onClick={() => setSuccessResult(null)}>
               Transfer More Funds
             </button>
+            {successResult.transaction && (
+              <button className="btn btn-secondary" onClick={() => setShowDetailsModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Eye size={16} />
+                <span>View Transaction Details</span>
+              </button>
+            )}
             <button className="btn btn-primary" onClick={() => navigate('/finance/history')}>
               <span>View Transfer History</span>
             </button>
@@ -245,6 +268,74 @@ const TransferToState = () => {
               />
             </div>
 
+            {/* Registered Bank Account Routing Card */}
+            <div style={{
+              background: '#F8FAFC',
+              border: '1px solid #E2E8F0',
+              borderRadius: 'var(--radius-md)',
+              padding: '16px',
+              marginBottom: '20px'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                <div style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Landmark size={15} color="var(--color-primary)" />
+                  <span>Registered Bank Account Mapping</span>
+                </div>
+                <span style={{ fontSize: '11px', background: 'var(--color-success-bg)', color: 'var(--color-success)', border: '1px solid var(--color-success-border)', padding: '2px 8px', borderRadius: '10px', fontWeight: '700' }}>
+                  Verified RBI / State Treasury Link
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '14px', alignItems: 'center' }}>
+                {/* Source Central Account */}
+                <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 'var(--radius-sm)', padding: '12px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', marginBottom: '4px' }}>
+                    Debit: Central Finance
+                  </div>
+                  <div style={{ fontWeight: '800', fontSize: '12px', color: 'var(--text-main)', marginBottom: '3px' }}>
+                    {centralAccount?.account_holder_name || 'Ministry of Finance - Central Fund'}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                    Bank: <strong>{centralAccount?.bank_name || 'Reserve Bank of India'}</strong>
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                    A/C: <strong>{centralAccount?.masked_account_number || 'XXXX XXXX 6451'}</strong>
+                  </div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                    IFSC: {centralAccount?.ifsc || 'RBIS0GOVT01'}
+                  </div>
+                </div>
+
+                {/* Direction */}
+                <div style={{ textAlign: 'center' }}>
+                  <ArrowRight size={20} color="var(--color-primary)" />
+                </div>
+
+                {/* Destination State Account */}
+                <div style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: 'var(--radius-sm)', padding: '12px' }}>
+                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#059669', textTransform: 'uppercase', marginBottom: '4px' }}>
+                    Credit: State Treasury
+                  </div>
+                  <div style={{ fontWeight: '800', fontSize: '12px', color: 'var(--text-main)', marginBottom: '3px' }}>
+                    {stateAccount?.account_holder_name || `${states.find(s => s.code === selectedStateCode)?.name || selectedStateCode} State Treasury`}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                    Bank: <strong>{stateAccount?.bank_name || 'State Bank of India'}</strong>
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                    A/C: <strong>{stateAccount?.masked_account_number || 'XXXX XXXX 8472'}</strong>
+                  </div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                    IFSC: {stateAccount?.ifsc || 'SBIN0004582'}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '10px', fontStyle: 'italic' }}>
+                Funds will be electronically disbursed to the confirmed State Treasury account and anchored on the Ethereum blockchain ledger.
+              </div>
+            </div>
+
             <div className="form-group">
               <label className="form-label">Multi-Approver & Digital Sign-Off Note</label>
               <textarea
@@ -263,6 +354,13 @@ const TransferToState = () => {
           </form>
         </div>
       )}
+
+      {/* Transaction Details & Blockchain Verification Modal */}
+      <TransactionDetailsModal
+        isOpen={showDetailsModal}
+        onClose={() => setShowDetailsModal(false)}
+        transaction={successResult?.transaction || successResult?.transfer}
+      />
     </div>
   );
 };

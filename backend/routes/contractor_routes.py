@@ -1,6 +1,9 @@
 import os
 import random
 import string
+import uuid
+import hashlib
+import mimetypes
 from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Request, Depends, status
@@ -9,12 +12,17 @@ from bson import ObjectId
 from database import db, serialize_doc, compute_project_progress
 from auth_middleware import require_roles
 import blockchain_service as bcs
+from realtime_manager import realtime_manager
+import qr_service
 
 router = APIRouter()
 contractor_bp = router
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+ALLOWED_EVIDENCE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".pdf", ".doc", ".docx"}
+MAX_EVIDENCE_FILE_SIZE = 25 * 1024 * 1024  # 25 MB
 
 def sanitize_filename(filename: str) -> str:
     cleaned = "".join(c for c in filename if c.isalnum() or c in "._- ")
@@ -227,18 +235,23 @@ async def get_contractor_project_details(
 
     milestones = list(db.milestones.find({"project_id": project_id}).sort("milestone_index", 1))
     documents = list(db.documents.find({"entity_id": project_id}).sort("uploaded_at", -1))
+    evidence = list(db.evidence.find({"$or": [{"project_id": project_id}, {"projectId": project_id}]}).sort("uploaded_at", -1))
+    qr_doc = db.qr_codes.find_one({"project_id": project_id})
 
     return {
         "success": True,
         "project": serialize_doc(proj),
+        "qr_code": serialize_doc(qr_doc),
         "milestones": serialize_doc(milestones),
         "phases": serialize_doc(milestones),
-        "documents": serialize_doc(documents)
+        "documents": serialize_doc(documents),
+        "evidence": serialize_doc(evidence)
     }
 
 @router.post("/projects/{project_id}/accept")
 async def accept_project(
     project_id: str,
+    request: Request,
     current_user: dict = Depends(require_roles(["CONTRACTOR"]))
 ):
     proj = db.projects.find_one({"project_id": project_id})
@@ -253,6 +266,30 @@ async def accept_project(
             status_code=status.HTTP_403_FORBIDDEN,
             content={"success": False, "message": "Unauthorized: This project is not assigned to your enterprise."}
         )
+
+    # 1. Idempotency Check: Return existing accepted contract and QR code
+    if proj.get("assignment_status") == "ACCEPTED" or proj.get("contract_status") == "ACCEPTED":
+        existing_qr = db.qr_codes.find_one({"project_id": project_id})
+        if not existing_qr:
+            try:
+                existing_qr = qr_service.generate_project_qr(
+                    proj,
+                    contractor_user=current_user,
+                    frontend_base_url=request.headers.get("origin")
+                )
+            except Exception as e:
+                print(f"Warning recovering existing QR: {e}")
+
+        milestones = list(db.milestones.find({"project_id": project_id}).sort("milestone_index", 1))
+        return {
+            "success": True,
+            "message": f"Project {project_id} has already been officially accepted.",
+            "contract_id": proj.get("contract_id"),
+            "contract_status": "ACCEPTED",
+            "qr_code": serialize_doc(existing_qr),
+            "project": serialize_doc(proj),
+            "phases": serialize_doc(milestones)
+        }
 
     total_budget = float(proj.get("total_budget", 150000000.0))
 
@@ -322,31 +359,80 @@ async def accept_project(
     except Exception as e:
         print(f"Warning syncing on-chain milestones: {e}")
 
+    contract_id = proj.get("contract_id") or qr_service.generate_contract_id(project_id)
+
+    # 2. Automatically generate unique QR code immediately upon contractor acceptance
+    try:
+        qr_doc = qr_service.generate_project_qr(
+            {**proj, "contract_id": contract_id},
+            contractor_user=current_user,
+            frontend_base_url=request.headers.get("origin")
+        )
+    except Exception as e:
+        print(f"Error during QR code generation: {e}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "success": False,
+                "message": f"Project accepted, but QR code generation failed: {str(e)}. Safe retry is enabled."
+            }
+        )
+
     db.projects.update_one(
         {"project_id": project_id},
         {"$set": {
             "status": "IN_PROGRESS",
             "assignment_status": "ACCEPTED",
+            "contract_status": "ACCEPTED",
+            "contract_id": contract_id,
             "phases_configured": True,
             "current_active_phase": 1,
             "accepted_at": datetime.now(timezone.utc),
-            "accepted_by": current_user["name"]
+            "accepted_by": current_user["name"],
+            "qr_id": qr_doc.get("qr_id"),
+            "qr_code": {
+                "qr_id": qr_doc.get("qr_id"),
+                "contract_id": contract_id,
+                "verification_url": qr_doc.get("verification_url"),
+                "status": "ACTIVE",
+                "created_at": qr_doc.get("created_at"),
+                "qr_image_data": qr_doc.get("qr_image_data")
+            }
         }}
     )
 
     db.notifications.insert_one({
         "recipient_role": "DISTRICT",
         "district_name": proj.get("district_name"),
-        "title": "Project Assignment Accepted",
-        "message": f"Contractor '{current_user['name']}' accepted project {project_id}. 3 Phases (30%, 40%, 30%) automatically configured.",
+        "title": "Project Assignment Accepted & QR Generated",
+        "message": f"Contractor '{current_user['name']}' accepted project {project_id} (Contract {contract_id}). QR code generated and active.",
         "link": f"/district/projects?project_id={project_id}",
         "read": False,
         "created_at": datetime.now(timezone.utc)
     })
 
+    # Trigger real-time synchronization across Contractor & District dashboards
+    realtime_manager.trigger_broadcast("PROJECT_ACCEPTED", {
+        "project_id": project_id,
+        "contract_id": contract_id,
+        "qr_id": qr_doc.get("qr_id"),
+        "contractor_name": current_user["name"],
+        "status": "ACCEPTED"
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "path": f"/contractor/projects/{project_id}/accept",
+        "method": "POST"
+    })
+
+    updated_proj = db.projects.find_one({"project_id": project_id})
+
     return {
         "success": True,
-        "message": f"Project {project_id} accepted! Automatically divided into 3 standardized phases (30%, 40%, 30%). Phase 1 is now ready for fund request.",
+        "message": f"Project {project_id} accepted! Contract {contract_id} active. QR code generated automatically.",
+        "contract_id": contract_id,
+        "contract_status": "ACCEPTED",
+        "qr_code": serialize_doc(qr_doc),
+        "project": serialize_doc(updated_proj),
         "phases": serialize_doc(three_phases)
     }
 
@@ -381,11 +467,15 @@ async def reject_project(
         {"$set": {
             "status": "REJECTED_BY_CONTRACTOR",
             "assignment_status": "REJECTED",
+            "contract_status": "REJECTED",
             "rejection_reason": reason,
             "rejected_at": datetime.now(timezone.utc),
             "rejected_by": current_user["name"]
         }}
     )
+
+    # Invalidate QR code if project is rejected/declined
+    qr_service.invalidate_project_qr(project_id, reason=reason)
 
     db.notifications.insert_one({
         "recipient_role": "DISTRICT",
@@ -395,6 +485,15 @@ async def reject_project(
         "link": f"/district/projects?project_id={project_id}",
         "read": False,
         "created_at": datetime.now(timezone.utc)
+    })
+
+    realtime_manager.trigger_broadcast("PROJECT_REJECTED", {
+        "project_id": project_id,
+        "reason": reason
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "path": f"/contractor/projects/{project_id}/reject",
+        "method": "POST"
     })
 
     return {
@@ -638,6 +737,45 @@ async def handle_milestone_progress_submission(project_id: str, milestone_index:
             db.documents.insert_one(doc_rec)
             proof_files_saved.append(serialize_doc(doc_rec))
 
+            # Store matching minimal Evidence entity for District verification
+            guessed_mime, _ = mimetypes.guess_type(fname)
+            evidence_rec = {
+                "evidence_id": doc_id,
+                "evidenceId": doc_id,
+                "project_id": project_id,
+                "projectId": project_id,
+                "contract_id": proj.get("contract_id") or f"CTR-{project_id}",
+                "contractId": proj.get("contract_id") or f"CTR-{project_id}",
+                "milestone_id": f"MS-{project_id}-{milestone_index + 1}",
+                "milestoneId": f"MS-{project_id}-{milestone_index + 1}",
+                "milestone_index": milestone_index,
+                "contractor_id": str(current_user.get("user_id", "")),
+                "contractorId": str(current_user.get("user_id", "")),
+                "contractor_name": proj.get("contractor_name") or current_user.get("name"),
+                "project_name": proj.get("name"),
+                "district_name": proj.get("district_name"),
+                "file_name": getattr(file_obj, "filename", fname) or fname,
+                "fileName": getattr(file_obj, "filename", fname) or fname,
+                "file_type": getattr(file_obj, "content_type", None) or guessed_mime or "application/octet-stream",
+                "fileType": getattr(file_obj, "content_type", None) or guessed_mime or "application/octet-stream",
+                "file_path": save_path,
+                "file_url": f"/api/evidence/{doc_id}/file",
+                "fileUrl": f"/api/evidence/{doc_id}/file",
+                "file_size": len(content),
+                "sha256_hash": sha256_digest,
+                "description": f"{doc_type.replace('_', ' ').title()}: {description or material_bills_notes or 'Milestone completion deliverable'}",
+                "status": "SUBMITTED",
+                "rejection_reason": None,
+                "rejectionReason": None,
+                "uploaded_at": datetime.now(timezone.utc),
+                "uploadedAt": datetime.now(timezone.utc),
+                "verified_at": None,
+                "verifiedAt": None,
+                "verified_by": None,
+                "verifiedBy": None
+            }
+            db.evidence.insert_one(evidence_rec)
+
     tx_hash = None
     block_num = None
     try:
@@ -757,7 +895,267 @@ async def legacy_request_payment(
 async def get_payments(
     current_user: dict = Depends(require_roles(["CONTRACTOR"]))
 ):
-    payments = list(db.blockchain_transactions.find({
-        "operation_type": "MILESTONE_PAYMENT_RELEASE"
-    }).sort("timestamp", -1))
-    return {"success": True, "payments": serialize_doc(payments)}
+    cid = current_user.get("contractor_id") or current_user.get("user_id")
+    cname = current_user.get("name", "")
+    
+    # Query unified financial transactions with masked account details
+    txs = list(db.financial_transactions.find({
+        "$or": [
+            {"destination_entity_id": cid},
+            {"destination_entity_name": {"$regex": cname, "$options": "i"}},
+            {"transaction_type": "DISTRICT_TO_CONTRACTOR"}
+        ]
+    }).sort("created_at", -1))
+    
+    if not txs:
+        txs = list(db.blockchain_transactions.find({
+            "$or": [
+                {"operation_type": "MILESTONE_PAYMENT_RELEASE"},
+                {"operation_type": "DISTRICT_CONTRACTOR_TRANSFER"},
+                {"operation_type": "PHASE_FUND_TRANSFER_TO_CONTRACTOR_BANK"}
+            ]
+        }).sort("timestamp", -1))
+
+    return {"success": True, "payments": serialize_doc(txs)}
+
+# --- Project Work Evidence Upload (Contractor -> District Verification) ---
+@router.post("/projects/{project_id}/milestones/{milestone_index}/evidence")
+@router.post("/projects/{project_id}/phases/{milestone_index}/evidence")
+async def upload_work_evidence(
+    project_id: str,
+    milestone_index: int,
+    request: Request,
+    current_user: dict = Depends(require_roles(["CONTRACTOR"]))
+):
+    """
+    Contractor uploads milestone work evidence (photographs, progress images, PDFs, completion docs).
+    Validates file format, size, contractor assignment, and records evidence with status SUBMITTED.
+    """
+    proj = db.projects.find_one({"project_id": project_id})
+    if not proj:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"success": False, "message": "Project not found"}
+        )
+
+    if not verify_contractor_project_ownership(proj, current_user):
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={"success": False, "message": "Access Denied: You cannot upload evidence for a project not assigned to you."}
+        )
+
+    if proj.get("is_frozen"):
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={"success": False, "message": "Project is FROZEN by audit hold. Evidence upload halted."}
+        )
+
+    milestone = db.milestones.find_one({"project_id": project_id, "milestone_index": milestone_index})
+    if not milestone:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"success": False, "message": f"Milestone #{milestone_index + 1} not found"}
+        )
+
+    try:
+        form = await request.form()
+    except Exception as e:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": f"Invalid form data payload: {str(e)}"}
+        )
+
+    file_obj = form.get("file") or form.get("evidence_file") or form.get("photo") or form.get("document")
+    if not file_obj or not hasattr(file_obj, "filename") or not file_obj.filename:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "No file uploaded. Please select an image (JPG, PNG, WEBP) or document (PDF, DOC)."}
+        )
+
+    description = str(form.get("description") or form.get("notes") or "").strip()
+    if not description:
+        description = f"Work completion evidence for Phase #{milestone_index + 1}: {milestone.get('title', '')}"
+
+    orig_filename = file_obj.filename
+    _, ext = os.path.splitext(orig_filename.lower())
+    if ext not in ALLOWED_EVIDENCE_EXTENSIONS:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": f"Unsupported file type '{ext}'. Allowed formats: JPG, PNG, WEBP, PDF, DOC, DOCX."}
+        )
+
+    content = await file_obj.read()
+    if len(content) == 0:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Uploaded file is empty (0 bytes)."}
+        )
+
+    if len(content) > MAX_EVIDENCE_FILE_SIZE:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": f"File size exceeds 25 MB ceiling ({len(content) / (1024 * 1024):.1f} MB)."}
+        )
+
+    content_type = getattr(file_obj, "content_type", None)
+    if not content_type or content_type == "application/octet-stream":
+        guessed, _ = mimetypes.guess_type(orig_filename)
+        content_type = guessed or "application/octet-stream"
+
+    ev_folder = os.path.join(UPLOAD_FOLDER, "evidence")
+    os.makedirs(ev_folder, exist_ok=True)
+    rand_id = uuid.uuid4().hex[:8].upper()
+    evidence_id = f"EVD-{project_id}-P{milestone_index + 1}-{rand_id}"
+    safe_fname = sanitize_filename(f"{evidence_id}_{orig_filename}")
+    save_path = os.path.join(ev_folder, safe_fname)
+
+    with open(save_path, "wb") as f:
+        f.write(content)
+
+    sha256_digest = hashlib.sha256(content).hexdigest()
+
+    # Anchor SHA-256 digest on blockchain (proof hash only, never actual file)
+    try:
+        bcs.anchor_document_hash_onchain(
+            evidence_id,
+            sha256_digest,
+            f"PHASE_{milestone_index + 1}_EVIDENCE",
+            project_id,
+            role="CONTRACTOR"
+        )
+    except Exception as e:
+        print(f"Warning anchoring evidence hash on blockchain: {e}")
+
+    contract_id = proj.get("contract_id") or f"CTR-{project_id}"
+    milestone_id = str(milestone.get("_id")) or f"MS-{project_id}-{milestone_index + 1}"
+    contractor_id = str(current_user.get("user_id", ""))
+    now_utc = datetime.now(timezone.utc)
+
+    evidence_doc = {
+        "evidence_id": evidence_id,
+        "evidenceId": evidence_id,
+        "project_id": project_id,
+        "projectId": project_id,
+        "contract_id": contract_id,
+        "contractId": contract_id,
+        "milestone_id": milestone_id,
+        "milestoneId": milestone_id,
+        "milestone_index": milestone_index,
+        "contractor_id": contractor_id,
+        "contractorId": contractor_id,
+        "contractor_name": proj.get("contractor_name") or current_user.get("name"),
+        "project_name": proj.get("name"),
+        "district_name": proj.get("district_name"),
+        "file_name": orig_filename,
+        "fileName": orig_filename,
+        "file_type": content_type,
+        "fileType": content_type,
+        "file_path": save_path,
+        "file_url": f"/api/evidence/{evidence_id}/file",
+        "fileUrl": f"/api/evidence/{evidence_id}/file",
+        "file_size": len(content),
+        "sha256_hash": sha256_digest,
+        "description": description,
+        "status": "SUBMITTED",
+        "rejection_reason": None,
+        "rejectionReason": None,
+        "uploaded_at": now_utc,
+        "uploadedAt": now_utc,
+        "verified_at": None,
+        "verifiedAt": None,
+        "verified_by": None,
+        "verifiedBy": None
+    }
+    db.evidence.insert_one(evidence_doc)
+
+    db.documents.insert_one({
+        "document_id": evidence_id,
+        "file_name": safe_fname,
+        "file_path": save_path,
+        "file_size": len(content),
+        "sha256_hash": sha256_digest,
+        "doc_type": "WORK_EVIDENCE",
+        "entity_id": project_id,
+        "milestone_index": milestone_index,
+        "uploaded_at": now_utc
+    })
+
+    # Update milestone status to SUBMITTED
+    db.milestones.update_one(
+        {"project_id": project_id, "milestone_index": milestone_index},
+        {"$set": {
+            "status": "SUBMITTED",
+            "phase_status": "SUBMITTED_FOR_VERIFICATION",
+            "evidence_status": "SUBMITTED",
+            "proof_document_hash": sha256_digest,
+            "submitted_at": now_utc,
+            "rejection_reason": None
+        }}
+    )
+
+    # Recalculate physical progress
+    calc_prog = compute_project_progress(proj)
+    db.projects.update_one({"project_id": project_id}, {"$set": {"progress_percentage": calc_prog}})
+
+    # Notify District Officer
+    db.notifications.insert_one({
+        "recipient_role": "DISTRICT",
+        "district_name": proj.get("district_name"),
+        "title": "New Work Evidence Submitted",
+        "message": f"New work evidence submitted for Project {proj.get('name', project_id)} (Phase #{milestone_index + 1}). Verification required.",
+        "link": f"/district/projects?project_id={project_id}",
+        "read": False,
+        "created_at": now_utc
+    })
+
+    # Real-time WebSocket event broadcasts (Zero manual refresh)
+    realtime_manager.trigger_broadcast("EVIDENCE_SUBMITTED", {
+        "project_id": project_id,
+        "milestone_index": milestone_index,
+        "evidence_id": evidence_id,
+        "project_name": proj.get("name", project_id),
+        "message": f"New work evidence submitted for Project {proj.get('name', project_id)}."
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "evidence",
+        "project_id": project_id,
+        "milestone_index": milestone_index,
+        "action": "EVIDENCE_SUBMITTED"
+    })
+
+    return {
+        "success": True,
+        "message": "Work evidence submitted successfully! Evidence Status: Pending Verification.",
+        "evidence_status": "Pending Verification",
+        "evidence": serialize_doc(evidence_doc)
+    }
+
+@router.get("/projects/{project_id}/milestones/{milestone_index}/evidence")
+@router.get("/projects/{project_id}/phases/{milestone_index}/evidence")
+async def list_contractor_milestone_evidence(
+    project_id: str,
+    milestone_index: int,
+    current_user: dict = Depends(require_roles(["CONTRACTOR"]))
+):
+    """Retrieve all submitted evidence items for a milestone by the assigned contractor"""
+    proj = db.projects.find_one({"project_id": project_id})
+    if not proj:
+        return JSONResponse(status_code=404, content={"success": False, "message": "Project not found"})
+
+    if not verify_contractor_project_ownership(proj, current_user):
+        return JSONResponse(status_code=403, content={"success": False, "message": "Access Denied."})
+
+    evidence_list = list(db.evidence.find({
+        "$and": [
+            {"$or": [{"project_id": project_id}, {"projectId": project_id}]},
+            {"$or": [{"milestone_index": milestone_index}, {"milestoneId": f"MS-{project_id}-{milestone_index + 1}"}]}
+        ]
+    }).sort("uploaded_at", -1))
+
+    return {
+        "success": True,
+        "project_id": project_id,
+        "milestone_index": milestone_index,
+        "evidence_count": len(evidence_list),
+        "evidence": serialize_doc(evidence_list)
+    }

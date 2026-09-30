@@ -7,6 +7,8 @@ from bson import ObjectId
 from database import db, serialize_doc
 from auth_middleware import require_roles
 import blockchain_service as bcs
+from realtime_manager import realtime_manager
+import bank_account_service as bas
 
 router = APIRouter()
 finance_bp = router
@@ -147,9 +149,13 @@ async def approve_and_transfer(
             status_code=status.HTTP_400_BAD_REQUEST,
             content={
                 "success": False,
-                "message": f"Transfer amount (INR {amount:,.2f}) exceeds available sanctioned balance (INR {available_balance:,.2f})"
+                "message": f"Insufficient available balance. Transfer amount (INR {amount:,.2f}) exceeds available sanctioned balance (INR {available_balance:,.2f})"
             }
         )
+
+    # Resolve Authoritative Bank Accounts (Entity -> Account Mapping)
+    source_account = bas.get_or_create_central_account()
+    destination_account = bas.get_or_create_state_account(state_code, state_name)
 
     trf_id = generate_transfer_id(state_code)
 
@@ -222,6 +228,14 @@ async def approve_and_transfer(
         "allocated_to_districts": 0.0,
         "sign_off_note": sign_off_note,
         "transferred_by": current_user["name"],
+        "source_account_id": source_account.get("account_id"),
+        "source_bank_name": source_account.get("bank_name"),
+        "source_masked_account": bas.mask_account_number(source_account.get("account_number")),
+        "source_ifsc": source_account.get("ifsc"),
+        "destination_account_id": destination_account.get("account_id"),
+        "destination_bank_name": destination_account.get("bank_name"),
+        "destination_masked_account": bas.mask_account_number(destination_account.get("account_number")),
+        "destination_ifsc": destination_account.get("ifsc"),
         "sender_address": from_fin,
         "senderAddress": from_fin,
         "receiver_address": to_state,
@@ -238,7 +252,23 @@ async def approve_and_transfer(
     }
     db.state_transfers.insert_one(transfer_doc)
 
-    # 3. Update Budget Allocation Disbursed Amount & Status
+    # 3. Create Authoritative Unified Financial Transaction Record
+    financial_tx = bas.record_financial_transaction(
+        transaction_type="CENTRAL_TO_STATE",
+        source_account=source_account,
+        destination_account=destination_account,
+        amount=amount,
+        purpose=sign_off_note,
+        blockchain_tx_hash=tx_hash,
+        blockchain_block=block_num,
+        related_scheme_id=alloc.get("scheme_code"),
+        related_scheme_name=alloc.get("scheme_name"),
+        related_allocation_id=alloc_id,
+        created_by=current_user["name"],
+        status="COMPLETED"
+    )
+
+    # 4. Update Budget Allocation Disbursed Amount & Status
     new_disbursed = already_disbursed + amount
     status_val = "FULLY_DISBURSED" if new_disbursed >= total_sanctioned else "PARTIALLY_DISBURSED"
     db.budget_allocations.update_one(
@@ -250,7 +280,7 @@ async def approve_and_transfer(
         }}
     )
 
-    # 4. Log to Global Blockchain Transactions Collection
+    # 5. Log to Global Blockchain Transactions Collection
     if tx_hash:
         db.blockchain_transactions.insert_one({
             "tx_hash": tx_hash,
@@ -277,7 +307,7 @@ async def approve_and_transfer(
             "timestamp": now_utc
         })
 
-    # 5. Notify State Officer
+    # 6. Notify State Officer
     db.notifications.insert_one({
         "recipient_role": "STATE",
         "recipient_state": state_code,
@@ -289,10 +319,28 @@ async def approve_and_transfer(
         "created_at": datetime.now(timezone.utc)
     })
 
+    # 7. Real-Time WebSocket Synchronization Broadcast
+    realtime_manager.trigger_broadcast("TRANSACTION_COMPLETED", {
+        "transaction_id": financial_tx["transaction_id"],
+        "transaction_type": "CENTRAL_TO_STATE",
+        "amount": amount,
+        "source_entity": source_account.get("account_holder_name"),
+        "destination_entity": destination_account.get("account_holder_name"),
+        "blockchain_tx_hash": tx_hash
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "transactions",
+        "action": "TRANSACTION_COMPLETED",
+        "transaction_id": financial_tx["transaction_id"]
+    })
+
     return {
         "success": True,
         "message": f"Funds successfully transferred to {state_name} Treasury and recorded on blockchain",
         "transfer": serialize_doc(transfer_doc),
+        "transaction": serialize_doc(financial_tx),
+        "source_account": bas.serialize_bank_account(source_account),
+        "destination_account": bas.serialize_bank_account(destination_account),
         "blockchain": {
             "tx_hash": tx_hash,
             "block_number": block_num
