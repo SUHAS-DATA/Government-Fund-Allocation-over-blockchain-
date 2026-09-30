@@ -90,7 +90,7 @@ export const RealtimeProvider = ({ children }) => {
 
         try {
           const parsed = JSON.parse(event.data);
-          if (parsed.type === 'DATA_MUTATED') {
+          if (parsed && parsed.type) {
             notifyListeners(parsed);
             if (broadcastChannelRef.current) {
               try {
@@ -117,9 +117,11 @@ export const RealtimeProvider = ({ children }) => {
 
       ws.onerror = () => {
         setIsConnected(false);
-        try {
-          ws.close();
-        } catch (e) {}
+        if (ws.readyState === WebSocket.OPEN) {
+          try {
+            ws.close();
+          } catch (e) {}
+        }
       };
     } catch (err) {
       setIsConnected(false);
