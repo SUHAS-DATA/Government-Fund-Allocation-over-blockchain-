@@ -119,10 +119,10 @@ const AllocateToDistrict = () => {
         <div>
           <h1 className="page-title">
             <Send size={24} color="var(--color-primary)" />
-            <span>Allocate Funds to District Agency</span>
+            <span>Send Funds to District Office</span>
           </h1>
           <p className="page-subtitle">
-            Validate available state balance, prevent regional overspending, and record on-chain district allocation.
+            Send state funds directly to registered district development office accounts.
           </p>
         </div>
       </div>
@@ -144,17 +144,17 @@ const AllocateToDistrict = () => {
           </div>
 
           <h2 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-main)', marginBottom: '8px' }}>
-            District Fund Allocated on Blockchain
+            Funds Sent to District Office Successfully
           </h2>
 
           <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', fontSize: '13px' }}>
-            Funds have been transferred to the District Development Agency with verifiable on-chain proof.
+            Funds have been sent to the District Development Office and recorded securely.
           </p>
 
           <div style={{ background: 'var(--bg-subtle)', padding: '20px', borderRadius: 'var(--radius-sm)', marginBottom: '24px', textAlign: 'left' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px', fontSize: '13px' }}>
               <div>
-                <div style={{ color: 'var(--text-muted)' }}>District Alloc ID:</div>
+                <div style={{ color: 'var(--text-muted)' }}>Payment Reference:</div>
                 <strong style={{ fontFamily: 'monospace', color: 'var(--color-primary)' }}>{successResult.allocation?.district_alloc_id}</strong>
               </div>
 
@@ -164,12 +164,12 @@ const AllocateToDistrict = () => {
               </div>
 
               <div>
-                <div style={{ color: 'var(--text-muted)' }}>Allocated Amount:</div>
+                <div style={{ color: 'var(--text-muted)' }}>Amount Sent:</div>
                 <strong style={{ color: 'var(--color-success)', fontSize: '16px' }}>{formatCurrency(successResult.allocation?.amount)}</strong>
               </div>
 
               <div>
-                <div style={{ color: 'var(--text-muted)' }}>Blockchain Receipt:</div>
+                <div style={{ color: 'var(--text-muted)' }}>Record Check:</div>
                 <BlockchainBadge txHash={successResult.blockchain?.tx_hash} blockNumber={successResult.blockchain?.block_number} />
               </div>
             </div>
@@ -177,16 +177,16 @@ const AllocateToDistrict = () => {
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap' }}>
             <button className="btn btn-secondary" onClick={() => setSuccessResult(null)}>
-              Allocate to Another District
+              Send to Another District
             </button>
             {successResult.transaction && (
               <button className="btn btn-secondary" onClick={() => setShowDetailsModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Eye size={16} />
-                <span>View Transaction Details</span>
+                <span>View Payment Details</span>
               </button>
             )}
             <button className="btn btn-primary" onClick={() => navigate('/state/history')}>
-              <span>View State Allocation History</span>
+              <span>View Payment History</span>
             </button>
           </div>
         </div>
@@ -212,7 +212,7 @@ const AllocateToDistrict = () => {
 
           <form onSubmit={handleAllocate}>
             <div className="form-group">
-              <label className="form-label">Select State Fund Disbursal Source</label>
+              <label className="form-label">Select State Fund Source</label>
               <select
                 className="form-control form-select"
                 value={selectedTransferId}
@@ -234,7 +234,7 @@ const AllocateToDistrict = () => {
                   <strong style={{ color: 'var(--text-main)' }}>{activeTransfer.scheme_name}</strong>
                 </div>
                 <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Available State Balance: </span>
+                  <span style={{ color: 'var(--text-muted)' }}>Available State Funds: </span>
                   <strong style={{ color: 'var(--color-success)', fontSize: '15px' }}>{formatCurrency(availableBalance)}</strong>
                 </div>
               </div>
@@ -243,7 +243,7 @@ const AllocateToDistrict = () => {
             <div className="grid-2">
               <div className="form-group">
                 <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>Target District Agency ({activeStateObj?.name || activeStateCode})</span>
+                  <span>Target District Office ({activeStateObj?.name || activeStateCode})</span>
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{availableDistricts.length} Districts Available</span>
                 </label>
                 <select
@@ -259,12 +259,12 @@ const AllocateToDistrict = () => {
               </div>
 
               <FundAmountInput
-                label="District Allocation Amount"
+                label="Amount to Send to District Office"
                 value={amount}
                 onChange={(val) => setAmount(val)}
                 max={availableBalance}
                 required={true}
-                helperText="Select or enter district sanction in Crores, Lakhs, or Thousands. Ex: 100 (Cr)."
+                helperText="Enter the amount to send in Crores, Lakhs, or Thousands. Ex: 100 (Cr)."
               />
             </div>
 
@@ -279,10 +279,10 @@ const AllocateToDistrict = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <div style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Landmark size={15} color="var(--color-primary)" />
-                  <span>Registered Bank Account Mapping</span>
+                  <span>Government Account Details</span>
                 </div>
                 <span style={{ fontSize: '11px', background: 'var(--color-success-bg)', color: 'var(--color-success)', border: '1px solid var(--color-success-border)', padding: '2px 8px', borderRadius: '10px', fontWeight: '700' }}>
-                  Verified Inter-Treasury Routing
+                  Verified Government Account Link
                 </span>
               </div>
 
@@ -290,7 +290,7 @@ const AllocateToDistrict = () => {
                 {/* Source State Account */}
                 <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 'var(--radius-sm)', padding: '12px' }}>
                   <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', marginBottom: '4px' }}>
-                    Debit: State Treasury
+                    From: State Government Account
                   </div>
                   <div style={{ fontWeight: '800', fontSize: '12px', color: 'var(--text-main)', marginBottom: '3px' }}>
                     {sourceAccount?.account_holder_name || `${activeStateObj?.name || activeStateCode} State Treasury`}
@@ -314,7 +314,7 @@ const AllocateToDistrict = () => {
                 {/* Destination District Account */}
                 <div style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: 'var(--radius-sm)', padding: '12px' }}>
                   <div style={{ fontSize: '10px', fontWeight: '700', color: '#059669', textTransform: 'uppercase', marginBottom: '4px' }}>
-                    Credit: District Agency
+                    To: District Office Account
                   </div>
                   <div style={{ fontWeight: '800', fontSize: '12px', color: 'var(--text-main)', marginBottom: '3px' }}>
                     {destAccount?.account_holder_name || `${districtName || 'District'} Development Agency`}
@@ -334,7 +334,7 @@ const AllocateToDistrict = () => {
 
             <button type="submit" className="btn btn-primary btn-lg" style={{ width: '100%', marginTop: '10px' }} disabled={submitting || availableBalance <= 0}>
               <ShieldCheck size={16} />
-              <span>{submitting ? 'Executing On-Chain District Allocation...' : 'Allocate Funds to District Agency'}</span>
+              <span>{submitting ? 'Sending Funds...' : 'Confirm & Send Funds'}</span>
             </button>
           </form>
         </div>

@@ -32,12 +32,12 @@ const ReceivedBudgets = () => {
   };
 
   const columns = [
-    { header: 'Allocation ID', accessor: 'allocation_id', render: (r) => <strong style={{ color: 'var(--color-primary)', fontFamily: 'monospace' }}>{r.allocation_id}</strong> },
+    { header: 'Fund Allocation ID', accessor: 'allocation_id', render: (r) => <strong style={{ color: 'var(--color-primary)', fontFamily: 'monospace' }}>{r.allocation_id}</strong> },
     { header: 'Scheme Title', accessor: 'scheme_name' },
     { header: 'Department', accessor: 'department' },
-    { header: 'Total Sanctioned', accessor: 'amount', render: (r) => <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>{formatCurrency(r.amount)}</span> },
+    { header: 'Approved Budget', accessor: 'amount', render: (r) => <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>{formatCurrency(r.amount)}</span> },
     {
-      header: 'Disbursed to States',
+      header: 'Funds Sent to States',
       accessor: 'disbursed_amount',
       render: (r) => (
         <div>
@@ -49,7 +49,7 @@ const ReceivedBudgets = () => {
       )
     },
     {
-      header: 'Verification Status',
+      header: 'Record Check',
       accessor: 'verification_status',
       render: (r) => (
         r.verification_status === 'VERIFIED' ? (
@@ -64,7 +64,7 @@ const ReceivedBudgets = () => {
             disabled={verifyingId === r.allocation_id}
           >
             <ShieldCheck size={13} />
-            <span>{verifyingId === r.allocation_id ? 'Verifying...' : 'Verify Budget'}</span>
+            <span>{verifyingId === r.allocation_id ? 'Checking...' : 'Check Budget'}</span>
           </button>
         )
       )
@@ -75,7 +75,7 @@ const ReceivedBudgets = () => {
       render: (r) => (
         <Link to={`/finance/transfers?allocation_id=${r.allocation_id}`} className="btn btn-primary btn-sm">
           <Send size={13} />
-          <span>Disburse Funds</span>
+          <span>Send Funds</span>
         </Link>
       )
     }
@@ -87,9 +87,9 @@ const ReceivedBudgets = () => {
         <div>
           <h1 className="page-title">
             <Coins size={24} color="var(--color-primary)" />
-            <span>Received Central Budgets</span>
+            <span>Approved Central Budgets</span>
           </h1>
-          <p className="page-subtitle">Verify budget sanctions and initiate state treasury transfers.</p>
+          <p className="page-subtitle">Check approved budgets and send funds to state government accounts.</p>
         </div>
       </div>
 

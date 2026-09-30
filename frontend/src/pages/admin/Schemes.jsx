@@ -53,7 +53,7 @@ const Schemes = () => {
       accessor: 'department_name' 
     },
     { 
-      header: 'Sanctioned Target Ceiling', 
+      header: 'Approved Budget', 
       accessor: 'target_budget', 
       render: (r) => <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>{formatCurrency(r.target_budget || r.allocated_budget || 0)}</span> 
     },
@@ -63,7 +63,7 @@ const Schemes = () => {
       render: (r) => <span style={{ fontWeight: '700', color: 'var(--color-warning)' }}>{formatCurrency(r.allocated_amount || 0)}</span>
     },
     {
-      header: 'Remaining Ceiling',
+      header: 'Remaining Budget',
       accessor: 'remaining_budget',
       render: (r) => {
         const rem = r.remaining_budget != null ? r.remaining_budget : ((r.target_budget || 0) - (r.allocated_amount || 0));
@@ -84,7 +84,7 @@ const Schemes = () => {
         const isFull = pct >= 100;
         return (
           <span className={`badge ${isFull ? 'badge-danger' : pct > 0 ? 'badge-info' : 'badge-success'}`}>
-            {isFull ? 'Ceiling Reached' : pct > 0 ? `${pct}% Allocated` : 'Active / Available'}
+            {isFull ? 'Budget Reached' : pct > 0 ? `${pct}% Allocated` : 'Active / Available'}
           </span>
         );
       }
@@ -97,9 +97,9 @@ const Schemes = () => {
         <div>
           <h1 className="page-title">
             <FileSpreadsheet size={24} color="var(--color-primary)" />
-            <span>Government Schemes Governance</span>
+            <span>Government Schemes</span>
           </h1>
-          <p className="page-subtitle">Define national development programs and designated expenditure ceilings.</p>
+          <p className="page-subtitle">Define national development programs and approved scheme budgets.</p>
         </div>
 
         <button className="btn btn-primary" onClick={() => setShowModal(true)}>
@@ -153,11 +153,11 @@ const Schemes = () => {
           </div>
 
           <FundAmountInput
-            label="Sanctioned Scheme Target Ceiling"
+            label="Approved Scheme Budget"
             value={formData.target_budget}
             onChange={(val) => setFormData({ ...formData, target_budget: val })}
             required={true}
-            helperText="Sanctioned ceiling in Crores, Lakhs, or Thousands. Ex: 100 (Cr)."
+            helperText="Approved budget in Crores, Lakhs, or Thousands. Ex: 100 (Cr)."
           />
 
           <div className="form-group">

@@ -200,17 +200,17 @@ const ContractorDashboard = () => {
       case 'projects':
         return 'Active Project Work Execution & Monitoring';
       case 'upload':
-        return 'Upload Site Progress Proofs & Evidence';
+        return 'Upload Work Proof';
       case 'milestones':
         return '30-40-30 Milestone Verification Tracking';
       case 'payment_requests':
-        return 'Escrow Payment Requests & Invoices';
+        return 'Payment Requests';
       case 'history':
-        return 'Disbursed Payment History & Settlement Vouchers';
+        return 'Payment History';
       case 'documents':
         return 'Statutory Documents & Quality Certifications';
       case 'blockchain':
-        return 'On-Chain Blockchain Settlement Records';
+        return 'Verified Payment Records';
       case 'profile':
         return 'Contractor Statutory Profile & PWD KYC';
       default:
@@ -223,12 +223,12 @@ const ContractorDashboard = () => {
     {
       time: '11:45',
       title: 'Phase 2 Milestone Payment Credited',
-      detail: `₹14 Cr released from State Treasury via smart contract escrow`
+      detail: `₹14 Cr received in contractor account from District Office`
     },
     {
       time: '10:15',
-      title: 'Geo-tagged Site Proof Uploaded',
-      detail: `Cryptographic SHA-256 hash generated for Belagavi Road Structural Work`
+      title: 'Site Work Proof Uploaded',
+      detail: `Work proof recorded for Belagavi Road Structural Work`
     },
     {
       time: '09:00',
@@ -238,7 +238,7 @@ const ContractorDashboard = () => {
     {
       time: '08:15',
       title: 'Contract Agreement Initialized',
-      detail: `Tripartite digital contract anchored on government blockchain`
+      detail: `Official contract agreement verified and registered`
     }
   ];
 
@@ -461,7 +461,7 @@ const ContractorDashboard = () => {
                   <div className="card-header" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div className="card-title">
                       <Camera size={20} color="#0D9488" />
-                      <span>Upload Field Progress Proofs & Geo-Tagged Evidence</span>
+                      <span>Upload Work Proof</span>
                     </div>
                     <button type="button" onClick={() => setTab('projects')} className="super-admin-back-btn">
                       <FolderKanban size={14} />
@@ -469,7 +469,7 @@ const ContractorDashboard = () => {
                     </button>
                   </div>
                   <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '8px', padding: '16px', marginBottom: '20px', fontSize: '13px', color: '#166534' }}>
-                    📸 <strong>Tamper-Proof Proof of Work:</strong> Upload geo-tagged photos with EXIF GPS coordinates and testing certificates. Each file generates an immutable SHA-256 hash registered on the Ethereum blockchain.
+                    📸 <strong>Work Proof Upload:</strong> Upload project photos and testing certificates. Each file is recorded securely in the official government system.
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                     <button
@@ -477,7 +477,7 @@ const ContractorDashboard = () => {
                       onClick={() => setTab('projects')}
                       style={{ background: '#006B4F', color: '#FFF', border: 'none', padding: '14px 20px', borderRadius: '8px', fontWeight: '800', cursor: 'pointer', textAlign: 'center' }}
                     >
-                      Open Active Projects to Attach Geo-Evidence →
+                      Open Active Projects to Upload Work Proof →
                     </button>
                   </div>
                 </div>
@@ -577,13 +577,13 @@ const ContractorDashboard = () => {
                   <div className="card-header" style={{ marginBottom: '20px' }}>
                     <div className="card-title">
                       <Activity size={20} color="#006B4F" />
-                      <span>On-Chain Cryptographic Escrow Disbursal Records</span>
+                      <span>Verified Payment & Agreement Records</span>
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {[
-                      { hash: '0x9e8a7c6b5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a', block: '19482910', event: 'Escrow Milestone 1 Settlement', amount: '₹4,35,00,000', time: '2026-09-20 14:32' },
-                      { hash: '0x4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e', block: '19478105', event: 'Contractor Work Agreement Anchoring', amount: '₹14,50,00,000', time: '2026-06-15 11:20' }
+                      { hash: '0x9e8a7c6b5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0a9b8c7d6e5f4a3b2c1d0e9f8a', block: '19482910', event: 'Phase 1 Milestone Payment', amount: '₹4,35,00,000', time: '2026-09-20 14:32' },
+                      { hash: '0x4f3e2d1c0b9a8f7e6d5c4b3a2f1e0d9c8b7a6f5e4d3c2b1a0f9e8d7c6b5a4f3e', block: '19478105', event: 'Contractor Work Agreement', amount: '₹14,50,00,000', time: '2026-06-15 11:20' }
                     ].map((tx, idx) => (
                       <div key={idx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
                         <div>
@@ -593,7 +593,7 @@ const ContractorDashboard = () => {
                         </div>
                         <div style={{ textAlign: 'right' }}>
                           <div style={{ fontSize: '18px', fontWeight: '900', color: '#006B4F' }}>{tx.amount}</div>
-                          <span style={{ fontSize: '11px', color: '#16A34A', fontWeight: '800' }}>✓ Confirmed by Validators</span>
+                          <span style={{ fontSize: '11px', color: '#16A34A', fontWeight: '800' }}>✓ Verified Record</span>
                         </div>
                       </div>
                     ))}
@@ -612,7 +612,7 @@ const ContractorDashboard = () => {
             <div className="super-admin-top-meta">
               <div className="super-admin-status-pill">
                 <span className="live-pulse-dot" />
-                <span>Contractor Node Online • Escrow Disbursal Verified</span>
+                <span>Contractor Portal Online • Payments Verified</span>
               </div>
 
               <div className="super-admin-user-pill">
@@ -885,7 +885,7 @@ const ContractorDashboard = () => {
                     {formatIndianDenomination(totalDisbursed)}
                   </div>
                   <div className="card-description-text">
-                    Audited bank credit vouchers and smart contract payment transactions
+                    Verified bank account payments and official receipts
                   </div>
                 </div>
 
@@ -905,7 +905,7 @@ const ContractorDashboard = () => {
                 id="con-card-blockchain"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">BLOCKCHAIN RECORDS</span>
+                  <span className="card-category-heading">VERIFIED RECORDS</span>
                   <div className="card-mono-icon-container icon-box-green">
                     <Activity size={22} />
                   </div>
@@ -913,10 +913,10 @@ const ContractorDashboard = () => {
 
                 <div className="card-content-body">
                   <div className="card-large-title">
-                    Immutable Ledger
+                    Verified Records
                   </div>
                   <div className="card-description-text">
-                    Cryptographic transaction hashes for contracts, escrow, and releases
+                    Official verification records for contracts, phases, and payments
                   </div>
                 </div>
 

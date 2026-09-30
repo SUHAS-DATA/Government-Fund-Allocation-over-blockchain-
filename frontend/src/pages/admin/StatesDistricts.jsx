@@ -44,13 +44,13 @@ const StatesDistricts = () => {
   const stateCols = [
     { header: 'Code', accessor: 'code', render: (r) => <span className="badge badge-info">{r.code}</span> },
     { header: 'State Name', accessor: 'name', render: (r) => <strong style={{ color: 'var(--text-main)' }}>{r.name}</strong> },
-    { header: 'Treasury Wallet', accessor: 'treasury_address', render: (r) => <code style={{ fontFamily: 'monospace', color: 'var(--color-primary)' }}>{formatAddress(r.treasury_address)}</code> }
+    { header: 'Government Account Ref', accessor: 'treasury_address', render: (r) => <code style={{ fontFamily: 'monospace', color: 'var(--color-primary)' }}>{formatAddress(r.treasury_address)}</code> }
   ];
 
   const districtCols = [
     { header: 'State', accessor: 'state_name' },
     { header: 'District Name', accessor: 'name', render: (r) => <strong style={{ color: 'var(--text-main)' }}>{r.name}</strong> },
-    { header: 'District Treasury', accessor: 'treasury_address', render: (r) => <code style={{ fontFamily: 'monospace', color: 'var(--color-primary)' }}>{formatAddress(r.treasury_address)}</code> }
+    { header: 'District Account Ref', accessor: 'treasury_address', render: (r) => <code style={{ fontFamily: 'monospace', color: 'var(--color-primary)' }}>{formatAddress(r.treasury_address)}</code> }
   ];
 
   const [filterState, setFilterState] = useState('');
@@ -65,9 +65,9 @@ const StatesDistricts = () => {
         <div>
           <h1 className="page-title">
             <MapPin size={24} color="var(--color-primary)" />
-            <span>States & Districts Treasury Network</span>
+            <span>States & Districts Directory</span>
           </h1>
-          <p className="page-subtitle">Configure regional treasury wallets and jurisdiction hierarchies.</p>
+          <p className="page-subtitle">Configure regional government offices and account mapping.</p>
         </div>
 
         <div style={{ display: 'flex', gap: '10px' }}>
@@ -85,14 +85,14 @@ const StatesDistricts = () => {
       <div className="grid-2">
         <div className="card">
           <div className="card-header">
-            <div className="card-title">States Network ({states.length})</div>
+            <div className="card-title">States Directory ({states.length})</div>
           </div>
           <DataTable columns={stateCols} data={states} searchKey="name" />
         </div>
 
         <div className="card">
           <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-            <div className="card-title">Districts Network ({filteredDistricts.length})</div>
+            <div className="card-title">Districts Directory ({filteredDistricts.length})</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)' }}>STATE:</span>
               <select
@@ -137,11 +137,11 @@ const StatesDistricts = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">State Treasury Wallet Address</label>
+            <label className="form-label">State Government Account Ref</label>
             <input
               type="text"
               className="form-control"
-              placeholder="0x..."
+              placeholder="e.g. ACC-KA-STATE-01"
               value={stateForm.treasury_address}
               onChange={(e) => setStateForm({ ...stateForm, treasury_address: e.target.value })}
             />
@@ -185,11 +185,11 @@ const StatesDistricts = () => {
           </div>
 
           <div className="form-group">
-            <label className="form-label">District Treasury Wallet Address</label>
+            <label className="form-label">District Office Account Ref</label>
             <input
               type="text"
               className="form-control"
-              placeholder="0x..."
+              placeholder="e.g. ACC-DIST-01"
               value={districtForm.treasury_address}
               onChange={(e) => setDistrictForm({ ...districtForm, treasury_address: e.target.value })}
             />

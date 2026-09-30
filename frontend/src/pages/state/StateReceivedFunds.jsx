@@ -23,7 +23,7 @@ const StateReceivedFunds = () => {
       render: (r) => <strong style={{ color: 'var(--color-primary)', fontFamily: 'monospace' }}>{r.transfer_id}</strong>
     },
     {
-      header: 'State Treasury',
+      header: 'State Government',
       accessor: 'state_name',
       render: (r) => <span className="badge badge-info">{r.state_name} ({r.state_code})</span>
     },
@@ -40,7 +40,7 @@ const StateReceivedFunds = () => {
       render: (r) => new Date(r.created_at).toLocaleString()
     },
     {
-      header: 'Blockchain Tx',
+      header: 'Payment Reference',
       accessor: 'blockchain_tx_hash',
       render: (r) => <BlockchainBadge txHash={r.blockchain_tx_hash} blockNumber={r.blockchain_block} />
     },
@@ -50,7 +50,7 @@ const StateReceivedFunds = () => {
       render: (r) => (
         <Link to={`/state/allocations?transfer_id=${r.transfer_id}`} className="btn btn-primary btn-sm">
           <Send size={13} />
-          <span>Allocate to District</span>
+          <span>Send to District</span>
         </Link>
       )
     }
@@ -62,9 +62,9 @@ const StateReceivedFunds = () => {
         <div>
           <h1 className="page-title">
             <Coins size={24} color="var(--color-primary)" />
-            <span>State Treasury Received Funds</span>
+            <span>State Funds Received</span>
           </h1>
-          <p className="page-subtitle">Disbursements received from Central Finance Authority anchored on blockchain.</p>
+          <p className="page-subtitle">Funds received from Central Ministry with verified payment records.</p>
         </div>
       </div>
 

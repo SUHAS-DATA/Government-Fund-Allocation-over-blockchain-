@@ -154,12 +154,12 @@ const BudgetAllocation = () => {
     { header: 'Department', accessor: 'department' },
     { header: 'Scheme Title', accessor: 'scheme_name' },
     {
-      header: 'Sanctioned Amount',
+      header: 'Allocated Amount',
       accessor: 'amount',
       render: (r) => <span style={{ fontWeight: '700', color: 'var(--color-success)' }}>{formatCurrency(r.amount)}</span>
     },
     {
-      header: 'Disbursed',
+      header: 'Funds Sent',
       accessor: 'disbursed_amount',
       render: (r) => formatCurrency(r.disbursed_amount || 0)
     },
@@ -173,7 +173,7 @@ const BudgetAllocation = () => {
       )
     },
     {
-      header: 'Blockchain Tx',
+      header: 'Payment Reference',
       accessor: 'blockchain_tx_hash',
       render: (r) => <BlockchainBadge txHash={r.blockchain_tx_hash} blockNumber={r.blockchain_block} />
     }
@@ -185,17 +185,17 @@ const BudgetAllocation = () => {
         <div>
           <h1 className="page-title">
             <Coins size={24} color="var(--color-primary)" />
-            <span>Central Budget Allocation</span>
+            <span>Central Fund Allocation</span>
           </h1>
           <p className="page-subtitle">
-            Sanction union budget funds across national scheme programs with multi-year cycle tracking and blockchain anchoring.
+            Allocate central government budget funds across national scheme programs with multi-year cycle tracking.
           </p>
         </div>
 
         <div style={{ display: 'flex', gap: '10px' }}>
           <button className="btn btn-primary" onClick={openAllocateModal}>
             <Plus size={15} />
-            <span>New Budget Allocation</span>
+            <span>Allocate Funds</span>
           </button>
           <Link to="/admin/send-to-finance" className="btn btn-secondary">
             <Send size={15} />
@@ -253,7 +253,7 @@ const BudgetAllocation = () => {
         {/* Selected FY Financial Metrics Quick Summary */}
         <div style={{ display: 'flex', gap: '20px', fontSize: '12px' }}>
           <div>
-            <span style={{ color: 'var(--text-muted)' }}>Sanctioned Ceiling: </span>
+            <span style={{ color: 'var(--text-muted)' }}>Approved Budget: </span>
             <strong style={{ color: 'var(--text-main)' }}>{formatCurrency(totalSanctionedInView)}</strong>
           </div>
           <div>
@@ -276,7 +276,7 @@ const BudgetAllocation = () => {
         />
       </div>
 
-      <Modal title="Create Central Budget Allocation" isOpen={showModal} onClose={() => setShowModal(false)}>
+      <Modal title="Allocate Central Funds" isOpen={showModal} onClose={() => setShowModal(false)}>
         <form onSubmit={handleAllocate}>
           <div className="form-group">
             <label className="form-label">Financial Year</label>
@@ -288,11 +288,11 @@ const BudgetAllocation = () => {
               {financialYears.length > 0 ? (
                 financialYears.map((fy) => (
                   <option key={fy.year} value={fy.year}>
-                    FY {fy.year} ({fy.title || 'Union Budget'} — Ceiling: {formatCurrency(fy.total_budget)}) {fy.status === 'ACTIVE' ? '★ ACTIVE' : ''}
+                    FY {fy.year} ({fy.title || 'Central Budget'} — Budget: {formatCurrency(fy.total_budget)}) {fy.status === 'ACTIVE' ? '★ ACTIVE' : ''}
                   </option>
                 ))
               ) : (
-                <option value="2026-27">FY 2026-27 (Active Union Budget)</option>
+                <option value="2026-27">FY 2026-27 (Active Central Budget)</option>
               )}
             </select>
           </div>
@@ -331,14 +331,14 @@ const BudgetAllocation = () => {
                 const rem = Math.max(0, (s.target_budget || s.allocated_budget || 0) - (s.allocated_amount || 0));
                 return (
                   <option key={s.code} value={s.name}>
-                    {s.code} — {s.name} (Ceiling: {formatCurrency(s.target_budget || s.allocated_budget || 0)} | Available: {formatCurrency(rem)})
+                    {s.code} — {s.name} (Budget: {formatCurrency(s.target_budget || s.allocated_budget || 0)} | Available: {formatCurrency(rem)})
                   </option>
                 );
               })}
             </select>
           </div>
 
-          {/* Scheme Sanction Ceiling Live Information Card */}
+          {/* Scheme Allocation Live Information Card */}
           {selectedSchemeObj && (
             <div style={{
               marginBottom: '16px',
@@ -353,21 +353,21 @@ const BudgetAllocation = () => {
                   <strong style={{ fontSize: '13px', color: 'var(--text-main)' }}>{selectedSchemeObj.name}</strong>
                 </div>
                 <span className={`badge ${schemeRemainingCeiling > 0 ? 'badge-success' : 'badge-danger'}`} style={{ fontWeight: '700' }}>
-                  {schemeRemainingCeiling > 0 ? `${percentAllocated}% Allocated` : '100% Fully Sanctioned'}
+                  {schemeRemainingCeiling > 0 ? `${percentAllocated}% Allocated` : '100% Fully Allocated'}
                 </span>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '12px' }}>
                 <div style={{ padding: '6px 8px', backgroundColor: 'var(--bg-surface)', borderRadius: '4px' }}>
-                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10px' }}>Total Scheme Ceiling</span>
+                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10px' }}>Total Scheme Budget</span>
                   <strong style={{ color: 'var(--text-main)', fontSize: '12px' }}>{formatCurrency(schemeTargetCeiling)}</strong>
                 </div>
                 <div style={{ padding: '6px 8px', backgroundColor: 'var(--bg-surface)', borderRadius: '4px' }}>
-                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10px' }}>Already Sanctioned</span>
+                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10px' }}>Already Allocated</span>
                   <strong style={{ color: 'var(--color-warning)', fontSize: '12px' }}>{formatCurrency(schemeAllocatedAmount)}</strong>
                 </div>
                 <div style={{ padding: '6px 8px', backgroundColor: 'var(--bg-surface)', borderRadius: '4px' }}>
-                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10px' }}>Remaining Allocatable</span>
+                  <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '10px' }}>Remaining Available</span>
                   <strong style={{ color: schemeRemainingCeiling > 0 ? 'var(--color-success)' : 'var(--color-danger)', fontSize: '12px' }}>
                     {formatCurrency(schemeRemainingCeiling)}
                   </strong>
@@ -376,21 +376,21 @@ const BudgetAllocation = () => {
 
               {schemeRemainingCeiling <= 0 && (
                 <div style={{ marginTop: '8px', color: 'var(--color-danger)', fontSize: '11px', fontWeight: '700' }}>
-                  ⚠️ Ceiling Reached: This scheme has received its full sanctioned budget ({formatCurrency(schemeTargetCeiling)}). No further funds can be allocated.
+                  ⚠️ Budget Reached: This scheme has received its full approved budget ({formatCurrency(schemeTargetCeiling)}). No further funds can be allocated.
                 </div>
               )}
             </div>
           )}
 
           <FundAmountInput
-            label="Sanctioned Scheme Allocation Amount"
+            label="Scheme Fund Allocation Amount"
             value={formData.amount}
             onChange={(val) => setFormData({ ...formData, amount: val })}
             max={schemeRemainingCeiling}
-            maxLabel="Scheme Ceiling"
+            maxLabel="Scheme Budget"
             required={true}
             disabled={schemeRemainingCeiling <= 0}
-            helperText={`Specify allocation within the remaining scheme ceiling of ${formatCurrency(schemeRemainingCeiling)}.`}
+            helperText={`Specify allocation within the remaining scheme budget of ${formatCurrency(schemeRemainingCeiling)}.`}
           />
 
           {isExceedingSchemeCeiling && (
@@ -404,7 +404,7 @@ const BudgetAllocation = () => {
               fontWeight: '700',
               marginBottom: '12px'
             }}>
-              ❌ Cannot Allocate: The entered amount ({formatCurrency(formData.amount)}) exceeds the scheme's remaining ceiling of {formatCurrency(schemeRemainingCeiling)}.
+              ❌ Cannot Allocate: The entered amount ({formatCurrency(formData.amount)}) exceeds the scheme's remaining budget of {formatCurrency(schemeRemainingCeiling)}.
             </div>
           )}
 
@@ -433,7 +433,7 @@ const BudgetAllocation = () => {
               disabled={submitting || formData.amount <= 0 || isExceedingSchemeCeiling || isExceedingFYCeiling || schemeRemainingCeiling <= 0}
             >
               <ShieldCheck size={15} />
-              <span>{submitting ? 'Executing On-Chain...' : 'Allocate on Blockchain'}</span>
+              <span>{submitting ? 'Allocating Funds...' : 'Confirm & Allocate Funds'}</span>
             </button>
           </div>
         </form>

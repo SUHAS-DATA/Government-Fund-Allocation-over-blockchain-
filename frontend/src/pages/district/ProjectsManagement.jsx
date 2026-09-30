@@ -207,11 +207,11 @@ const ProjectsManagement = () => {
   const handleCreateProject = async (e) => {
     e.preventDefault();
     if (currentSchemeData.available_balance <= 0) {
-      alert(`Cannot create project: No funds available for scheme '${createForm.scheme_name}' in ${isDistrictOfficer ? assignedDistrict : selectedDistrict}. Please request State Treasury allocation first.`);
+      alert(`Cannot create project: No funds available for scheme '${createForm.scheme_name}' in ${isDistrictOfficer ? assignedDistrict : selectedDistrict}. Please request State Government fund allocation first.`);
       return;
     }
     if (createForm.total_budget > currentSchemeData.available_balance) {
-      alert(`Project budget of ${formatCurrency(createForm.total_budget)} exceeds available district fund ceiling of ${formatCurrency(currentSchemeData.available_balance)} for '${createForm.scheme_name}'.`);
+      alert(`Project budget of ${formatCurrency(createForm.total_budget)} exceeds available district budget of ${formatCurrency(currentSchemeData.available_balance)} for '${createForm.scheme_name}'.`);
       return;
     }
     setSubmittingProject(true);
@@ -392,7 +392,7 @@ const ProjectsManagement = () => {
             <span>District Officer: Project Lifecycle & Contractor Oversight ({isDistrictOfficer ? assignedDistrict : selectedDistrict})</span>
           </h1>
           <p className="page-subtitle">
-            Manage government projects under approved schemes: Assign contractors, disburse phase funds to bank accounts, inspect proof submissions, and close completed projects.
+            Manage government projects under approved schemes: Assign contractors, send phase funds to contractor accounts, verify work proof submissions, and complete projects.
           </p>
         </div>
 
@@ -690,7 +690,7 @@ const ProjectsManagement = () => {
               <AlertCircle size={16} />
               <span>
                 {currentSchemeData.total_received === 0
-                  ? `No funds have been transferred by State Treasury to ${isDistrictOfficer ? assignedDistrict : selectedDistrict} for '${createForm.scheme_name}' yet.`
+                  ? `No funds have been transferred by State Government to ${isDistrictOfficer ? assignedDistrict : selectedDistrict} for '${createForm.scheme_name}' yet.`
                   : `100% of received funds for '${createForm.scheme_name}' in this district are already allocated to existing projects.`
                 }
               </span>
@@ -713,12 +713,12 @@ const ProjectsManagement = () => {
             value={createForm.total_budget}
             onChange={(val) => setFormData({ ...createForm, total_budget: val })}
             max={currentSchemeData.available_balance}
-            maxLabel="District Available Ceiling"
+            maxLabel="District Available Budget"
             required={true}
             disabled={currentSchemeData.available_balance <= 0}
             helperText={
               currentSchemeData.available_balance > 0
-                ? `Contract budget must be within the district's available ceiling of ${formatCurrency(currentSchemeData.available_balance)}.`
+                ? `Contract budget must be within the district's available budget of ${formatCurrency(currentSchemeData.available_balance)}.`
                 : "Cannot allocate: Zero funds available under this scheme."
             }
           />
@@ -817,12 +817,12 @@ const ProjectsManagement = () => {
       )}
 
       {/* MODAL 5: View Official Project QR Code */}
-      <Modal title={`QR Verification: ${qrModalData?.project_id || ''}`} isOpen={showQrModal && !!qrModalData} onClose={() => setShowQrModal(false)}>
+      <Modal title={`Project QR Code: ${qrModalData?.project_id || ''}`} isOpen={showQrModal && !!qrModalData} onClose={() => setShowQrModal(false)}>
         {qrModalData && (
           <div style={{ textAlign: 'center', padding: '10px 0' }}>
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: '#F0FDF4', color: '#166534', padding: '6px 14px', borderRadius: '20px', fontSize: '12px', fontWeight: '800', marginBottom: '16px', border: '1px solid #86EFAC' }}>
               <CheckCircle2 size={14} />
-              <span>OFFICIALLY VERIFIED CONTRACT QR • ACTIVE</span>
+              <span>OFFICIAL PROJECT QR • ACTIVE</span>
             </div>
 
             <div style={{
@@ -865,14 +865,14 @@ const ProjectsManagement = () => {
                 <strong style={{ color: '#16A34A' }}>ACTIVE</strong>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span style={{ color: '#64748B' }}>Public Verification:</span>
+                <span style={{ color: '#64748B' }}>Public Project Page:</span>
                 <a
                   href={`/verify/${qrModalData.qr_code?.qr_id || qrModalData.qr_id || `QR-${qrModalData.contract_id}`}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{ fontSize: '12px', color: '#0284C7', textDecoration: 'none', fontWeight: '700' }}
                 >
-                  Open Verification Page ↗
+                  Open Project Page ↗
                 </a>
               </div>
             </div>
@@ -1334,7 +1334,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                           <div style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                             <FileCheck size={16} color="var(--color-primary)" />
-                            <span>Work Evidence Submissions ({mEvidence.length}) — Phase #{idx + 1}</span>
+                            <span>Work Proof Submissions ({mEvidence.length}) — Phase #{idx + 1}</span>
                           </div>
                           <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                             Project: <strong>{projData.name}</strong> • Contractor: <strong>{projData.contractor_name}</strong>
@@ -1388,7 +1388,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
                                     )}
                                     {isEvPending && (
                                       <span className="badge badge-warning" style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D', fontWeight: '700' }}>
-                                        ⏳ Pending Verification
+                                        ⏳ Pending Check
                                       </span>
                                     )}
                                   </div>
@@ -1396,7 +1396,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
 
                                 {ev.description && (
                                   <div style={{ fontSize: '12px', color: 'var(--text-secondary)', background: 'var(--bg-subtle)', padding: '6px 10px', borderRadius: '4px' }}>
-                                    <strong>Evidence Description:</strong> {ev.description}
+                                    <strong>Work Proof Description:</strong> {ev.description}
                                   </div>
                                 )}
 
@@ -1466,7 +1466,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
 
                                   {ev.sha256_hash && (
                                     <div style={{ fontSize: '10px', fontFamily: 'monospace', color: 'var(--text-muted)', marginLeft: 'auto' }}>
-                                      SHA-256: {ev.sha256_hash.slice(0, 16)}...
+                                      Record Stamp: {ev.sha256_hash.slice(0, 16)}...
                                     </div>
                                   )}
                                 </div>
@@ -1488,7 +1488,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
                                     disabled={submitting || isEvVerified}
                                   >
                                     <CheckCircle2 size={13} />
-                                    <span>{isEvVerified ? 'Evidence Verified ✓' : 'Verify Evidence'}</span>
+                                    <span>{isEvVerified ? 'Proof Verified ✓' : 'Verify Work Proof'}</span>
                                   </button>
                                   <button
                                     type="button"
@@ -1498,7 +1498,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
                                     disabled={submitting}
                                   >
                                     <XCircle size={13} />
-                                    <span>Reject Evidence</span>
+                                    <span>Reject Work Proof</span>
                                   </button>
                                 </div>
                               </div>
@@ -1569,7 +1569,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
                         disabled={submitting}
                       >
                         <Coins size={13} />
-                        <span>Allocate & Transfer Funds to Bank Account</span>
+                        <span>Send Funds to Contractor Account</span>
                       </button>
                       <button
                         className="btn btn-secondary btn-sm"
@@ -1608,7 +1608,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
 
                   {isCompleted && m.blockchain_tx_hash && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: '700' }}>Disbursed on Ethereum</span>
+                      <span style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: '700' }}>Payment Verified</span>
                       <BlockchainBadge txHash={m.blockchain_tx_hash} />
                     </div>
                   )}
@@ -1721,16 +1721,16 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
 
       {/* Reject Evidence Modal */}
       {evidenceRejectModalItem !== null && (
-        <Modal title={`Reject Work Evidence: ${evidenceRejectModalItem.file_name || evidenceRejectModalItem.evidence_id}`} isOpen={true} onClose={() => setEvidenceRejectModalItem(null)}>
+        <Modal title={`Reject Work Proof: ${evidenceRejectModalItem.file_name || evidenceRejectModalItem.evidence_id}`} isOpen={true} onClose={() => setEvidenceRejectModalItem(null)}>
           <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '4px', padding: '10px 14px', marginBottom: '14px', fontSize: '12px', color: '#B91C1C' }}>
-            Enter a clear rejection reason. This feedback will be displayed to the contractor so they can rectify the work and upload corrected evidence.
+            Enter a clear rejection reason. This feedback will be displayed to the contractor so they can rectify the work and upload corrected work proof.
           </div>
           <div className="form-group">
             <label className="form-label">Rejection Reason (Mandatory)</label>
             <textarea
               className="form-control"
               rows="3"
-              placeholder="e.g. Uploaded evidence does not clearly show completion of the milestone."
+              placeholder="e.g. Uploaded proof does not clearly show completion of the milestone."
               value={evidenceRejectReason}
               onChange={(e) => setEvidenceRejectReason(e.target.value)}
               required
@@ -1739,7 +1739,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
             <button className="btn btn-secondary" onClick={() => setEvidenceRejectModalItem(null)}>Cancel</button>
             <button className="btn btn-danger" onClick={handleConfirmRejectEvidence} disabled={submitting || !evidenceRejectReason.trim()}>
-              <span>{submitting ? 'Rejecting...' : 'Confirm Reject Evidence'}</span>
+              <span>{submitting ? 'Rejecting...' : 'Confirm Reject Work Proof'}</span>
             </button>
           </div>
         </Modal>
@@ -1747,7 +1747,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
 
       {/* Evidence Full Image Preview Modal */}
       {previewEvidence !== null && (
-        <Modal title={`Work Evidence Preview: ${previewEvidence.file_name || 'Site Image'}`} isOpen={true} onClose={() => setPreviewEvidence(null)} maxWidth="750px">
+        <Modal title={`Work Proof Preview: ${previewEvidence.file_name || 'Site Image'}`} isOpen={true} onClose={() => setPreviewEvidence(null)} maxWidth="750px">
           <div style={{ textAlign: 'center' }}>
             <img
               src={previewEvidence.url}
@@ -1757,7 +1757,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
             <div style={{ marginTop: '12px', fontSize: '12px', color: 'var(--text-secondary)', textAlign: 'left', background: 'var(--bg-subtle)', padding: '10px 14px', borderRadius: '6px' }}>
               <div><strong>File Name:</strong> {previewEvidence.file_name}</div>
               {previewEvidence.description && <div><strong>Description:</strong> {previewEvidence.description}</div>}
-              {previewEvidence.sha256_hash && <div style={{ fontFamily: 'monospace', fontSize: '11px', marginTop: '4px' }}>SHA-256 Digest: {previewEvidence.sha256_hash}</div>}
+              {previewEvidence.sha256_hash && <div style={{ fontFamily: 'monospace', fontSize: '11px', marginTop: '4px' }}>Record Stamp: {previewEvidence.sha256_hash}</div>}
             </div>
           </div>
         </Modal>

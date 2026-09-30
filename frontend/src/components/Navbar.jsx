@@ -149,8 +149,8 @@ const Navbar = ({ onToggleSidebar }) => {
               <span>GOV</span>
             </div>
             <div>
-              <div className="navbar-title">PFMS Fund Tracking Ledger</div>
-              <div className="navbar-subtitle">Government of India • Blockchain Verified</div>
+              <div className="navbar-title">PFMS Fund Tracking System</div>
+              <div className="navbar-subtitle">Government of India • Official Fund Portal</div>
             </div>
           </Link>
         </div>

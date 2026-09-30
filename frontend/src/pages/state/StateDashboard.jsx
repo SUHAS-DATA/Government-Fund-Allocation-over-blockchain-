@@ -140,7 +140,7 @@ const StateDashboard = () => {
 
   const districtAllocationsCount = metrics?.district_allocations_count || 0;
   const receivedTransfersCount = metrics?.received_transfers_count || 0;
-  const stateName = data?.state_name || user?.state_name || 'State Treasury';
+  const stateName = data?.state_name || user?.state_name || 'State Government';
   const stateCode = data?.state_code || user?.state_code || 'KA';
 
   const recentTransfers = data?.recent_received_funds || [];
@@ -150,23 +150,23 @@ const StateDashboard = () => {
   const getModuleTitle = (tab) => {
     switch (tab) {
       case 'received':
-        return 'Central Finance Received Funds';
+        return 'Funds Received from Centre';
       case 'allocations':
-        return 'State-to-District Fund Allocation';
+        return 'Send Funds to District';
       case 'breakdown':
-        return 'District Allocations Matrix';
+        return 'District Fund Allocations';
       case 'payment_requests':
-        return 'District Agency Payment Requests & Requisitions';
+        return 'District Payment Requests';
       case 'history':
-        return 'District Disbursements & Audit Ledger';
+        return 'District Payment History';
       case 'blockchain':
-        return 'Ethereum Blockchain Ledger Records';
+        return 'Verified Payment Records';
       case 'reports':
-        return 'State Treasury Compliance & Expenditure Reports';
+        return 'Financial Reports';
       case 'notifications':
-        return 'State Treasury Official Notifications';
+        return 'State Notifications';
       default:
-        return 'State Treasury Module';
+        return 'State Department Module';
     }
   };
 
@@ -211,7 +211,7 @@ const StateDashboard = () => {
                   <div className="card-header" style={{ marginBottom: '18px' }}>
                     <div className="card-title">
                       <Building2 size={20} color="#006B4F" />
-                      <span>District Treasury Disbursal Matrix ({stateName})</span>
+                      <span>District Fund Allocation Matrix ({stateName})</span>
                     </div>
                   </div>
 
@@ -229,10 +229,10 @@ const StateDashboard = () => {
                         }}>
                           <div>
                             <div style={{ fontWeight: '800', color: '#102A43', fontSize: '15px' }}>
-                              {d._id} District Development Agency
+                              {d._id} District Development Office
                             </div>
                             <div style={{ fontSize: '12px', color: '#627D98', marginTop: '2px' }}>
-                              Total Sanctions: {d.alloc_count} Verified Allocations
+                              Total Fund Allocations: {d.alloc_count} Verified
                             </div>
                           </div>
                           <div style={{ textAlign: 'right' }}>
@@ -254,7 +254,7 @@ const StateDashboard = () => {
                                 cursor: 'pointer'
                               }}
                             >
-                              Allocate More →
+                              Send More →
                             </button>
                           </div>
                         </div>
@@ -262,7 +262,7 @@ const StateDashboard = () => {
                     </div>
                   ) : (
                     <div style={{ textAlign: 'center', padding: '40px 20px', color: '#627D98' }}>
-                      No district allocations recorded yet for {stateName}.
+                      No district fund allocations recorded yet for {stateName}.
                     </div>
                   )}
                 </div>
@@ -273,7 +273,7 @@ const StateDashboard = () => {
                   <div className="card-header" style={{ marginBottom: '20px' }}>
                     <div className="card-title">
                       <CreditCard size={20} color="#006B4F" />
-                      <span>Pending Payment Requests from Subordinate Districts</span>
+                      <span>Pending Payment Requests from Districts</span>
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -319,7 +319,7 @@ const StateDashboard = () => {
                               cursor: 'pointer'
                             }}
                           >
-                            Approve Disbursal →
+                            Approve & Send →
                           </button>
                         </div>
                       </div>
@@ -341,7 +341,7 @@ const StateDashboard = () => {
                   <div className="card-header" style={{ marginBottom: '20px' }}>
                     <div className="card-title">
                       <FileText size={20} color="#006B4F" />
-                      <span>State Treasury Financial Compliance & Utilization Report</span>
+                      <span>State Financial & Funds Used Report</span>
                     </div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
@@ -350,16 +350,16 @@ const StateDashboard = () => {
                       <div style={{ fontSize: '20px', fontWeight: '800', color: '#102A43', marginTop: '4px' }}>{formatIndianDenomination(totalReceived)}</div>
                     </div>
                     <div style={{ background: '#E6F4EA', padding: '16px', borderRadius: '8px', border: '1px solid #A7F3D0' }}>
-                      <div style={{ fontSize: '11px', fontWeight: '800', color: '#006B4F', textTransform: 'uppercase' }}>District Deployments</div>
+                      <div style={{ fontSize: '11px', fontWeight: '800', color: '#006B4F', textTransform: 'uppercase' }}>Funds Sent to Districts</div>
                       <div style={{ fontSize: '20px', fontWeight: '800', color: '#006B4F', marginTop: '4px' }}>{formatIndianDenomination(totalAllocated)}</div>
                     </div>
                     <div style={{ background: '#EFF6FF', padding: '16px', borderRadius: '8px', border: '1px solid #BFDBFE' }}>
-                      <div style={{ fontSize: '11px', fontWeight: '800', color: '#2563EB', textTransform: 'uppercase' }}>Treasury Balance</div>
+                      <div style={{ fontSize: '11px', fontWeight: '800', color: '#2563EB', textTransform: 'uppercase' }}>Available Balance</div>
                       <div style={{ fontSize: '20px', fontWeight: '800', color: '#2563EB', marginTop: '4px' }}>{formatIndianDenomination(remainingTreasury)}</div>
                     </div>
                   </div>
                   <p style={{ fontSize: '13px', color: '#486581', lineHeight: '1.6' }}>
-                    State Treasury statutory accounts are anchored to the RBI clearing gateway and verified against the National Ethereum Ledger. All tranches disbursed to district collectorates require valid administrative requisitions and utilization certificates.
+                    State Government Accounts are registered with official bank records and verified against secure government records. All funds sent to district offices require valid work requests.
                   </p>
                 </div>
               )}
@@ -378,9 +378,9 @@ const StateDashboard = () => {
             <div className="super-admin-top-meta-bar">
               <div className="super-admin-badge-left">
                 <span className="live-pulse-dot" />
-                <span className="live-network-text">STATE TREASURY ACTIVE</span>
+                <span className="live-network-text">STATE SYSTEM ONLINE</span>
                 <span style={{ color: '#CBD5E1' }}>•</span>
-                <span style={{ color: '#486581', fontWeight: '600' }}>ETHEREUM SMART CONTRACT ANCHORED</span>
+                <span style={{ color: '#486581', fontWeight: '600' }}>SECURE GOVERNMENT RECORDS</span>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -390,7 +390,7 @@ const StateDashboard = () => {
                     {stateName} ({stateCode})
                   </span>
                   <span style={{ fontSize: '10px', background: '#E6F4EA', color: '#006B4F', padding: '2px 6px', borderRadius: '4px', fontWeight: '800' }}>
-                    STATE TREASURY
+                    STATE GOVERNMENT
                   </span>
                 </div>
 
@@ -419,13 +419,13 @@ const StateDashboard = () => {
               </div>
 
               <span className="super-admin-badge-eyebrow">
-                STATE TREASURY DIRECTORATE
+                STATE DEPARTMENT
               </span>
               <h1 className="super-admin-main-title">
-                State Treasury & Regional Allocation Hub
+                State Government & District Allocation Hub
               </h1>
               <p className="super-admin-sub-title">
-                Central Sanction Execution, District Requisitions & Regional Treasury Liquidity • {stateName}
+                Central Budget Allocation & Direct District Transfers • {stateName}
               </p>
 
               {/* Thin Decorative Green Line */}
@@ -433,7 +433,7 @@ const StateDashboard = () => {
 
               <div className="super-admin-fy-pill">
                 <Calendar size={13} color="#006B4F" />
-                <span>State Treasury Directorate • FY 2026–27</span>
+                <span>State Department of Finance • FY 2026–27</span>
               </div>
             </div>
 
@@ -541,13 +541,13 @@ const StateDashboard = () => {
                     {formatIndianDenomination(totalReceived)}
                   </div>
                   <div className="card-description-text">
-                    Central Ministry sanctions credited directly to State Treasury
+                    Central Ministry sanctions credited directly to State Account
                   </div>
                 </div>
 
                 <div className="card-bottom-row">
                   <div className="card-action-link">
-                    <span>View Central Transfers</span>
+                    <span>View Central Funds</span>
                     <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
@@ -561,10 +561,10 @@ const StateDashboard = () => {
               >
                 <div className="card-top-row">
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span className="card-category-heading">STATE ALLOCATIONS</span>
+                    <span className="card-category-heading">SEND FUNDS</span>
                     <span className="card-feature-pill">
                       <Link2 size={10} />
-                      <span>On-chain tracked</span>
+                      <span>Verified Record</span>
                     </span>
                   </div>
                   <div className="card-mono-icon-container icon-box-green">
@@ -577,7 +577,7 @@ const StateDashboard = () => {
                     {formatIndianDenomination(totalAllocated)}
                   </div>
                   <div className="card-description-text" style={{ fontWeight: '700', color: '#102A43' }}>
-                    Allocated • {allocatedPct}% of State Treasury
+                    Sent • {allocatedPct}% of State Funds
                   </div>
 
                   {/* Clean Green Progress Bar */}
@@ -589,7 +589,7 @@ const StateDashboard = () => {
                       />
                     </div>
                     <div className="dominant-progress-meta">
-                      <span>Regional commitment</span>
+                      <span>Funds sent</span>
                       <span>{formatIndianDenomination(remainingTreasury)} Remaining</span>
                     </div>
                   </div>
@@ -597,7 +597,7 @@ const StateDashboard = () => {
 
                 <div className="card-bottom-row">
                   <div className="card-action-link" style={{ color: '#006B4F' }}>
-                    <span>Allocate Funds</span>
+                    <span>Send Funds</span>
                     <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
@@ -610,7 +610,7 @@ const StateDashboard = () => {
                 id="state-card-breakdown"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">DISTRICT ALLOCATIONS</span>
+                  <span className="card-category-heading">DISTRICT FUNDS</span>
                   <div className="card-mono-icon-container icon-box-navy">
                     <Building2 size={22} />
                   </div>
@@ -621,13 +621,13 @@ const StateDashboard = () => {
                     {districtBreakdown.length} Districts
                   </div>
                   <div className="card-description-text">
-                    Regional breakdown of capital distribution across collectorates
+                    District-wise breakdown of funds allocated across offices
                   </div>
                 </div>
 
                 <div className="card-bottom-row">
                   <div className="card-action-link">
-                    <span>View Matrix</span>
+                    <span>View District Funds</span>
                     <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
@@ -651,13 +651,13 @@ const StateDashboard = () => {
                     <AnimatedCounter value={pendingRequestsCount} suffix=" Requests Pending" />
                   </div>
                   <div className="card-description-text">
-                    District development milestone claims awaiting State Treasury release
+                    District milestone payment requests awaiting approval
                   </div>
                 </div>
 
                 <div className="card-bottom-row">
                   <div className="card-action-link">
-                    <span>Review Requisitions</span>
+                    <span>Review Requests</span>
                     <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
@@ -671,7 +671,7 @@ const StateDashboard = () => {
               >
                 <div className="card-top-row">
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span className="card-category-heading">DISBURSEMENTS</span>
+                    <span className="card-category-heading">PAYMENT HISTORY</span>
                     <span className="card-feature-pill">
                       <span>● Verified</span>
                     </span>
@@ -683,16 +683,16 @@ const StateDashboard = () => {
 
                 <div className="card-content-body">
                   <div className="card-large-title">
-                    <AnimatedCounter value={districtAllocationsCount} suffix=" Disbursals" />
+                    <AnimatedCounter value={districtAllocationsCount} suffix=" Payments" />
                   </div>
                   <div className="card-description-text">
-                    Comprehensive ledger of district allocations and cryptographic receipts
+                    Verified records of funds sent directly to district office accounts
                   </div>
                 </div>
 
                 <div className="card-bottom-row">
                   <div className="card-action-link">
-                    <span>Audit Records</span>
+                    <span>View History</span>
                     <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
@@ -705,7 +705,7 @@ const StateDashboard = () => {
                 id="state-card-blockchain"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">BLOCKCHAIN RECORDS</span>
+                  <span className="card-category-heading">VERIFIED RECORDS</span>
                   <div className="card-mono-icon-container icon-box-green">
                     <ShieldCheck size={22} />
                   </div>
@@ -713,16 +713,16 @@ const StateDashboard = () => {
 
                 <div className="card-content-body">
                   <div className="card-large-title">
-                    Ethereum Consensus
+                    Verified Records
                   </div>
                   <div className="card-description-text">
-                    Every rupee anchored on-chain with immutable cryptographic hashes
+                    Every payment verified and recorded with secure reference IDs
                   </div>
                 </div>
 
                 <div className="card-bottom-row">
                   <div className="card-action-link">
-                    <span>Verify Ledger</span>
+                    <span>View Records</span>
                     <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
@@ -795,25 +795,25 @@ const StateDashboard = () => {
             {/* ========================================================= */}
             <div className="section-eyebrow-heading">
               <span className="section-bullet" />
-              <span>STATE TREASURY CAPITAL PIPELINE</span>
+              <span>STATE FUND FLOW PROCESS</span>
             </div>
 
             <div className="super-admin-section-container">
               <div className="section-container-header">
                 <div className="section-container-title">
                   <GitBranch size={16} color="#006B4F" />
-                  <span>Central to District Fund Movement Hierarchy</span>
+                  <span>Central to District Fund Movement</span>
                 </div>
                 <span style={{ fontSize: '11px', color: '#627D98', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-                  State Disbursal Protocol
+                  Official Fund Flow Process
                 </span>
               </div>
 
               <div className="fund-flow-wrapper">
                 <div className="fund-flow-node">
                   <div className="fund-flow-circle">01</div>
-                  <div className="fund-flow-node-title">Union Sanction</div>
-                  <div className="fund-flow-node-desc">Ministry Ceiling</div>
+                  <div className="fund-flow-node-title">Central Allocation</div>
+                  <div className="fund-flow-node-desc">Approved Budget</div>
                 </div>
 
                 <div className="fund-flow-connector" />
@@ -821,23 +821,23 @@ const StateDashboard = () => {
                 <div className="fund-flow-node">
                   <div className="fund-flow-circle">02</div>
                   <div className="fund-flow-node-title">State Receipt</div>
-                  <div className="fund-flow-node-desc">Direct Treasury Credit</div>
+                  <div className="fund-flow-node-desc">State Account Credit</div>
                 </div>
 
                 <div className="fund-flow-connector" />
 
                 <div className="fund-flow-node">
                   <div className="fund-flow-circle">03</div>
-                  <div className="fund-flow-node-title">District Requisition</div>
-                  <div className="fund-flow-node-desc">Infrastructure Review</div>
+                  <div className="fund-flow-node-title">District Request</div>
+                  <div className="fund-flow-node-desc">Work Requirement Review</div>
                 </div>
 
                 <div className="fund-flow-connector" />
 
                 <div className="fund-flow-node">
                   <div className="fund-flow-circle">04</div>
-                  <div className="fund-flow-node-title">Treasury Sanction</div>
-                  <div className="fund-flow-node-desc">Ceiling Validation</div>
+                  <div className="fund-flow-node-title">State Approval</div>
+                  <div className="fund-flow-node-desc">Budget Validation</div>
                 </div>
 
                 <div className="fund-flow-connector" />
@@ -845,7 +845,7 @@ const StateDashboard = () => {
                 <div className="fund-flow-node">
                   <div className="fund-flow-circle">05</div>
                   <div className="fund-flow-node-title">District Credit</div>
-                  <div className="fund-flow-node-desc">DRDA Deployment</div>
+                  <div className="fund-flow-node-desc">District Account Credit</div>
                 </div>
               </div>
             </div>
@@ -855,17 +855,17 @@ const StateDashboard = () => {
             {/* ========================================================= */}
             <div className="section-eyebrow-heading">
               <span className="section-bullet" />
-              <span>RECENT STATE TREASURY ACTIVITY</span>
+              <span>RECENT STATE ACTIVITY</span>
             </div>
 
             <div className="super-admin-section-container">
               <div className="section-container-header">
                 <div className="section-container-title">
                   <Clock size={16} color="#006B4F" />
-                  <span>Audited Treasury Disbursal Events ({stateName})</span>
+                  <span>Recent Payment Activity ({stateName})</span>
                 </div>
                 <span style={{ fontSize: '11px', color: '#627D98', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-                  On-Chain State Events
+                  Verified State Records
                 </span>
               </div>
 
@@ -882,7 +882,7 @@ const StateDashboard = () => {
                           Central Inflow: {t.scheme_name}
                         </div>
                         <div className="activity-detail-text">
-                          Amount: {formatCurrency(t.amount)} • Transfer ID: {t.transfer_id} • Status: Credited to State Treasury
+                          Amount: {formatCurrency(t.amount)} • Payment Reference: {t.transfer_id} • Status: Credited to State Account
                         </div>
                       </div>
                     </div>
@@ -893,10 +893,10 @@ const StateDashboard = () => {
                     <span className="activity-time-pill">Active</span>
                     <div className="activity-content-box">
                       <div className="activity-title-text">
-                        State Treasury Directorate Initialized
+                        State Department Online
                       </div>
                       <div className="activity-detail-text">
-                        Ready to process central transfers and execute regional district allocations for {stateName}.
+                        Ready to receive central funds and send funds to district offices for {stateName}.
                       </div>
                     </div>
                   </div>

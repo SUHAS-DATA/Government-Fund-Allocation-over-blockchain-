@@ -74,10 +74,10 @@ const DocumentHashViewer = ({ document, showVerifyButton = true }) => {
           {document.blockchain_tx_hash ? (
             <span className="badge badge-success">
               <ShieldCheck size={12} />
-              <span>ANCHORED ON-CHAIN</span>
+              <span>VERIFIED RECORD</span>
             </span>
           ) : (
-            <span className="badge badge-warning">OFF-CHAIN</span>
+            <span className="badge badge-warning">RECORD PENDING</span>
           )}
 
           {showVerifyButton && (
@@ -88,7 +88,7 @@ const DocumentHashViewer = ({ document, showVerifyButton = true }) => {
               style={{ fontSize: '11px', padding: '5px 10px' }}
             >
               <RefreshCw size={12} className={verifying ? 'animate-spin' : ''} />
-              <span>{verifying ? 'Verifying...' : 'Verify Hash'}</span>
+              <span>{verifying ? 'Checking...' : 'Verify Record'}</span>
             </button>
           )}
         </div>
@@ -107,7 +107,7 @@ const DocumentHashViewer = ({ document, showVerifyButton = true }) => {
         fontFamily: "'JetBrains Mono', monospace"
       }}>
         <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginRight: '10px' }}>
-          <span style={{ color: 'var(--text-muted)', marginRight: '6px', fontWeight: '700' }}>SHA-256:</span>
+          <span style={{ color: 'var(--text-muted)', marginRight: '6px', fontWeight: '700' }}>Record Stamp:</span>
           <span style={{ color: 'var(--text-main)', fontWeight: '600' }}>{document.sha256_hash}</span>
         </div>
         <button
@@ -148,9 +148,9 @@ const DocumentHashViewer = ({ document, showVerifyButton = true }) => {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             {verificationResult.is_verified ? <CheckCircle2 size={15} /> : <XCircle size={15} />}
-            <span>{verificationResult.is_verified ? 'HASH MATCH: 100% Cryptographically Verified on Blockchain' : 'HASH MISMATCH / TAMPER DETECTED'}</span>
+            <span>{verificationResult.is_verified ? 'RECORD MATCH: Official Document Authenticated & Verified' : 'RECORD MISMATCH: Check failed'}</span>
           </div>
-          <span style={{ fontSize: '10px', textTransform: 'uppercase', opacity: 0.9 }}>Disk vs On-Chain Match</span>
+          <span style={{ fontSize: '10px', textTransform: 'uppercase', opacity: 0.9 }}>Official Check</span>
         </div>
       )}
     </div>

@@ -199,35 +199,35 @@ const AdminDashboard = () => {
       time: '09:18',
       title: '₹25 Cr allocation created',
       detail: dashboardData?.recent_allocations?.[1]?.department
-        ? `${dashboardData.recent_allocations[1].department} • Karnataka State Treasury`
-        : 'Karnataka State Treasury'
+        ? `${dashboardData.recent_allocations[1].department} • Karnataka State Account`
+        : 'Karnataka State Account'
     },
     {
       time: '08:55',
-      title: 'Blockchain transaction verified',
+      title: 'Payment record verified',
       detail: dashboardData?.recent_allocations?.[0]?.blockchain_tx_hash
-        ? `TX: ${dashboardData.recent_allocations[0].blockchain_tx_hash.substring(0, 10)}...${dashboardData.recent_allocations[0].blockchain_tx_hash.substring(dashboardData.recent_allocations[0].blockchain_tx_hash.length - 4)}`
-        : 'TX: 0x82f4...A91'
+        ? `Ref: ${dashboardData.recent_allocations[0].blockchain_tx_hash.substring(0, 10)}...${dashboardData.recent_allocations[0].blockchain_tx_hash.substring(dashboardData.recent_allocations[0].blockchain_tx_hash.length - 4)}`
+        : 'Ref: PAY-10245'
     },
     {
       time: '08:30',
-      title: 'Central budget sanctioned',
-      detail: 'Union Ministry Allocation registered and anchored on blockchain'
+      title: 'Central budget approved',
+      detail: 'Ministry allocation registered and securely recorded'
     }
   ];
 
   // Helper for module header titles
   const getModuleTitle = (tab) => {
     switch (tab) {
-      case 'config': return 'Financial Year & Union Budget Cycle';
+      case 'config': return 'Financial Year & Central Budget';
       case 'schemes': return 'National Government Schemes';
-      case 'allocation': return 'Union Budget Allocation';
-      case 'send_finance': return 'Sanction Approvals & Finance Dispatch';
+      case 'allocation': return 'Central Fund Allocation';
+      case 'send_finance': return 'Approval Details & Send to Finance';
       case 'projects': return 'Public Infrastructure Projects';
       case 'departments': return 'Central Ministries & Departments';
-      case 'monitoring': return 'Blockchain Transparency Ledger';
-      case 'users': return 'User Access Control & RBAC';
-      case 'states_districts': return 'State & District Treasuries';
+      case 'monitoring': return 'Verified Payment Records';
+      case 'users': return 'User Access Control & Permissions';
+      case 'states_districts': return 'State & District Offices';
       case 'notifications': return 'National Operational Notifications';
       case 'settings': return 'System Settings & Regional Configuration';
       default: return 'Module Management';
@@ -345,7 +345,7 @@ const AdminDashboard = () => {
                 <span className="fin-overview-value highlight-green">
                   {formatIndianDenomination(totalFunds)}
                 </span>
-                <span className="fin-overview-subtext">Central sanctioned ceiling</span>
+                <span className="fin-overview-subtext">Approved Central Budget</span>
               </div>
 
               <div className="fin-overview-column">
@@ -356,7 +356,7 @@ const AdminDashboard = () => {
                 <span className="fin-overview-value">
                   {formatIndianDenomination(allocatedFunds)}
                 </span>
-                <span className="fin-overview-subtext">{utilizationPct}% ceiling utilization</span>
+                <span className="fin-overview-subtext">{utilizationPct}% budget allocated</span>
               </div>
 
               <div className="fin-overview-column">
@@ -367,7 +367,7 @@ const AdminDashboard = () => {
                 <span className="fin-overview-value">
                   {formatIndianDenomination(remainingFunds)}
                 </span>
-                <span className="fin-overview-subtext">Available treasury pool</span>
+                <span className="fin-overview-subtext">Available budget pool</span>
               </div>
 
               <div className="fin-overview-column">
@@ -381,7 +381,7 @@ const AdminDashboard = () => {
                     prefix={pendingApprovalsCount < 10 ? '0' : ''}
                   />
                 </span>
-                <span className="fin-overview-subtext">Awaiting Finance dispatch</span>
+                <span className="fin-overview-subtext">Awaiting Finance transfer</span>
               </div>
 
               <div className="fin-overview-column">
@@ -392,7 +392,7 @@ const AdminDashboard = () => {
                 <span className="fin-overview-value">
                   <AnimatedCounter value={activeSchemesCount} />
                 </span>
-                <span className="fin-overview-subtext">Sanctioned flagship schemes</span>
+                <span className="fin-overview-subtext">Approved government schemes</span>
               </div>
 
               <div className="fin-overview-column">
@@ -420,12 +420,12 @@ const AdminDashboard = () => {
               <div className="fin-overview-column">
                 <div className="fin-overview-top-label">
                   <Activity size={14} color="#006B4F" />
-                  <span>BLOCKCHAIN TRANSACTIONS</span>
+                  <span>PAYMENT RECORDS</span>
                 </div>
                 <span className="fin-overview-value">
                   <AnimatedCounter value={blockchainTxCount} />
                 </span>
-                <span className="fin-overview-subtext">Verified on Ethereum ledger</span>
+                <span className="fin-overview-subtext">Verified & permanently recorded</span>
               </div>
             </div>
 
@@ -514,7 +514,7 @@ const AdminDashboard = () => {
                     <span className="card-category-heading">FUND ALLOCATION</span>
                     <span className="card-feature-pill">
                       <Link2 size={10} />
-                      <span>On-chain tracked</span>
+                      <span>Securely tracked</span>
                     </span>
                   </div>
                   <div className="card-mono-icon-container icon-box-green">
@@ -560,7 +560,7 @@ const AdminDashboard = () => {
                 id="card-approvals"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">APPROVALS</span>
+                  <span className="card-category-heading">APPROVAL DETAILS</span>
                   <div className="card-mono-icon-container icon-box-gold">
                     <CheckCircle2 size={22} />
                   </div>
@@ -622,7 +622,7 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
-              {/* CARD 6: Blockchain */}
+              {/* CARD 6: Payment Records */}
               <div
                 className="super-admin-operation-card card-border-green"
                 onClick={() => setTab('monitoring')}
@@ -630,7 +630,7 @@ const AdminDashboard = () => {
               >
                 <div className="card-top-row">
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span className="card-category-heading">BLOCKCHAIN</span>
+                    <span className="card-category-heading">PAYMENT RECORDS</span>
                     <span className="card-feature-pill">
                       <span>● Verified</span>
                     </span>
@@ -642,16 +642,16 @@ const AdminDashboard = () => {
 
                 <div className="card-content-body">
                   <div className="card-large-title">
-                    <AnimatedCounter value={blockchainTxCount} suffix=" Transactions" />
+                    <AnimatedCounter value={blockchainTxCount} suffix=" Records" />
                   </div>
                   <div className="card-description-text">
-                    Latest block verified
+                    Latest payments verified
                   </div>
                 </div>
 
                 <div className="card-bottom-row">
                   <div className="card-action-link">
-                    <span>Open Ledger</span>
+                    <span>View Records</span>
                     <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
@@ -719,14 +719,14 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
-              {/* CARD 10: State & District Treasuries */}
+              {/* CARD 10: State & District Offices */}
               <div
                 className="super-admin-operation-card card-border-green"
                 onClick={() => setTab('states_districts')}
                 id="card-states-districts"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">TREASURY STRUCTURE</span>
+                  <span className="card-category-heading">GOVERNMENT OFFICES</span>
                   <div className="card-mono-icon-container icon-box-green">
                     <Landmark size={22} />
                   </div>
@@ -734,16 +734,16 @@ const AdminDashboard = () => {
 
                 <div className="card-content-body">
                   <div className="card-large-title">
-                    State & District Hubs
+                    State & District Offices
                   </div>
                   <div className="card-description-text">
-                    Territorial treasury mapping and sub-treasury accounts
+                    Regional government and district office accounts
                   </div>
                 </div>
 
                 <div className="card-bottom-row">
                   <div className="card-action-link">
-                    <span>Manage Hierarchy</span>
+                    <span>Manage Offices</span>
                     <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
@@ -766,7 +766,7 @@ const AdminDashboard = () => {
                   <span>Government Fund Flow</span>
                 </div>
                 <span style={{ fontSize: '11px', color: '#627D98', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-                  Multi-Tier Disbursal Pipeline
+                  Multi-Tier Fund Pipeline
                 </span>
               </div>
 
@@ -782,23 +782,23 @@ const AdminDashboard = () => {
                 <div className="fund-flow-node">
                   <div className="fund-flow-circle">02</div>
                   <div className="fund-flow-node-title">Finance Department</div>
-                  <div className="fund-flow-node-desc">Central Disbursal Pool</div>
+                  <div className="fund-flow-node-desc">Central Fund Sending Pool</div>
                 </div>
 
                 <div className="fund-flow-connector" />
 
                 <div className="fund-flow-node">
                   <div className="fund-flow-circle">03</div>
-                  <div className="fund-flow-node-title">State Treasury</div>
-                  <div className="fund-flow-node-desc">State Fund Releases</div>
+                  <div className="fund-flow-node-title">State Government</div>
+                  <div className="fund-flow-node-desc">State Fund Transfers</div>
                 </div>
 
                 <div className="fund-flow-connector" />
 
                 <div className="fund-flow-node">
                   <div className="fund-flow-circle">04</div>
-                  <div className="fund-flow-node-title">District Agency</div>
-                  <div className="fund-flow-node-desc">District Agency Execution</div>
+                  <div className="fund-flow-node-title">District Office</div>
+                  <div className="fund-flow-node-desc">District Project Execution</div>
                 </div>
 
                 <div className="fund-flow-connector" />
@@ -806,7 +806,7 @@ const AdminDashboard = () => {
                 <div className="fund-flow-node">
                   <div className="fund-flow-circle">05</div>
                   <div className="fund-flow-node-title">Development Project</div>
-                  <div className="fund-flow-node-desc">Public Works & Verification</div>
+                  <div className="fund-flow-node-desc">Public Works & Work Proof Check</div>
                 </div>
               </div>
             </div>

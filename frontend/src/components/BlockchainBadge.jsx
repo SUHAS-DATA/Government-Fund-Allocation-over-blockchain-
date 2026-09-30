@@ -15,7 +15,7 @@ const BlockchainBadge = ({ txHash, blockNumber, showIcon = true }) => {
         fontSize: '11px',
         fontStyle: 'italic'
       }}>
-        Pending Block...
+        Pending Verification...
       </span>
     );
   }
@@ -45,7 +45,7 @@ const BlockchainBadge = ({ txHash, blockNumber, showIcon = true }) => {
       boxShadow: '0 1px 2px rgba(0, 0, 0, 0.02)'
     }}>
       {showIcon && <ShieldCheck size={13} color="#16A34A" />}
-      <span title={`Full Hash: ${txHash}`}>{formatTxHash(txHash)}</span>
+      <span title={`Verified Record Reference: ${txHash}`}>{formatTxHash(txHash)}</span>
       {blockNumber && (
         <span style={{
           backgroundColor: '#DCFCE7',
@@ -55,7 +55,7 @@ const BlockchainBadge = ({ txHash, blockNumber, showIcon = true }) => {
           fontSize: '10px',
           fontWeight: '700'
         }}>
-          #{blockNumber}
+          Verified
         </span>
       )}
       <button
@@ -71,7 +71,7 @@ const BlockchainBadge = ({ txHash, blockNumber, showIcon = true }) => {
           marginLeft: '2px',
           transition: 'color 0.15s ease'
         }}
-        title="Copy Transaction Hash"
+        title="Copy Record Reference"
       >
         {copied ? (
           <span style={{ fontSize: '10px', fontWeight: '800', color: '#15803D' }}>Copied!</span>

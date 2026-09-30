@@ -256,7 +256,7 @@ const MyProjects = () => {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       if (res.success) {
-        setActionSuccess(`Completion proof (Material Bills, Photos, Videos, Docs) anchored on blockchain with SHA-256 digests and submitted to District Officer!`);
+        setActionSuccess(`Work proof (Material Bills, Photos, Videos, Docs) verified and submitted to District Officer!`);
         setShowProgressModal(false);
         openProjectDetails(selectedProject);
         loadProjects();
@@ -382,7 +382,7 @@ const MyProjects = () => {
             <span>Contractor: Assigned Projects & 3-Phase Execution</span>
           </h1>
           <p className="page-subtitle">
-            Accept project assignments, request mobilization funds, receive bank disbursals, and upload 4-category completion proofs.
+            Accept project assignments, request phase funds, receive payments, and upload work proof.
           </p>
         </div>
       </div>
@@ -445,7 +445,7 @@ const MyProjects = () => {
             </div>
 
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Total Contract Budget Ceiling:</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Total Contract Budget:</div>
               <div style={{ fontSize: '16px', fontWeight: '800', color: 'var(--color-success)' }}>
                 {formatCurrency(selectedProject.total_budget)}
               </div>
@@ -555,7 +555,7 @@ const MyProjects = () => {
                   <div style={{ fontSize: '13px', color: '#15803D', lineHeight: 1.5, marginBottom: '14px' }}>
                     Contract ID: <strong>{projectDetails?.qr_code?.contract_id || selectedProject.contract_id || 'CON-ACCEPTED'}</strong> • QR Status: <strong style={{ color: '#16A34A' }}>ACTIVE</strong>
                     <br />
-                    Citizens and government inspectors can scan this official QR code at the construction site to verify permitted project milestones, financial commitments, and blockchain transaction receipts without requiring a login.
+                    Citizens and government officers can scan this official QR code at the project site to check project progress, funds, and official payment records without requiring a login.
                   </div>
 
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -750,7 +750,7 @@ const MyProjects = () => {
                     {/* On-Chain Receipt if Completed */}
                     {isCompleted && phase.blockchain_tx_hash && (
                       <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>On-Chain Disbursal Tx:</span>
+                        <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Payment Reference:</span>
                         <BlockchainBadge txHash={phase.blockchain_tx_hash} />
                       </div>
                     )}
@@ -767,7 +767,7 @@ const MyProjects = () => {
                           <div style={{ fontWeight: '800', fontSize: '13px', color: 'var(--text-main)', marginBottom: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <FileText size={15} color="#0284C7" />
-                              <span>Uploaded Work Evidence ({pEvidence.length})</span>
+                              <span>Uploaded Work Proof ({pEvidence.length})</span>
                             </div>
                             <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                               Deliverables for District Department Verification
@@ -1245,7 +1245,7 @@ const MyProjects = () => {
       </Modal>
 
       {/* MODAL 5: Evidence Full Image Preview */}
-      <Modal title={`Evidence Preview: ${previewEvidence?.file_name || 'Work Image'}`} isOpen={!!previewEvidence} onClose={() => setPreviewEvidence(null)} maxWidth="700px">
+      <Modal title={`Work Proof Preview: ${previewEvidence?.file_name || 'Work Image'}`} isOpen={!!previewEvidence} onClose={() => setPreviewEvidence(null)} maxWidth="700px">
         {previewEvidence && (
           <div style={{ textAlign: 'center' }}>
             <img
@@ -1256,7 +1256,7 @@ const MyProjects = () => {
             <div style={{ marginTop: '12px', fontSize: '12px', color: 'var(--text-secondary)', textAlign: 'left', background: 'var(--bg-subtle)', padding: '10px', borderRadius: '6px' }}>
               <div><strong>File:</strong> {previewEvidence.file_name}</div>
               {previewEvidence.description && <div><strong>Description:</strong> {previewEvidence.description}</div>}
-              {previewEvidence.sha256_hash && <div style={{ fontFamily: 'monospace', fontSize: '11px', marginTop: '4px' }}>SHA-256: {previewEvidence.sha256_hash}</div>}
+              {previewEvidence.sha256_hash && <div style={{ fontFamily: 'monospace', fontSize: '11px', marginTop: '4px' }}>Record Stamp: {previewEvidence.sha256_hash}</div>}
             </div>
           </div>
         )}

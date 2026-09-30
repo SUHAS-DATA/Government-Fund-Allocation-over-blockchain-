@@ -38,7 +38,7 @@ const MilestonePayments = () => {
 
   const columns = [
     {
-      header: 'Transaction ID',
+      header: 'Payment Reference',
       accessor: 'transaction_id',
       render: (r) => (
         <div>
@@ -54,12 +54,12 @@ const MilestonePayments = () => {
       )
     },
     {
-      header: 'From (District Agency)',
+      header: 'From (District Office)',
       accessor: 'source_entity_name',
       render: (r) => (
         <div>
           <div style={{ fontWeight: '700', fontSize: '12px', color: 'var(--text-main)' }}>
-            {r.source_entity_name || 'District Development Agency'}
+            {r.source_entity_name || 'District Development Office'}
           </div>
           <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
             {r.source_masked_account || 'XXXX XXXX 3914'}
@@ -71,7 +71,7 @@ const MilestonePayments = () => {
       )
     },
     {
-      header: 'To (Contractor A/C)',
+      header: 'To (Contractor Account)',
       accessor: 'destination_entity_name',
       render: (r) => (
         <div>
@@ -123,7 +123,7 @@ const MilestonePayments = () => {
       )
     },
     {
-      header: 'Blockchain Status',
+      header: 'Record Check',
       accessor: 'blockchain_tx_hash',
       render: (r) => {
         const hash = r.blockchain_tx_hash || r.tx_hash;
@@ -154,7 +154,7 @@ const MilestonePayments = () => {
             className="btn btn-secondary btn-sm"
             onClick={() => handleOpenModal(r, false)}
             style={{ fontSize: '11px', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
-            title="View complete transaction payload & bank details"
+            title="View payment details & account info"
           >
             <Eye size={12} />
             <span>View</span>
@@ -163,7 +163,7 @@ const MilestonePayments = () => {
             className="btn btn-primary btn-sm"
             onClick={() => handleOpenModal(r, true)}
             style={{ fontSize: '11px', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
-            title="Verify against on-chain smart contract receipt"
+            title="Check and verify payment record"
           >
             <ShieldCheck size={12} />
             <span>Verify</span>
@@ -179,10 +179,10 @@ const MilestonePayments = () => {
         <div>
           <h1 className="page-title">
             <CreditCard size={24} color="var(--color-primary)" />
-            <span>District → Contractor Payment Receipts</span>
+            <span>Payment Receipts</span>
           </h1>
           <p className="page-subtitle">
-            Immutable log of milestone fund transfers directly to your verified contractor bank account with cryptographic blockchain proof.
+            Verified payment records transferred to your registered contractor bank account.
           </p>
         </div>
       </div>
@@ -192,7 +192,7 @@ const MilestonePayments = () => {
           columns={columns}
           data={payments}
           searchKey="transaction_id"
-          searchPlaceholder="Search by Transaction ID, project, or purpose..."
+          searchPlaceholder="Search by payment reference, project, or purpose..."
         />
       </div>
 

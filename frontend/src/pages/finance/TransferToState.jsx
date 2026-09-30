@@ -123,10 +123,10 @@ const TransferToState = () => {
         <div>
           <h1 className="page-title">
             <Send size={24} color="var(--color-primary)" />
-            <span>Approve & Transfer Funds to State Treasury</span>
+            <span>Send Funds to State Government</span>
           </h1>
           <p className="page-subtitle">
-            Validate central budget ceiling, prevent double-spending, and record on-chain state treasury disbursal.
+            Send approved central budget funds directly to state government accounts with secure verification.
           </p>
         </div>
       </div>
@@ -148,32 +148,32 @@ const TransferToState = () => {
           </div>
 
           <h2 style={{ fontSize: '20px', fontWeight: '800', color: 'var(--text-main)', marginBottom: '8px' }}>
-            State Treasury Transfer Completed
+            Funds Sent to State Successfully
           </h2>
 
           <p style={{ color: 'var(--text-secondary)', marginBottom: '24px', fontSize: '13px' }}>
-            Funds have been transferred to the State Treasury and anchored to the Ethereum blockchain ledger.
+            Funds have been sent to the State Government Account and recorded securely.
           </p>
 
           <div style={{ background: 'var(--bg-subtle)', padding: '20px', borderRadius: 'var(--radius-sm)', marginBottom: '24px', textAlign: 'left' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px', fontSize: '13px' }}>
               <div>
-                <div style={{ color: 'var(--text-muted)' }}>Transfer ID:</div>
+                <div style={{ color: 'var(--text-muted)' }}>Payment Reference:</div>
                 <strong style={{ fontFamily: 'monospace', color: 'var(--color-primary)' }}>{successResult.transfer?.transfer_id}</strong>
               </div>
 
               <div>
-                <div style={{ color: 'var(--text-muted)' }}>State Treasury:</div>
+                <div style={{ color: 'var(--text-muted)' }}>State Government Account:</div>
                 <strong style={{ color: 'var(--text-main)' }}>{successResult.transfer?.state_name}</strong>
               </div>
 
               <div>
-                <div style={{ color: 'var(--text-muted)' }}>Disbursed Amount:</div>
+                <div style={{ color: 'var(--text-muted)' }}>Amount Sent:</div>
                 <strong style={{ color: 'var(--color-success)', fontSize: '16px' }}>{formatCurrency(successResult.transfer?.amount)}</strong>
               </div>
 
               <div>
-                <div style={{ color: 'var(--text-muted)' }}>Blockchain Verification:</div>
+                <div style={{ color: 'var(--text-muted)' }}>Record Check:</div>
                 <BlockchainBadge txHash={successResult.blockchain?.tx_hash} blockNumber={successResult.blockchain?.block_number} />
               </div>
             </div>
@@ -181,16 +181,16 @@ const TransferToState = () => {
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap' }}>
             <button className="btn btn-secondary" onClick={() => setSuccessResult(null)}>
-              Transfer More Funds
+              Send More Funds
             </button>
             {successResult.transaction && (
               <button className="btn btn-secondary" onClick={() => setShowDetailsModal(true)} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <Eye size={16} />
-                <span>View Transaction Details</span>
+                <span>View Payment Details</span>
               </button>
             )}
             <button className="btn btn-primary" onClick={() => navigate('/finance/history')}>
-              <span>View Transfer History</span>
+              <span>View Payment History</span>
             </button>
           </div>
         </div>
@@ -216,7 +216,7 @@ const TransferToState = () => {
 
           <form onSubmit={handleTransfer}>
             <div className="form-group">
-              <label className="form-label">Select Central Budget Allocation</label>
+              <label className="form-label">Select Approved Budget</label>
               <select
                 className="form-control form-select"
                 value={selectedAllocId}
@@ -238,7 +238,7 @@ const TransferToState = () => {
                   <strong style={{ color: 'var(--text-main)' }}>{activeBudget.department}</strong>
                 </div>
                 <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Available Ceiling: </span>
+                  <span style={{ color: 'var(--text-muted)' }}>Remaining Approved Budget: </span>
                   <strong style={{ color: 'var(--color-success)', fontSize: '15px' }}>{formatCurrency(availableBalance)}</strong>
                 </div>
               </div>
@@ -246,7 +246,7 @@ const TransferToState = () => {
 
             <div className="grid-2">
               <div className="form-group">
-                <label className="form-label">Destination State Treasury</label>
+                <label className="form-label">Destination State Government</label>
                 <select
                   className="form-control form-select"
                   value={selectedStateCode}
@@ -259,12 +259,12 @@ const TransferToState = () => {
               </div>
 
               <FundAmountInput
-                label="Disbursal Amount to State Treasury"
+                label="Amount to Send to State Account"
                 value={amount}
                 onChange={(val) => setAmount(val)}
                 max={availableBalance}
                 required={true}
-                helperText="Select or enter disbursement amount in Crores, Lakhs, or Thousands. Ex: 100 (Cr)."
+                helperText="Enter the amount to send in Crores, Lakhs, or Thousands. Ex: 100 (Cr)."
               />
             </div>
 
@@ -279,10 +279,10 @@ const TransferToState = () => {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <div style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Landmark size={15} color="var(--color-primary)" />
-                  <span>Registered Bank Account Mapping</span>
+                  <span>Government Account Details</span>
                 </div>
                 <span style={{ fontSize: '11px', background: 'var(--color-success-bg)', color: 'var(--color-success)', border: '1px solid var(--color-success-border)', padding: '2px 8px', borderRadius: '10px', fontWeight: '700' }}>
-                  Verified RBI / State Treasury Link
+                  Verified Government Account Link
                 </span>
               </div>
 
@@ -290,7 +290,7 @@ const TransferToState = () => {
                 {/* Source Central Account */}
                 <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 'var(--radius-sm)', padding: '12px' }}>
                   <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', marginBottom: '4px' }}>
-                    Debit: Central Finance
+                    From: Central Office Account
                   </div>
                   <div style={{ fontWeight: '800', fontSize: '12px', color: 'var(--text-main)', marginBottom: '3px' }}>
                     {centralAccount?.account_holder_name || 'Ministry of Finance - Central Fund'}
@@ -314,7 +314,7 @@ const TransferToState = () => {
                 {/* Destination State Account */}
                 <div style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: 'var(--radius-sm)', padding: '12px' }}>
                   <div style={{ fontSize: '10px', fontWeight: '700', color: '#059669', textTransform: 'uppercase', marginBottom: '4px' }}>
-                    Credit: State Treasury
+                    To: State Government Account
                   </div>
                   <div style={{ fontWeight: '800', fontSize: '12px', color: 'var(--text-main)', marginBottom: '3px' }}>
                     {stateAccount?.account_holder_name || `${states.find(s => s.code === selectedStateCode)?.name || selectedStateCode} State Treasury`}
@@ -332,12 +332,12 @@ const TransferToState = () => {
               </div>
 
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '10px', fontStyle: 'italic' }}>
-                Funds will be electronically disbursed to the confirmed State Treasury account and anchored on the Ethereum blockchain ledger.
+                Funds will be transferred directly to the confirmed State Government Account with secure record verification.
               </div>
             </div>
 
             <div className="form-group">
-              <label className="form-label">Multi-Approver & Digital Sign-Off Note</label>
+              <label className="form-label">Approval Note</label>
               <textarea
                 className="form-control"
                 rows="3"
@@ -349,7 +349,7 @@ const TransferToState = () => {
 
             <button type="submit" className="btn btn-success btn-lg" style={{ width: '100%', marginTop: '10px' }} disabled={submitting || availableBalance <= 0}>
               <ShieldCheck size={16} />
-              <span>{submitting ? 'Executing On-Chain State Transfer...' : 'Approve & Disburse Funds to State Treasury'}</span>
+              <span>{submitting ? 'Sending Funds...' : 'Confirm & Send Funds'}</span>
             </button>
           </form>
         </div>

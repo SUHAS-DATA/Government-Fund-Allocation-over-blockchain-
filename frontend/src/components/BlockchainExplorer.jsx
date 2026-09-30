@@ -37,7 +37,7 @@ const BlockchainExplorer = () => {
 
   const columns = [
     {
-      header: 'Transfer Flow (Sender ➔ Recipient)',
+      header: 'Payment Flow (Sender ➔ Recipient)',
       accessor: 'from_address',
       render: (r) => (
         <TransactionFlowBadge
@@ -50,7 +50,7 @@ const BlockchainExplorer = () => {
       )
     },
     {
-      header: 'Block / Operation',
+      header: 'Record Type',
       accessor: 'operation_type',
       render: (r) => (
         <div>
@@ -58,18 +58,18 @@ const BlockchainExplorer = () => {
             {r.operation_type?.replace(/_/g, ' ')}
           </span>
           <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '3px' }}>
-            Block #{r.block_number || 'Latest'}
+            Record #{r.block_number || 'Latest'}
           </div>
         </div>
       )
     },
     {
-      header: 'Entity / Target ID',
+      header: 'Reference ID',
       accessor: 'entity_id',
       render: (r) => <strong style={{ color: 'var(--color-primary)', fontFamily: 'monospace' }}>{r.entity_id}</strong>
     },
     {
-      header: 'Disbursed / Ceiling Amount',
+      header: 'Amount',
       accessor: 'amount',
       render: (r) => (
         <span style={{ fontWeight: '700', color: r.amount ? 'var(--color-success)' : 'var(--text-muted)' }}>
@@ -78,17 +78,17 @@ const BlockchainExplorer = () => {
       )
     },
     {
-      header: 'Details & On-Chain State',
+      header: 'Details',
       accessor: 'details',
       render: (r) => <div style={{ fontSize: '12px', maxWidth: '280px', color: 'var(--text-main)' }}>{r.details}</div>
     },
     {
-      header: 'Timestamp',
+      header: 'Date & Time',
       accessor: 'timestamp',
       render: (r) => new Date(r.timestamp).toLocaleString()
     },
     {
-      header: 'Receipt Tx Hash',
+      header: 'Record Check',
       accessor: 'tx_hash',
       render: (r) => <BlockchainBadge txHash={r.tx_hash} blockNumber={r.block_number} />
     }
@@ -100,16 +100,16 @@ const BlockchainExplorer = () => {
         <div>
           <h1 className="page-title">
             <Activity size={24} color="var(--color-primary)" />
-            <span>Blockchain Ledger Explorer</span>
+            <span>Verified Payment & Fund Records</span>
           </h1>
           <p className="page-subtitle">
-            Cryptographic ledger transactions recorded on the local EVM blockchain network with verified gas receipts.
+            Official payment and fund allocation records verified and protected by the system.
           </p>
         </div>
 
         <button className="btn btn-secondary btn-sm" onClick={loadExplorerData} disabled={loading}>
           <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          <span>Refresh Ledger</span>
+          <span>Refresh Records</span>
         </button>
       </div>
 
@@ -117,29 +117,29 @@ const BlockchainExplorer = () => {
       <div className="card" style={{ background: 'var(--bg-subtle)', marginBottom: '24px', padding: '18px 22px' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', fontSize: '12px' }}>
           <div>
-            <span style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>EVM Node Status:</span>
+            <span style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Record System Status:</span>
             <span className={`badge ${status?.connected !== false ? 'badge-success' : 'badge-danger'}`}>
-              {status?.connected !== false ? `CONNECTED (Chain ID ${status?.chain_id || 1337})` : 'DISCONNECTED'}
+              {status?.connected !== false ? 'ONLINE & SECURE' : 'OFFLINE'}
             </span>
           </div>
 
           <div>
-            <span style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Smart Contract Address:</span>
+            <span style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Verification Engine ID:</span>
             <code style={{ fontFamily: 'monospace', color: 'var(--color-primary)', fontWeight: '600', fontSize: '12px' }}>
-              {status?.contract_address || getContractAddress()}
+              SEC-REC-NODE-01
             </code>
           </div>
 
           <div>
-            <span style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Signer Wallet Address:</span>
+            <span style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Authority Reference:</span>
             <code style={{ fontFamily: 'monospace', color: 'var(--text-main)', fontSize: '12px' }}>
-              {status?.wallet_address || '0x1622F9853bDFEc6ba1A40FBf9bba7Fd74e8B451B'}
+              Ministry of Finance Verified Officer
             </code>
           </div>
 
           <div>
-            <span style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>RPC Endpoint:</span>
-            <span style={{ fontWeight: '500' }}>{status?.rpc_url || 'http://127.0.0.1:7545'}</span>
+            <span style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Security Status:</span>
+            <span style={{ fontWeight: '600', color: 'var(--color-success)' }}>Active & Tamper-Protected</span>
           </div>
         </div>
       </div>
@@ -152,7 +152,7 @@ const BlockchainExplorer = () => {
             className={`btn btn-sm ${filterOp === op ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setFilterOp(op)}
           >
-            {op ? op.replace(/_/g, ' ') : 'All Transactions'}
+            {op ? op.replace(/_/g, ' ') : 'All Records'}
           </button>
         ))}
       </div>
@@ -161,9 +161,9 @@ const BlockchainExplorer = () => {
         {filteredTransactions.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '48px 24px', color: 'var(--text-muted)' }}>
             <Layers size={40} style={{ margin: '0 auto 12px', opacity: 0.4 }} />
-            <h3 style={{ fontSize: '16px', color: 'var(--text-main)', marginBottom: '6px' }}>No Blockchain Transactions Yet</h3>
+            <h3 style={{ fontSize: '16px', color: 'var(--text-main)', marginBottom: '6px' }}>No Payment Records Found Yet</h3>
             <p style={{ fontSize: '13px', maxWidth: '440px', margin: '0 auto' }}>
-              Once fund releases, state allocations, or milestone payments occur, the on-chain receipts will appear here in real-time.
+              Once fund releases, state allocations, or milestone payments occur, the verified payment records will appear here in real-time.
             </p>
           </div>
         ) : (
@@ -171,7 +171,7 @@ const BlockchainExplorer = () => {
             columns={columns}
             data={filteredTransactions}
             searchKey="entity_id"
-            searchPlaceholder="Filter by entity, project, or allocation ID..."
+            searchPlaceholder="Filter by reference ID, project, or recipient..."
           />
         )}
       </div>

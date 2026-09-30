@@ -8,7 +8,7 @@ import Modal from '../../components/Modal';
 const SendToFinance = () => {
   const [allocations, setAllocations] = useState([]);
   const [selectedAlloc, setSelectedAlloc] = useState(null);
-  const [notes, setNotes] = useState('Sanctioned by Principal Secretary. Forwarded to Finance Disbursal Authority.');
+  const [notes, setNotes] = useState('Approved by Officer. Forwarded to Finance Department.');
   const [sending, setSending] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -95,7 +95,7 @@ const SendToFinance = () => {
             <span>Send Budget to Finance Department</span>
           </h1>
           <p className="page-subtitle">
-            Validate central budget allocations and forward to the Public Fund Disbursal Authority for state treasury transfers.
+            Check central budget allocations and forward to the Finance Department for state fund transfers.
           </p>
         </div>
       </div>
@@ -104,7 +104,6 @@ const SendToFinance = () => {
         <div style={{
           background: 'var(--color-success-bg)',
           border: '1px solid var(--color-success-border)',
-          borderRadius: 'var(--radius-sm)',
           padding: '12px 16px',
           color: 'var(--color-success)',
           marginBottom: '20px',
@@ -142,7 +141,7 @@ const SendToFinance = () => {
             </div>
 
             <div className="form-group">
-              <label className="form-label">Sign-Off & Forwarding Notes</label>
+              <label className="form-label">Approval Details & Notes</label>
               <textarea
                 className="form-control"
                 rows="3"
@@ -161,7 +160,7 @@ const SendToFinance = () => {
                 disabled={sending}
               >
                 <Send size={14} />
-                <span>{sending ? 'Forwarding...' : 'Confirm Forwarding'}</span>
+                <span>{sending ? 'Sending...' : 'Confirm & Send to Finance'}</span>
               </button>
             </div>
           </div>

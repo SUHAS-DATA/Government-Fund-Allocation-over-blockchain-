@@ -82,12 +82,12 @@ const PublicProjects = () => {
       )
     },
     {
-      header: 'Sanctioned Budget',
+      header: 'Approved Budget',
       accessor: 'total_budget',
       render: (row) => <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>{formatCurrency(row.total_budget)}</span>
     },
     {
-      header: 'Released from Escrow',
+      header: 'Funds Sent',
       accessor: 'released_amount',
       render: (row) => {
         const isFinished = row.status === 'COMPLETED' || row.status === 'FINAL_PROJECT_COMPLETED' || row.status === 'CLOSED' || row.is_closed;
@@ -112,11 +112,11 @@ const PublicProjects = () => {
       )
     },
     {
-      header: 'Audit & Details',
+      header: 'View Details',
       accessor: 'action',
       render: (row) => (
         <Link to={`/public/projects/${row.project_id}`} className="btn btn-secondary btn-sm">
-          <span>Inspect</span>
+          <span>View Project</span>
           <ArrowRight size={12} />
         </Link>
       )
@@ -170,8 +170,8 @@ const PublicProjects = () => {
           showAllOption={true}
           allStatesLabel="All States / UTs"
           allDistrictsLabel="All Districts in State"
-          stateLabel="Filter State Treasury"
-          districtLabel="Filter District Agency"
+          stateLabel="Filter State Government"
+          districtLabel="Filter District Office"
           layout="grid"
         />
       </div>

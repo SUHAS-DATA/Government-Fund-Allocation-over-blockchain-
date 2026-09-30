@@ -149,7 +149,7 @@ const FinancialYears = () => {
       )
     },
     {
-      header: 'Sanctioned Ceiling',
+      header: 'Approved Budget',
       accessor: 'total_budget',
       render: (row) => (
         <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>
@@ -172,7 +172,7 @@ const FinancialYears = () => {
       )
     },
     {
-      header: 'Remaining Ceiling',
+      header: 'Remaining Budget',
       accessor: 'remaining_budget',
       render: (row) => (
         <span style={{ fontWeight: '600', color: 'var(--color-info)' }}>
@@ -230,16 +230,16 @@ const FinancialYears = () => {
         <div>
           <h1 className="page-title">
             <Calendar size={24} color="var(--color-primary)" />
-            <span>Financial Years & Budget Cycles Management</span>
+            <span>Financial Years & Budget Management</span>
           </h1>
           <p className="page-subtitle">
-            Configure multi-year national budget cycles, sanctioned expenditure limits, and historical cycle archives.
+            Manage multi-year national budget cycles, approved expenditure limits, and historical cycle archives.
           </p>
         </div>
 
         <button className="btn btn-primary" onClick={openCreateModal}>
           <Plus size={15} />
-          <span>Provision New Financial Year</span>
+          <span>Add Financial Year</span>
         </button>
       </div>
 
@@ -265,31 +265,31 @@ const FinancialYears = () => {
       {/* KPI Stats Grid */}
       <div className="grid-4" style={{ marginBottom: '24px' }}>
         <StatCard
-          title="Active FY Sanctioned Ceiling"
+          title="Active FY Approved Budget"
           value={activeFY?.total_budget || 5000000000}
           icon={Coins}
           isCurrency={true}
           subtitle={`FY ${activeFY?.year || '2026-27'} Active Cycle`}
         />
         <StatCard
-          title="Active FY Scheme Allocations"
+          title="Active FY Fund Allocations"
           value={activeFY?.allocated_amount || 0}
           icon={TrendingUp}
           isCurrency={true}
           subtitle="Committed to National Schemes"
         />
         <StatCard
-          title="Total Sanctioned (All Cycles)"
+          title="Total Approved (All Cycles)"
           value={totalSanctionedAcrossCycles}
           icon={Coins}
           isCurrency={true}
-          subtitle="Multi-Year Total Ceilings"
+          subtitle="Multi-Year Total Budgets"
         />
         <StatCard
           title="Recorded Budget Cycles"
           value={fys.length}
           icon={Layers}
-          subtitle="Saved in Permanent Ledger"
+          subtitle="Saved in Official Records"
         />
       </div>
 
@@ -305,7 +305,7 @@ const FinancialYears = () => {
 
       {/* Provision / Edit Financial Year Modal */}
       <Modal
-        title={editingYear ? `Edit Financial Year FY ${editingYear}` : "Provision New Financial Year"}
+        title={editingYear ? `Edit Financial Year FY ${editingYear}` : "Add Financial Year"}
         isOpen={showModal}
         onClose={() => setShowModal(false)}
       >
@@ -339,11 +339,11 @@ const FinancialYears = () => {
           </div>
 
           <FundAmountInput
-            label="Total Union Sanctioned Budget Ceiling"
+            label="Total Approved Budget"
             value={formData.total_budget}
             onChange={(val) => setFormData({ ...formData, total_budget: val })}
             required={true}
-            helperText="Total annual budgetary ceiling in Crores, Lakhs, or Thousands. Ex: 100 (Cr)."
+            helperText="Total annual budget in Crores, Lakhs, or Thousands. Ex: 100 (Cr)."
           />
 
           <div className="form-group" style={{ marginBottom: '20px' }}>

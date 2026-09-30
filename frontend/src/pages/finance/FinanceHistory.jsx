@@ -47,7 +47,7 @@ const FinanceHistory = () => {
 
   const columns = [
     {
-      header: 'Transaction ID',
+      header: 'Payment Reference',
       accessor: 'transaction_id',
       render: (r) => (
         <div>
@@ -61,12 +61,12 @@ const FinanceHistory = () => {
       )
     },
     {
-      header: 'From (Source A/C)',
+      header: 'From (Sending Account)',
       accessor: 'source_entity_name',
       render: (r) => (
         <div>
           <div style={{ fontWeight: '700', fontSize: '12px', color: 'var(--text-main)' }}>
-            {r.source_entity_name || 'Central Finance Treasury'}
+            {r.source_entity_name || 'Central Office'}
           </div>
           <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
             {r.source_masked_account || 'XXXX XXXX 6451'}
@@ -78,12 +78,12 @@ const FinanceHistory = () => {
       )
     },
     {
-      header: 'To (Destination A/C)',
+      header: 'To (Receiving Account)',
       accessor: 'destination_entity_name',
       render: (r) => (
         <div>
           <div style={{ fontWeight: '700', fontSize: '12px', color: 'var(--text-main)' }}>
-            {r.destination_entity_name || r.state_name || 'State Treasury'}
+            {r.destination_entity_name || r.state_name || 'State Government Account'}
           </div>
           <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
             {r.destination_masked_account || 'XXXX XXXX 8472'}
@@ -130,7 +130,7 @@ const FinanceHistory = () => {
       )
     },
     {
-      header: 'Blockchain Status',
+      header: 'Record Check',
       accessor: 'blockchain_tx_hash',
       render: (r) => (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
@@ -158,7 +158,7 @@ const FinanceHistory = () => {
             className="btn btn-secondary btn-sm"
             onClick={() => handleOpenModal(r, false)}
             style={{ fontSize: '11px', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
-            title="View complete transaction payload & bank details"
+            title="View payment details & account info"
           >
             <Eye size={12} />
             <span>View</span>
@@ -167,7 +167,7 @@ const FinanceHistory = () => {
             className="btn btn-primary btn-sm"
             onClick={() => handleOpenModal(r, true)}
             style={{ fontSize: '11px', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
-            title="Verify against on-chain smart contract receipt"
+            title="Check and verify payment record"
           >
             <ShieldCheck size={12} />
             <span>Verify</span>
@@ -183,10 +183,10 @@ const FinanceHistory = () => {
         <div>
           <h1 className="page-title">
             <FileText size={24} color="var(--color-primary)" />
-            <span>Central → State Financial Transaction Ledger</span>
+            <span>Central → State Payment History</span>
           </h1>
           <p className="page-subtitle">
-            Authoritative financial transaction records linking registered RBI central fund accounts to state treasuries with blockchain verification.
+            Payment records transferring approved funds from Central Office to State Government Accounts.
           </p>
         </div>
       </div>
@@ -196,7 +196,7 @@ const FinanceHistory = () => {
           columns={columns}
           data={transfers}
           searchKey="transaction_id"
-          searchPlaceholder="Search by transaction ID, state treasury, or account..."
+          searchPlaceholder="Search by payment reference, state, or account..."
         />
       </div>
 

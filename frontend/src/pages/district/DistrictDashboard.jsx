@@ -167,7 +167,7 @@ const DistrictDashboard = () => {
     setRequestSubmitting(true);
     try {
       setTimeout(() => {
-        setRequestSuccess(`Fund requisition of ${formatCurrency(Number(requestForm.amount_requested))} for ${requestForm.scheme_name} submitted successfully to State Treasury.`);
+        setRequestSuccess(`Fund request of ${formatCurrency(Number(requestForm.amount_requested))} for ${requestForm.scheme_name} submitted successfully to State Government.`);
         setRequestSubmitting(false);
         setTimeout(() => {
           setShowRequestFundModal(false);
@@ -228,13 +228,13 @@ const DistrictDashboard = () => {
       case 'milestones':
         return 'Milestone Verification & Field Inspection';
       case 'payments':
-        return 'Contractor Payment Requests & Requisitions';
+        return 'Contractor Payment Requests';
       case 'notifications':
         return 'Official District Notifications & Dispatches';
       case 'grievances':
         return 'Citizen Grievance Resolution & Tracking';
       case 'received':
-        return 'State Treasury Allocations Received';
+        return 'Funds Received from State';
       default:
         return 'District Module';
     }
@@ -285,7 +285,7 @@ const DistrictDashboard = () => {
                   <div className="card-header" style={{ marginBottom: '18px' }}>
                     <div className="card-title">
                       <Landmark size={20} color="#006B4F" />
-                      <span>State Treasury Allocations Received ({currentDistrictName})</span>
+                      <span>Funds Received from State ({currentDistrictName})</span>
                     </div>
                   </div>
 
@@ -327,7 +327,7 @@ const DistrictDashboard = () => {
                     </div>
                   ) : (
                     <div style={{ textAlign: 'center', padding: '40px 20px', color: '#627D98' }}>
-                      No state treasury allocations found for {currentDistrictName}.
+                      No funds received from state found for {currentDistrictName}.
                     </div>
                   )}
                 </div>
@@ -518,9 +518,9 @@ const DistrictDashboard = () => {
             <div className="super-admin-top-meta-bar">
               <div className="super-admin-badge-left">
                 <span className="live-pulse-dot" />
-                <span className="live-network-text">IMMUTABLE BLOCKCHAIN ACTIVE</span>
+                <span className="live-network-text">DISTRICT SYSTEM ONLINE</span>
                 <span style={{ color: '#CBD5E1' }}>•</span>
-                <span style={{ color: '#486581', fontWeight: '600' }}>ETHEREUM LEDGER VERIFIED</span>
+                <span style={{ color: '#486581', fontWeight: '600' }}>SECURE GOVERNMENT RECORDS</span>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -611,7 +611,7 @@ const DistrictDashboard = () => {
                 <span className="fin-overview-value highlight-green">
                   {formatIndianDenomination(totalReceived)}
                 </span>
-                <span className="fin-overview-subtext">From State Treasury</span>
+                <span className="fin-overview-subtext">From State Government</span>
               </div>
 
               <div className="fin-overview-column">
@@ -622,7 +622,7 @@ const DistrictDashboard = () => {
                 <span className="fin-overview-value">
                   {formatIndianDenomination(allocatedProjects)}
                 </span>
-                <span className="fin-overview-subtext">{committedPct}% budget utilized</span>
+                <span className="fin-overview-subtext">{committedPct}% budget allocated</span>
               </div>
 
               <div className="fin-overview-column">
@@ -702,7 +702,7 @@ const DistrictDashboard = () => {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <span className="card-category-heading">RECEIVED FUNDS</span>
                     <span className="card-feature-pill">
-                      <span>● State Treasury Credits</span>
+                      <span>● State Credits</span>
                     </span>
                   </div>
                   <div className="card-mono-icon-container icon-box-green">
@@ -715,7 +715,7 @@ const DistrictDashboard = () => {
                     {formatIndianDenomination(totalReceived)}
                   </div>
                   <div className="card-description-text">
-                    Central and State grants credited directly into district treasury escrow
+                    Central and State grants credited directly into district government account
                   </div>
                 </div>
 
@@ -872,7 +872,7 @@ const DistrictDashboard = () => {
                     <AnimatedCounter value={metrics?.pending_payment_requests || 3} suffix=" In Review" />
                   </div>
                   <div className="card-description-text">
-                    Approve contractor invoice claims and forward requisitions to State Treasury
+                    Approve contractor invoice claims and request funds from State Government
                   </div>
                 </div>
 
@@ -902,7 +902,7 @@ const DistrictDashboard = () => {
                     Alerts & Dispatches
                   </div>
                   <div className="card-description-text">
-                    State Treasury sanction orders, inspection notices, and milestone advisories
+                    State sanction orders, inspection notices, and milestone updates
                   </div>
                 </div>
 
@@ -1025,7 +1025,7 @@ const DistrictDashboard = () => {
                 </div>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '16px', fontWeight: '800', color: '#102A43' }}>
-                    Requisition Funds from State Treasury
+                    Request Funds from State Government
                   </h3>
                   <div style={{ fontSize: '12px', color: '#627D98' }}>
                     Jurisdiction: {currentDistrictName} ({assignedStateName})
@@ -1157,7 +1157,7 @@ const DistrictDashboard = () => {
                     boxShadow: '0 2px 4px rgba(0, 107, 79, 0.25)'
                   }}
                 >
-                  {requestSubmitting ? 'Submitting Requisition...' : 'Submit to State Treasury'}
+                  {requestSubmitting ? 'Submitting Request...' : 'Submit Request'}
                 </button>
               </div>
             </form>

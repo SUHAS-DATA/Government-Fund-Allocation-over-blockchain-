@@ -72,9 +72,9 @@ const Sidebar = ({ collapsed = false, mobileOpen = false, onCloseMobile }) => {
                 </NavLink>
               </li>
               <li>
-                <NavLink to="/admin/blockchain-explorer" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`} title="Blockchain Ledger Explorer">
+                <NavLink to="/admin/blockchain-explorer" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`} title="Payment Records">
                   <Activity size={17} />
-                  <span>Blockchain</span>
+                  <span>Payment Records</span>
                 </NavLink>
               </li>
             </ul>
@@ -143,15 +143,15 @@ const Sidebar = ({ collapsed = false, mobileOpen = false, onCloseMobile }) => {
                 </NavLink>
               </li>
               <li>
-                <NavLink to="/finance/transfers" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`} title="Fund Allocation & Disbursal">
+                <NavLink to="/finance/transfers" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`} title="Send Funds to State">
                   <Send size={17} />
-                  <span>Fund Allocation</span>
+                  <span>Send Funds</span>
                 </NavLink>
               </li>
               <li>
-                <NavLink to="/finance/history" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`} title="Disbursal History & Ledger">
+                <NavLink to="/finance/history" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`} title="Payment History">
                   <Activity size={17} />
-                  <span>Transactions & History</span>
+                  <span>Payment History</span>
                 </NavLink>
               </li>
             </ul>
@@ -177,12 +177,12 @@ const Sidebar = ({ collapsed = false, mobileOpen = false, onCloseMobile }) => {
       case 'STATE':
         return (
           <>
-            <div className="sidebar-header">State Treasury ({user.state_name || user.state_code || 'State'})</div>
+            <div className="sidebar-header">State Government Account ({user.state_name || user.state_code || 'State'})</div>
             <ul className="sidebar-menu">
               <li><NavLink to="/department" end className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><LayoutDashboard size={17}/><span>Dashboard</span></NavLink></li>
               <li><NavLink to="/state/received-funds" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><Coins size={17}/><span>Received Funds</span></NavLink></li>
-              <li><NavLink to="/state/allocations" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><Send size={17}/><span>District Allocation</span></NavLink></li>
-              <li><NavLink to="/state/history" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><Activity size={17}/><span>Allocation History</span></NavLink></li>
+              <li><NavLink to="/state/allocations" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><Send size={17}/><span>Send Funds</span></NavLink></li>
+              <li><NavLink to="/state/history" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><Activity size={17}/><span>Payment History</span></NavLink></li>
             </ul>
 
             <div className="sidebar-header">System</div>
@@ -197,11 +197,11 @@ const Sidebar = ({ collapsed = false, mobileOpen = false, onCloseMobile }) => {
       case 'DEPARTMENT':
         return (
           <>
-            <div className="sidebar-header">District Development Agency</div>
+            <div className="sidebar-header">District Development Office</div>
             <ul className="sidebar-menu">
               <li><NavLink to="/department" end className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><LayoutDashboard size={17}/><span>Dashboard</span></NavLink></li>
               <li><NavLink to="/district/projects" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><FolderKanban size={17}/><span>Projects & Funds</span></NavLink></li>
-              <li><NavLink to="/district/contractors" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><UserCheck size={17}/><span>Contractor Verification</span></NavLink></li>
+              <li><NavLink to="/district/contractors" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><UserCheck size={17}/><span>Contractor Check</span></NavLink></li>
               <li><NavLink to="/district/grievances" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><MessageSquareWarning size={17}/><span>Complaints Inbox</span></NavLink></li>
             </ul>
 
@@ -246,7 +246,7 @@ const Sidebar = ({ collapsed = false, mobileOpen = false, onCloseMobile }) => {
             GOV
           </div>
           <span style={{ fontSize: '13px', fontWeight: '800', color: '#FFFFFF' }}>
-            PFMS Ledger
+            PFMS Portal
           </span>
         </div>
         <button
@@ -293,7 +293,7 @@ const Sidebar = ({ collapsed = false, mobileOpen = false, onCloseMobile }) => {
             boxShadow: '0 0 6px #10B981'
           }} />
           <span style={{ fontSize: '11px', fontWeight: '700', color: '#CBD5E1', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            Ledger Node Active
+            System Online & Secure
           </span>
         </div>
 

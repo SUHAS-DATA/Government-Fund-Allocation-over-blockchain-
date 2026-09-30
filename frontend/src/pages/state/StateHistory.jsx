@@ -47,7 +47,7 @@ const StateHistory = () => {
 
   const columns = [
     {
-      header: 'Transaction ID',
+      header: 'Payment Reference',
       accessor: 'transaction_id',
       render: (r) => (
         <div>
@@ -61,12 +61,12 @@ const StateHistory = () => {
       )
     },
     {
-      header: 'From (State Treasury)',
+      header: 'From (State Account)',
       accessor: 'source_entity_name',
       render: (r) => (
         <div>
           <div style={{ fontWeight: '700', fontSize: '12px', color: 'var(--text-main)' }}>
-            {r.source_entity_name || 'State Treasury Account'}
+            {r.source_entity_name || 'State Government Account'}
           </div>
           <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
             {r.source_masked_account || 'XXXX XXXX 8472'}
@@ -78,12 +78,12 @@ const StateHistory = () => {
       )
     },
     {
-      header: 'To (District Agency)',
+      header: 'To (District Office)',
       accessor: 'destination_entity_name',
       render: (r) => (
         <div>
           <div style={{ fontWeight: '700', fontSize: '12px', color: 'var(--text-main)' }}>
-            {r.destination_entity_name || `${r.district_name || 'District'} Development Agency`}
+            {r.destination_entity_name || `${r.district_name || 'District'} Development Office`}
           </div>
           <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
             {r.destination_masked_account || 'XXXX XXXX 3914'}
@@ -130,7 +130,7 @@ const StateHistory = () => {
       )
     },
     {
-      header: 'Blockchain Status',
+      header: 'Record Check',
       accessor: 'blockchain_tx_hash',
       render: (r) => (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
@@ -158,7 +158,7 @@ const StateHistory = () => {
             className="btn btn-secondary btn-sm"
             onClick={() => handleOpenModal(r, false)}
             style={{ fontSize: '11px', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
-            title="View complete transaction payload & bank details"
+            title="View payment details & account info"
           >
             <Eye size={12} />
             <span>View</span>
@@ -167,7 +167,7 @@ const StateHistory = () => {
             className="btn btn-primary btn-sm"
             onClick={() => handleOpenModal(r, true)}
             style={{ fontSize: '11px', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
-            title="Verify against on-chain smart contract receipt"
+            title="Check and verify payment record"
           >
             <ShieldCheck size={12} />
             <span>Verify</span>
@@ -183,10 +183,10 @@ const StateHistory = () => {
         <div>
           <h1 className="page-title">
             <FileText size={24} color="var(--color-primary)" />
-            <span>State → District Fund Allocation Ledger</span>
+            <span>State → District Payment History</span>
           </h1>
           <p className="page-subtitle">
-            Immutable log of state treasury disbursements directly to registered district development agency bank accounts.
+            Payment records transferring funds directly from State Government Accounts to District Offices.
           </p>
         </div>
       </div>
@@ -196,7 +196,7 @@ const StateHistory = () => {
           columns={columns}
           data={allocations}
           searchKey="transaction_id"
-          searchPlaceholder="Search by transaction ID, district, or account..."
+          searchPlaceholder="Search by payment reference, district, or account..."
         />
       </div>
 

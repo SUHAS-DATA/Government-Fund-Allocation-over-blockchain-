@@ -48,7 +48,7 @@ const RegisterPage = () => {
           Contractor & Enterprise Registration
         </h1>
         <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-          Enroll for government infrastructure bidding and smart contract escrow eligibility
+          Enroll for government infrastructure bidding and milestone payment eligibility
         </p>
       </div>
 

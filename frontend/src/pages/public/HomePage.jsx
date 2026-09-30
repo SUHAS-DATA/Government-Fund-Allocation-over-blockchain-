@@ -61,10 +61,10 @@ const HomePage = () => {
             <span>Official Digital Governance Portal • Government of India</span>
           </div>
           <h1 className="gov-hero-title" style={{ fontSize: '30px', lineHeight: '1.2' }}>
-            National Public Financial Management & Blockchain Fund Allocation Ledger
+            National Public Financial Management & Fund Tracking Portal
           </h1>
           <p className="gov-hero-subtitle" style={{ fontSize: '14px', marginTop: '8px' }}>
-            Transparent Allocation. Accountable Governance. Cryptographic Integrity. Trace every rupee sanctioned by the Union Ministry through State Treasuries and District Offices down to verified milestone releases.
+            Transparent Allocation. Accountable Governance. Secure Records. Trace every rupee sanctioned by the Central Ministry through State Accounts and District Offices down to verified milestone payments.
           </p>
         </div>
 
@@ -88,8 +88,8 @@ const HomePage = () => {
             showAllOption={true}
             allStatesLabel="All States / UTs"
             allDistrictsLabel="All Districts"
-            stateLabel="1. State Treasury"
-            districtLabel="2. District Agency"
+            stateLabel="1. State Government"
+            districtLabel="2. District Office"
             showIcons={false}
             layout="bare"
           />
@@ -198,12 +198,12 @@ const HomePage = () => {
           subtitle="National Sanctions Pool"
         />
         <StatCard
-          title="Total Payments Released"
+          title="Total Funds Sent"
           value={stats?.total_disbursed_funds ?? 0}
           icon={TrendingUp}
           color="teal"
           isCurrency={true}
-          subtitle="Verified Blockchain Releases"
+          subtitle="Verified Fund Transfers"
         />
         <StatCard
           title="Active Local Projects"
@@ -213,11 +213,11 @@ const HomePage = () => {
           subtitle="Community Infrastructure"
         />
         <StatCard
-          title="Blockchain Transactions"
+          title="Verified Payment Records"
           value={stats?.blockchain_transactions_count ?? 0}
           icon={Activity}
           color="orange"
-          subtitle="100% Permanently Recorded"
+          subtitle="Permanently Verified Records"
         />
       </div>
 
@@ -227,24 +227,24 @@ const HomePage = () => {
           <div className="card-header">
             <div className="card-title">
               <ShieldCheck size={18} color="var(--color-primary)" />
-              <span>Multi-Level Fund Flow Architecture</span>
+              <span>Multi-Level Fund Flow</span>
             </div>
           </div>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.6' }}>
-            Funds flow step-by-step from the Central Ministry through State Treasuries and District Offices to project milestone payments, with every step cryptographically verified:
+            Funds flow step-by-step from the Central Ministry through State Accounts and District Offices to project milestone payments, with every step verified:
           </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px', fontWeight: '600' }}>
             <div style={{ padding: '10px 14px', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-sm)', borderLeft: '4px solid #0D5C3A' }}>
-              1. Central Super Admin → Approves scheme budget limits & national program ceilings
+              1. Central Office → Approves scheme budget limits & national program ceilings
             </div>
             <div style={{ padding: '10px 14px', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-sm)', borderLeft: '4px solid #1D4ED8' }}>
-              2. Finance Ministry → Releases approved funds to State Treasuries on Ethereum ledger
+              2. Finance Ministry → Sends approved funds to State Government Accounts
             </div>
             <div style={{ padding: '10px 14px', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-sm)', borderLeft: '4px solid #EA580C' }}>
-              3. State Treasury → Disburses allocations to District Development Agencies
+              3. State Government → Sends funds to District Development Offices
             </div>
             <div style={{ padding: '10px 14px', background: 'var(--bg-subtle)', borderRadius: 'var(--radius-sm)', borderLeft: '4px solid #059669' }}>
-              4. District Officer → Deploys local projects, verifies KYC & approves smart contract releases
+              4. District Officer → Deploys local projects, verifies work proof & approves payments
             </div>
           </div>
         </div>
@@ -257,7 +257,7 @@ const HomePage = () => {
             </div>
           </div>
           <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '16px', lineHeight: '1.6' }}>
-            Citizens can track live project spending, inspect geo-tagged site evidence, verify document records on the blockchain, and report any anomalies directly to district vigilance officers.
+            Citizens can track live project spending, inspect site work proof photos, verify document records, and report any issues directly to district vigilance officers.
           </p>
 
           <div style={{
@@ -272,7 +272,7 @@ const HomePage = () => {
           }}>
             <Lock size={20} color="var(--color-primary)" />
             <div style={{ fontSize: '12px', color: 'var(--color-primary)', fontWeight: '600' }}>
-              All transactions are permanently etched onto the Ethereum blockchain ledger with zero possibility of retroactive tampering or falsification.
+              All payment records are permanently recorded in secure government registries with zero possibility of retroactive tampering or falsification.
             </div>
           </div>
 
@@ -282,7 +282,7 @@ const HomePage = () => {
               <ArrowRight size={14} />
             </Link>
             <Link to="/public/grievance" className="btn btn-secondary" style={{ flex: 1 }}>
-              <span>Report Issue / Complaint</span>
+              <span>File Grievance / Complaint</span>
             </Link>
           </div>
         </div>

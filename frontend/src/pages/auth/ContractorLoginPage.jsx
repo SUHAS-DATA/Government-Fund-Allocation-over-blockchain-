@@ -136,7 +136,7 @@ const ContractorLoginPage = () => {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-muted)' }}>
           <ShieldCheck size={16} color="var(--color-success)" />
-          <span>Smart Contract Bound Concessionaire Gateway</span>
+          <span>Registered Contractor Gateway</span>
         </div>
       </div>
 
@@ -372,7 +372,7 @@ const ContractorLoginPage = () => {
 
           <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '11px', color: 'var(--text-muted)' }}>
             <ShieldCheck size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px', color: 'var(--color-success)' }} />
-            <span>256-Bit SHA Encrypted • Smart Contract Escrow Bound</span>
+            <span>256-Bit Encrypted • Verified Government Portal</span>
           </div>
         </div>
 

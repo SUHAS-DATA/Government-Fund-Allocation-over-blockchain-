@@ -78,7 +78,7 @@ const ContractorKYC = () => {
             <span>Statutory Contractor KYC & Licensing</span>
           </h1>
           <p className="page-subtitle">
-            Submit verified legal credentials, upload inspection certificates, and anchor SHA-256 digests on blockchain.
+            Submit verified legal credentials and upload documents for official record verification.
           </p>
         </div>
 
@@ -201,7 +201,7 @@ const ContractorKYC = () => {
 
           <button type="submit" className="btn btn-primary btn-lg" style={{ width: '100%' }} disabled={submitting}>
             <ShieldCheck size={16} />
-            <span>{submitting ? 'Anchoring SHA-256 Digest on Blockchain...' : 'Update KYC Credentials & Anchor Hash'}</span>
+            <span>{submitting ? 'Saving Document...' : 'Update Verification Documents'}</span>
           </button>
         </form>
       </div>
@@ -209,7 +209,7 @@ const ContractorKYC = () => {
       {/* Uploaded Documents List */}
       <div className="card">
         <h3 style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-main)', marginBottom: '16px' }}>
-          Uploaded Off-Chain Credentials & Cryptographic SHA-256 Hashes
+          Uploaded Official Credentials & Records
         </h3>
 
         {kycData?.kyc_documents?.length > 0 ? (

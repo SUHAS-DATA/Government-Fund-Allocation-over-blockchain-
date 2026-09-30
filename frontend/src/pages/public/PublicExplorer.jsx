@@ -22,10 +22,10 @@ const PublicExplorer = () => {
   const tierFilters = [
     { id: 'ALL', label: 'All Transfers' },
     { id: 'CENTRAL_TO_FINANCE', label: '1. Central ➔ Finance' },
-    { id: 'FINANCE_TO_STATE', label: '2. Finance ➔ State Treasury' },
-    { id: 'STATE_TO_DISTRICT', label: '3. State ➔ District Agency' },
-    { id: 'DISTRICT_TO_ESCROW', label: '4. District ➔ Project Escrow' },
-    { id: 'ESCROW_TO_CONTRACTOR', label: '5. Escrow ➔ Contractor' }
+    { id: 'FINANCE_TO_STATE', label: '2. Finance ➔ State Account' },
+    { id: 'STATE_TO_DISTRICT', label: '3. State ➔ District Office' },
+    { id: 'DISTRICT_TO_ESCROW', label: '4. District ➔ Project Fund' },
+    { id: 'ESCROW_TO_CONTRACTOR', label: '5. Project Fund ➔ Contractor' }
   ];
 
   const filteredTransactions = transactions.filter((t) => {
@@ -42,7 +42,7 @@ const PublicExplorer = () => {
 
   const columns = [
     {
-      header: 'Transfer Flow (Sender ➔ Recipient)',
+      header: 'Payment Flow (Sender ➔ Recipient)',
       accessor: 'from_address',
       render: (r) => (
         <TransactionFlowBadge
@@ -78,7 +78,7 @@ const PublicExplorer = () => {
       )
     },
     {
-      header: 'Description',
+      header: 'Purpose / Description',
       accessor: 'details',
       render: (r) => (
         <div style={{ fontSize: '12px', color: 'var(--text-secondary)', maxWidth: '280px' }}>
@@ -87,7 +87,7 @@ const PublicExplorer = () => {
       )
     },
     {
-      header: 'Timestamp',
+      header: 'Date & Time',
       accessor: 'timestamp',
       render: (r) => (
         <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
@@ -96,7 +96,7 @@ const PublicExplorer = () => {
       )
     },
     {
-      header: 'Blockchain Receipt',
+      header: 'Payment Record',
       accessor: 'tx_hash',
       render: (r) => <BlockchainBadge txHash={r.tx_hash} blockNumber={r.block_number} />
     }
@@ -108,10 +108,10 @@ const PublicExplorer = () => {
         <div>
           <h1 className="page-title">
             <Activity size={24} color="var(--color-primary)" />
-            <span>Public Blockchain Ledger Explorer</span>
+            <span>Public Payment & Fund Flow Records</span>
           </h1>
           <p className="page-subtitle">
-            Complete multi-tier financial ledger tracking funds from Central Ministry ➔ State Treasury ➔ District Agency ➔ Project Escrows ➔ Contractor Wallets.
+            Complete multi-tier financial records tracking funds from Central Ministry ➔ State Government ➔ District Office ➔ Project Funds ➔ Contractor Accounts.
           </p>
         </div>
       </div>

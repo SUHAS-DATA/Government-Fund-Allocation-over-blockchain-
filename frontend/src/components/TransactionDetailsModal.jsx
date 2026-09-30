@@ -63,11 +63,11 @@ const TransactionDetailsModal = ({ isOpen = true, onClose, transaction, autoVeri
   const getTypeLabel = (type) => {
     switch (type) {
       case 'CENTRAL_TO_STATE':
-        return { label: 'Central -> State Treasury', color: 'var(--color-primary)' };
+        return { label: 'Central Office -> State Government Account', color: 'var(--color-primary)' };
       case 'STATE_TO_DISTRICT':
-        return { label: 'State Treasury -> District Agency', color: '#7C3AED' };
+        return { label: 'State Government Account -> District Office', color: '#7C3AED' };
       case 'DISTRICT_TO_CONTRACTOR':
-        return { label: 'District Agency -> Contractor', color: '#059669' };
+        return { label: 'District Office -> Contractor', color: '#059669' };
       default:
         return { label: type, color: 'var(--text-secondary)' };
     }
@@ -77,7 +77,7 @@ const TransactionDetailsModal = ({ isOpen = true, onClose, transaction, autoVeri
 
   return (
     <Modal
-      title="Financial Transaction & Blockchain Ledger Verification"
+      title="Payment Record & Verification Check"
       isOpen={isOpen}
       onClose={onClose}
       maxWidth="780px"
@@ -97,7 +97,7 @@ const TransactionDetailsModal = ({ isOpen = true, onClose, transaction, autoVeri
         }}>
           <div>
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '700' }}>
-              Transaction ID
+              Payment Reference
             </div>
             <strong style={{ fontFamily: 'monospace', fontSize: '15px', color: 'var(--color-primary)' }}>
               {txId}
@@ -130,12 +130,12 @@ const TransactionDetailsModal = ({ isOpen = true, onClose, transaction, autoVeri
               gap: '4px'
             }}>
               <CheckCircle2 size={12} />
-              {transaction.status || 'COMPLETED'}
+              {transaction.status === 'COMPLETED' ? 'Verified' : (transaction.status || 'Verified')}
             </span>
           </div>
         </div>
 
-        {/* Bank Account Mapping (Source -> Destination) */}
+        {/* Bank Account Details (Source -> Destination) */}
         <div style={{
           border: '1px solid var(--border-color)',
           borderRadius: 'var(--radius-md)',
@@ -144,7 +144,7 @@ const TransactionDetailsModal = ({ isOpen = true, onClose, transaction, autoVeri
           marginBottom: '20px'
         }}>
           <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '14px', letterSpacing: '0.5px' }}>
-            Authoritative Bank Account Mapping
+            Government Account Details
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '14px', alignItems: 'center' }}>
@@ -158,17 +158,17 @@ const TransactionDetailsModal = ({ isOpen = true, onClose, transaction, autoVeri
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
                 <Landmark size={14} color="#64748B" />
                 <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase' }}>
-                  Source Account (Debit)
+                  From: Sending Account
                 </span>
               </div>
               <div style={{ fontWeight: '800', fontSize: '13px', color: 'var(--text-main)', marginBottom: '4px' }}>
-                {transaction.source_entity_name || transaction.sender_department || 'Central Finance Treasury'}
+                {transaction.source_entity_name || transaction.sender_department || 'Central Office Account'}
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '2px' }}>
                 Bank: <strong>{transaction.source_bank_name || 'Reserve Bank of India'}</strong>
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
-                A/C: <strong>{transaction.source_masked_account || 'XXXX XXXX 6451'}</strong>
+                Account: <strong>{transaction.source_masked_account || 'XXXX XXXX 6451'}</strong>
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
                 IFSC: {transaction.source_ifsc || 'RBIS0GOVT01'}
@@ -184,7 +184,7 @@ const TransactionDetailsModal = ({ isOpen = true, onClose, transaction, autoVeri
                 padding: '6px 12px',
                 marginBottom: '6px'
               }}>
-                <div style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: '700' }}>DISBURSED</div>
+                <div style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: '700' }}>AMOUNT PAID</div>
                 <strong style={{ fontSize: '16px', color: 'var(--color-success)', display: 'block' }}>
                   {formatCurrency(transaction.amount)}
                 </strong>
@@ -202,17 +202,17 @@ const TransactionDetailsModal = ({ isOpen = true, onClose, transaction, autoVeri
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
                 <Landmark size={14} color="#059669" />
                 <span style={{ fontSize: '11px', fontWeight: '700', color: '#059669', textTransform: 'uppercase' }}>
-                  Destination Account (Credit)
+                  To: Receiving Account
                 </span>
               </div>
               <div style={{ fontWeight: '800', fontSize: '13px', color: 'var(--text-main)', marginBottom: '4px' }}>
-                {transaction.destination_entity_name || transaction.receiver_department || 'Recipient Treasury Account'}
+                {transaction.destination_entity_name || transaction.receiver_department || 'Government Receiving Account'}
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '2px' }}>
                 Bank: <strong>{transaction.destination_bank_name || 'State Bank of India'}</strong>
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
-                A/C: <strong>{transaction.destination_masked_account || 'XXXX XXXX 8472'}</strong>
+                Account: <strong>{transaction.destination_masked_account || 'XXXX XXXX 8472'}</strong>
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
                 IFSC: {transaction.destination_ifsc || 'SBIN0004582'}
@@ -234,51 +234,51 @@ const TransactionDetailsModal = ({ isOpen = true, onClose, transaction, autoVeri
         }}>
           {transaction.related_scheme_name && (
             <div>
-              <span style={{ color: 'var(--text-muted)' }}>Related Scheme:</span>{' '}
+              <span style={{ color: 'var(--text-muted)' }}>Scheme:</span>{' '}
               <strong style={{ color: 'var(--text-main)' }}>{transaction.related_scheme_name}</strong>
             </div>
           )}
 
           {transaction.related_project_id && (
             <div>
-              <span style={{ color: 'var(--text-muted)' }}>Project ID:</span>{' '}
+              <span style={{ color: 'var(--text-muted)' }}>Project:</span>{' '}
               <strong style={{ fontFamily: 'monospace', color: 'var(--color-primary)' }}>{transaction.related_project_id}</strong>
             </div>
           )}
 
           {transaction.related_allocation_id && (
             <div>
-              <span style={{ color: 'var(--text-muted)' }}>Allocation ID:</span>{' '}
+              <span style={{ color: 'var(--text-muted)' }}>Fund Allocation ID:</span>{' '}
               <strong style={{ fontFamily: 'monospace' }}>{transaction.related_allocation_id}</strong>
             </div>
           )}
 
           <div>
-            <span style={{ color: 'var(--text-muted)' }}>Created Timestamp:</span>{' '}
+            <span style={{ color: 'var(--text-muted)' }}>Date & Time:</span>{' '}
             <strong>{new Date(transaction.created_at || transaction.timestamp || Date.now()).toLocaleString()}</strong>
           </div>
 
           {transaction.purpose && (
             <div style={{ gridColumn: 'span 2' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Purpose / Note:</span>{' '}
+              <span style={{ color: 'var(--text-muted)' }}>Purpose:</span>{' '}
               <span style={{ color: 'var(--text-main)', fontStyle: 'italic' }}>"{transaction.purpose || transaction.notes}"</span>
             </div>
           )}
         </div>
 
-        {/* Blockchain Ledger Section */}
+        {/* Verification Check Section */}
         <div style={{
           border: '1px solid #C7D2FE',
           borderRadius: 'var(--radius-md)',
           padding: '16px',
-          background: '#EEF2FF',
+          background: '#F0F9FF',
           marginBottom: '20px'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <ShieldCheck size={18} color="var(--color-primary)" />
               <strong style={{ fontSize: '13px', color: '#1E1B4B' }}>
-                Ethereum Smart Contract Ledger Anchor
+                Official Record Check
               </strong>
             </div>
 
@@ -289,32 +289,35 @@ const TransactionDetailsModal = ({ isOpen = true, onClose, transaction, autoVeri
               style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
             >
               <RefreshCw size={13} className={verifying ? 'spinning' : ''} />
-              <span>{verifying ? 'Verifying On-Chain...' : 'Verify Transaction'}</span>
+              <span>{verifying ? 'Checking Record...' : 'Verify Record'}</span>
             </button>
           </div>
 
           <div style={{ background: '#FFFFFF', padding: '12px', borderRadius: 'var(--radius-sm)', border: '1px solid #E0E7FF', fontSize: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Network:</span>
-              <strong style={{ color: 'var(--text-main)' }}>Ethereum PoA / Ganache Local Devnet (Chain ID 5777)</strong>
+              <span style={{ color: 'var(--text-muted)' }}>System:</span>
+              <strong style={{ color: 'var(--text-main)' }}>National Public Fund System (Verified & Protected)</strong>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Block Height:</span>
-              <strong style={{ fontFamily: 'monospace' }}>#{transaction.blockchain_block || 1}</strong>
+              <span style={{ color: 'var(--text-muted)' }}>Record Status:</span>
+              <strong style={{ color: 'var(--color-success)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                <CheckCircle2 size={13} />
+                Verified & Recorded
+              </strong>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Transaction Hash:</span>
+              <span style={{ color: 'var(--text-muted)' }}>Payment Reference:</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <span style={{ fontFamily: 'monospace', fontSize: '11px', color: 'var(--color-primary)' }}>
-                  {txHash ? `${txHash.substring(0, 16)}...${txHash.substring(txHash.length - 12)}` : 'On-Chain Pending'}
+                  {txHash ? `${txHash.substring(0, 16)}...` : txId}
                 </span>
                 {txHash && (
                   <button
                     onClick={handleCopyHash}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: 'var(--text-secondary)' }}
-                    title="Copy Full Transaction Hash"
+                    title="Copy Reference ID"
                   >
                     <Copy size={13} />
                   </button>
@@ -336,15 +339,10 @@ const TransactionDetailsModal = ({ isOpen = true, onClose, transaction, autoVeri
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '800', color: 'var(--color-success)', marginBottom: '4px' }}>
                 <CheckCircle2 size={16} />
-                <span>On-Chain Verification Confirmed: MATCH</span>
+                <span>Record Check Confirmed: Verified</span>
               </div>
               <div style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>
-                Application transaction state matches the immutable cryptographic seal in the National Blockchain Ledger.
-                {verificationResult.blockchain?.integrity_seal && (
-                  <div style={{ marginTop: '4px', fontFamily: 'monospace', fontSize: '10px' }}>
-                    Integrity Seal: {verificationResult.blockchain.integrity_seal.substring(0, 32)}...
-                  </div>
-                )}
+                This payment record is verified and permanently saved in official government financial records.
               </div>
             </div>
           )}

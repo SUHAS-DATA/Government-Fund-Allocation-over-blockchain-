@@ -74,7 +74,7 @@ const ContractorKYCReview = () => {
           onClick={() => { setSelectedContractor(r); setReviewAction('APPROVED'); }}
         >
           <UserCheck size={13} />
-          <span>Review KYC</span>
+          <span>Review Details</span>
         </button>
       )
     }
@@ -86,10 +86,10 @@ const ContractorKYCReview = () => {
         <div>
           <h1 className="page-title">
             <UserCheck size={24} color="var(--color-primary)" />
-            <span>Contractor KYC & Statutory Credential Review</span>
+            <span>Contractor Verification & Document Review</span>
           </h1>
           <p className="page-subtitle">
-            Inspect off-chain uploaded GST, PAN, and PWD credentials, verify cryptographic SHA-256 digests, and approve bidding eligibility.
+            Inspect uploaded GST, PAN, and PWD credentials, check verified records, and approve project bidding eligibility.
           </p>
         </div>
       </div>
@@ -117,7 +117,7 @@ const ContractorKYCReview = () => {
         <DataTable columns={columns} data={contractors} searchKey="company_name" searchPlaceholder="Search contractors..." />
       </div>
 
-      <Modal title={`Review KYC Credentials: ${selectedContractor?.company_name}`} isOpen={!!selectedContractor} onClose={() => setSelectedContractor(null)} maxWidth="750px">
+      <Modal title={`Review Contractor Credentials: ${selectedContractor?.company_name}`} isOpen={!!selectedContractor} onClose={() => setSelectedContractor(null)} maxWidth="750px">
         {selectedContractor && (
           <div>
             <div style={{ background: 'var(--bg-subtle)', padding: '16px', borderRadius: 'var(--radius-sm)', marginBottom: '20px', fontSize: '13px' }}>
@@ -144,7 +144,7 @@ const ContractorKYCReview = () => {
             {/* KYC Documents with Hash Verification */}
             <div style={{ marginBottom: '20px' }}>
               <h4 style={{ fontSize: '13px', fontWeight: '700', color: 'var(--color-primary)', marginBottom: '10px' }}>
-                Uploaded Credential Documents & Cryptographic Hashes
+                Uploaded Credential Documents & Verification Records
               </h4>
 
               {selectedContractor.kyc_documents?.length > 0 ? (
@@ -153,7 +153,7 @@ const ContractorKYCReview = () => {
                 ))
               ) : (
                 <div style={{ background: 'var(--bg-subtle)', padding: '14px', borderRadius: 'var(--radius-xs)', fontSize: '12px', color: 'var(--text-secondary)' }}>
-                  Contractor submitted digital declaration with auto-anchored Ethereum wallet address.
+                  Contractor submitted digital declaration with verified registered account.
                 </div>
               )}
             </div>
@@ -167,7 +167,7 @@ const ContractorKYCReview = () => {
                   value={reviewAction}
                   onChange={(e) => setReviewAction(e.target.value)}
                 >
-                  <option value="APPROVED">APPROVED (Activate Bidding & Escrow Eligibility)</option>
+                  <option value="APPROVED">APPROVED (Activate Project Assignment Eligibility)</option>
                   <option value="REJECTED">REJECTED (Disqualify Enterprise)</option>
                   <option value="RESUBMISSION_REQUIRED">RESUBMISSION REQUIRED (Request Additional Proofs)</option>
                 </select>
@@ -190,7 +190,7 @@ const ContractorKYCReview = () => {
                 </button>
                 <button type="submit" className="btn btn-primary" disabled={submitting}>
                   <ShieldCheck size={15} />
-                  <span>{submitting ? 'Updating...' : 'Submit Verification Verdict'}</span>
+                  <span>{submitting ? 'Updating...' : 'Confirm & Save Decision'}</span>
                 </button>
               </div>
             </form>

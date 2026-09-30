@@ -22,7 +22,7 @@ const ADMIN_ROLES = [
     icon: Landmark,
     accentColor: '#1E3A8A',
     lightBg: 'rgba(30, 58, 138, 0.08)',
-    description: 'National budget ceiling management, multi-year national schemes, user access control, and monitoring.',
+    description: 'National budget management, multi-year national schemes, user access control, and monitoring.',
     defaultEmail: 'admin@govtfund.gov.in',
     defaultPassword: 'Admin@123',
     targetDashboard: '/admin'
@@ -31,11 +31,11 @@ const ADMIN_ROLES = [
     id: 'FINANCE',
     title: 'Finance Dept',
     roleLabel: 'Ministry of Finance',
-    badge: 'Treasury Fund Release',
+    badge: 'Fund Transfers',
     icon: FileSpreadsheet,
     accentColor: '#0F766E',
     lightBg: 'rgba(15, 118, 110, 0.08)',
-    description: 'Sanction central budget allocations, execute state treasury transfers, and monitor Ethereum ledger disbursals.',
+    description: 'Approve central budget allocations, execute state fund transfers, and monitor verified payment records.',
     defaultEmail: 'finance@govtfund.gov.in',
     defaultPassword: 'Finance@123',
     targetDashboard: '/finance'
@@ -339,7 +339,7 @@ const AdminPortalPage = () => {
 
         <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '11px', color: 'var(--text-muted)' }}>
           <ShieldCheck size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px', color: 'var(--color-success)' }} />
-          <span>Central Administrative Portal • EVM Multi-Tier Ledger</span>
+          <span>Central Administrative Portal • Secure Government Records</span>
         </div>
       </div>
     </div>

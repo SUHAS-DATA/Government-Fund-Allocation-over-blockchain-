@@ -125,7 +125,7 @@ const PublicProjectDetail = () => {
         <div className="card">
           <div style={{ fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '600' }}>Remaining Balance</div>
           <div style={{ fontSize: '22px', fontWeight: '800', color: 'var(--color-primary)', marginTop: '4px' }}>{formatCurrency(remainingBudget)}</div>
-          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>Safe on Blockchain</div>
+          <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>Secure in Project Account</div>
         </div>
       </div>
 
@@ -196,12 +196,12 @@ const PublicProjectDetail = () => {
         </div>
       </div>
 
-      {/* Blockchain Transactions Log */}
+      {/* Verified Payment Records Log */}
       <div className="card">
         <div className="card-header">
           <div className="card-title">
             <Activity size={18} color="var(--color-primary)" />
-            <span>Immutable Blockchain Ledger Receipts</span>
+            <span>Verified Payment Records</span>
           </div>
         </div>
 
@@ -229,7 +229,7 @@ const PublicProjectDetail = () => {
             ))
           ) : (
             <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>
-              On-chain milestone and escrow receipts will appear here.
+              Milestone payment receipts will appear here.
             </div>
           )}
         </div>

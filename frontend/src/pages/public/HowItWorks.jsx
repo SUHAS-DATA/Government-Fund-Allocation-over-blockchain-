@@ -11,28 +11,28 @@ const HowItWorks = () => {
     },
     {
       num: '02',
-      title: 'Finance Ministry Releases Funds to States',
-      desc: 'Ministry of Finance verifies the approved limits and transfers funds directly to State Treasury accounts on the blockchain.'
+      title: 'Finance Ministry Sends Funds to States',
+      desc: 'Ministry of Finance checks approved budget limits and transfers funds directly to State Government accounts.'
     },
     {
       num: '03',
-      title: 'State Treasury Sends Funds to Districts',
-      desc: 'State Treasury divides the received funds and sends budgets to District Development Offices for local work.'
+      title: 'State Government Sends Funds to Districts',
+      desc: 'State Government allocates received funds and sends budgets to District Offices for local work.'
     },
     {
       num: '04',
       title: 'District Creates Project & Assigns Contractor',
-      desc: 'District officers check contractor credentials (GST, PAN, licenses) and lock project funds safely on the blockchain.'
+      desc: 'District officers check contractor credentials (GST, PAN, licenses) and reserve project funds safely in dedicated accounts.'
     },
     {
       num: '05',
-      title: 'Work Completed & Milestone Payment Released',
-      desc: 'Contractors upload photos of completed work with digital verification. Officers inspect the site and release payments directly to the contractor.'
+      title: 'Work Completed & Milestone Payment Sent',
+      desc: 'Contractors upload work proof photos of completed work. Officers inspect the work and send payments directly to the contractor.'
     },
     {
       num: '06',
-      title: 'Public Verification on Blockchain',
-      desc: 'Citizens and the public openly verify all fund allocations, project progress, and contractor payments on the tamper-proof blockchain ledger.'
+      title: 'Public Verification of Records',
+      desc: 'Citizens can verify all fund allocations, project progress, and contractor payments through transparent, secure records.'
     }
   ];
 
@@ -71,7 +71,7 @@ const HowItWorks = () => {
           Explore the Public Transparency Platform
         </h2>
         <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-          Check ongoing local projects or review confirmed blockchain payment records.
+          Check ongoing local projects or review confirmed payment records.
         </p>
         <div style={{ display: 'flex', justifyContent: 'center', gap: '14px' }}>
           <Link to="/public/projects" className="btn btn-primary">
@@ -79,7 +79,7 @@ const HowItWorks = () => {
             <ArrowRight size={14} />
           </Link>
           <Link to="/public/explorer" className="btn btn-secondary">
-            <span>View Blockchain Records</span>
+            <span>View Payment Records</span>
           </Link>
         </div>
       </div>

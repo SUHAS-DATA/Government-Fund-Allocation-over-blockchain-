@@ -160,23 +160,23 @@ const FinanceDashboard = () => {
   const recentActivities = [
     {
       time: '11:05',
-      title: 'State Treasury Disbursal Executed',
-      detail: `₹25 Cr transferred to Karnataka State Treasury • TX: 0x4f12...e81`
+      title: 'Funds Sent to State Account',
+      detail: `₹25 Cr sent to Karnataka State Government Account • Ref: PAY-10245`
     },
     {
       time: '09:30',
-      title: 'Central Budget Sanction Received',
+      title: 'Budget Allocation Received',
       detail: `₹50 Cr allocated for National Highways Development Program`
     },
     {
       time: '08:45',
-      title: 'Smart Contract Escrow Verified',
-      detail: `Consensus verified across multi-node government ledger`
+      title: 'Payment Record Verified',
+      detail: `Record verified across official government system`
     },
     {
       time: '08:15',
-      title: 'Treasury Disbursal Scheduled',
-      detail: `Maharashtra State Treasury tranche queued for settlement`
+      title: 'State Payment Scheduled',
+      detail: `Maharashtra State Government tranche queued for transfer`
     }
   ];
 
@@ -184,14 +184,14 @@ const FinanceDashboard = () => {
     switch (tab) {
       case 'schemes': return 'Approved Government Schemes';
       case 'requests':
-      case 'pending': return 'Central Sanctions & Fund Requests';
-      case 'release': return 'Execute State Treasury Transfers';
-      case 'state_allocations': return 'State-wise Allocations & Treasury Accounts';
+      case 'pending': return 'Approved Budgets & Fund Requests';
+      case 'release': return 'Send Funds to State Government';
+      case 'state_allocations': return 'State-wise Allocations & Accounts';
       case 'disbursements':
-      case 'history': return 'Audited Disbursal Ledger History';
-      case 'blockchain': return 'Ethereum Blockchain Ledger Records';
+      case 'history': return 'Payment History';
+      case 'blockchain': return 'Verified Payment Records';
       case 'notifications': return 'Ministry of Finance Notifications';
-      case 'settings': return 'Finance Department Profile & Treasury Settings';
+      case 'settings': return 'Finance Department Profile & Account Settings';
       default: return 'Finance Module';
     }
   };
@@ -229,7 +229,7 @@ const FinanceDashboard = () => {
                   <div className="card-header" style={{ marginBottom: '20px' }}>
                     <div className="card-title">
                       <FileSpreadsheet size={20} color="#006B4F" />
-                      <span>Approved Government Schemes for Fund Release</span>
+                      <span>Approved Government Schemes for Funding</span>
                     </div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -277,7 +277,7 @@ const FinanceDashboard = () => {
                               cursor: 'pointer'
                             }}
                           >
-                            Release Funds →
+                            Send Funds →
                           </button>
                         </div>
                       </div>
@@ -294,7 +294,7 @@ const FinanceDashboard = () => {
                   <div className="card-header" style={{ marginBottom: '20px' }}>
                     <div className="card-title">
                       <Building2 size={20} color="#006B4F" />
-                      <span>State-wise Budget Allocation & Treasury Distribution</span>
+                      <span>State-wise Budget Allocation & Distribution</span>
                     </div>
                   </div>
                   {stateBreakdown.length > 0 ? (
@@ -312,7 +312,7 @@ const FinanceDashboard = () => {
                           <div>
                             <div style={{ fontWeight: '800', color: '#102A43', fontSize: '15px' }}>{st._id || 'State Treasury'}</div>
                             <div style={{ fontSize: '12px', color: '#627D98', marginTop: '2px' }}>
-                              Disbursals Executed: {st.transfer_count || 1} Tranches
+                              Payments Completed: {st.transfer_count || 1} Payments
                             </div>
                           </div>
                           <div style={{ textAlign: 'right' }}>
@@ -334,7 +334,7 @@ const FinanceDashboard = () => {
                                 cursor: 'pointer'
                               }}
                             >
-                              Transfer More →
+                              Send More →
                             </button>
                           </div>
                         </div>
@@ -342,7 +342,7 @@ const FinanceDashboard = () => {
                     </div>
                   ) : (
                     <div style={{ textAlign: 'center', padding: '30px', color: '#627D98' }}>
-                      No state-wise releases recorded yet. Click Execute Transfer to disburse funds.
+                      No state payments recorded yet. Click Send Funds to transfer funds.
                     </div>
                   )}
                 </div>
@@ -364,7 +364,7 @@ const FinanceDashboard = () => {
             <div className="super-admin-top-meta">
               <div className="super-admin-status-pill">
                 <span className="live-pulse-dot" />
-                <span>Finance Engine Operational • Disbursal Authority</span>
+                <span>Finance System Online • Payment Operations</span>
               </div>
 
               <div className="super-admin-user-pill">
@@ -391,13 +391,13 @@ const FinanceDashboard = () => {
               </div>
 
               <span className="super-admin-badge-eyebrow">
-                FINANCE DISBURSAL AUTHORITY
+                FINANCE OPERATIONS
               </span>
               <h1 className="super-admin-main-title">
-                Public Financial Disbursal & State Allocation Hub
+                Public Financial Management & State Allocation Hub
               </h1>
               <p className="super-admin-sub-title">
-                Central Sanction Execution, State Treasury Releases & On-Chain Ledger Anchoring
+                Budget Allocation Management & Direct State Government Transfers
               </p>
 
               {/* Thin Decorative Green Line */}
@@ -405,7 +405,7 @@ const FinanceDashboard = () => {
 
               <div className="super-admin-fy-pill">
                 <Calendar size={13} color="#006B4F" />
-                <span>Union Budget Disbursal Authority • FY 2026–27</span>
+                <span>Union Budget Fund Allocation • FY 2026–27</span>
               </div>
             </div>
 
@@ -414,7 +414,7 @@ const FinanceDashboard = () => {
             {/* ========================================================= */}
             <div className="section-eyebrow-heading">
               <span className="section-bullet" />
-              <span>FINANCE DISBURSAL OVERVIEW</span>
+              <span>FINANCE OVERVIEW</span>
             </div>
 
             <div className="super-admin-financial-overview-panel grid-6">
@@ -443,12 +443,12 @@ const FinanceDashboard = () => {
               <div className="fin-overview-column">
                 <div className="fin-overview-top-label">
                   <Coins size={14} color="#0D9488" />
-                  <span>FUNDS RELEASED</span>
+                  <span>FUNDS SENT</span>
                 </div>
                 <span className="fin-overview-value">
                   {formatIndianDenomination(totalDisbursed)}
                 </span>
-                <span className="fin-overview-subtext">{disbursedPct}% settled to State Treasuries</span>
+                <span className="fin-overview-subtext">{disbursedPct}% sent to State Accounts</span>
               </div>
 
               <div className="fin-overview-column">
@@ -462,29 +462,29 @@ const FinanceDashboard = () => {
                     prefix={pendingCount < 10 ? '0' : ''}
                   />
                 </span>
-                <span className="fin-overview-subtext">Awaiting state transfer execution</span>
+                <span className="fin-overview-subtext">Awaiting state transfer</span>
               </div>
 
               <div className="fin-overview-column">
                 <div className="fin-overview-top-label">
                   <Building2 size={14} color="#102A43" />
-                  <span>STATE-WISE DISBURSEMENT</span>
+                  <span>STATE-WISE ALLOCATION</span>
                 </div>
                 <span className="fin-overview-value">
                   <AnimatedCounter value={statesCount} suffix=" States" />
                 </span>
-                <span className="fin-overview-subtext">RBI state treasury accounts</span>
+                <span className="fin-overview-subtext">State Government Accounts</span>
               </div>
 
               <div className="fin-overview-column">
                 <div className="fin-overview-top-label">
                   <Activity size={14} color="#006B4F" />
-                  <span>RECENT TRANSACTIONS</span>
+                  <span>RECENT PAYMENTS</span>
                 </div>
                 <span className="fin-overview-value">
-                  <AnimatedCounter value={transfersCount} suffix=" Disbursals" />
+                  <AnimatedCounter value={transfersCount} suffix=" Payments" />
                 </span>
-                <span className="fin-overview-subtext">Audited on-chain settlements</span>
+                <span className="fin-overview-subtext">Verified system records</span>
               </div>
             </div>
 
@@ -543,10 +543,10 @@ const FinanceDashboard = () => {
 
                 <div className="card-content-body">
                   <div className="card-large-title">
-                    <AnimatedCounter value={pendingCount} suffix=" Pending Sanctions" />
+                    <AnimatedCounter value={pendingCount} suffix=" Pending Requests" />
                   </div>
                   <div className="card-description-text">
-                    Budget allocations approved by Super Admin awaiting finance release
+                    Budget allocations approved by Central Office awaiting fund release
                   </div>
                 </div>
 
@@ -566,10 +566,10 @@ const FinanceDashboard = () => {
               >
                 <div className="card-top-row">
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span className="card-category-heading">FUND RELEASE</span>
+                    <span className="card-category-heading">SEND FUNDS</span>
                     <span className="card-feature-pill">
                       <Link2 size={10} />
-                      <span>On-chain tracked</span>
+                      <span>Verified Record</span>
                     </span>
                   </div>
                   <div className="card-mono-icon-container icon-box-green">
@@ -582,7 +582,7 @@ const FinanceDashboard = () => {
                     {formatIndianDenomination(totalDisbursed)}
                   </div>
                   <div className="card-description-text" style={{ fontWeight: '700', color: '#102A43' }}>
-                    Disbursed • {disbursedPct}% of total volume
+                    Sent • {disbursedPct}% of total budget
                   </div>
 
                   {/* Clean Green Progress Bar */}
@@ -594,7 +594,7 @@ const FinanceDashboard = () => {
                       />
                     </div>
                     <div className="dominant-progress-meta">
-                      <span>Disbursal progress</span>
+                      <span>Payment progress</span>
                       <span>{formatIndianDenomination(pendingAmount)} Pending</span>
                     </div>
                   </div>
@@ -602,7 +602,7 @@ const FinanceDashboard = () => {
 
                 <div className="card-bottom-row">
                   <div className="card-action-link" style={{ color: '#006B4F' }}>
-                    <span>Execute Release</span>
+                    <span>Send Funds</span>
                     <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
@@ -623,10 +623,10 @@ const FinanceDashboard = () => {
 
                 <div className="card-content-body">
                   <div className="card-large-title">
-                    <AnimatedCounter value={statesCount} suffix=" State Treasuries" />
+                    <AnimatedCounter value={statesCount} suffix=" State Accounts" />
                   </div>
                   <div className="card-description-text">
-                    State-wise budget quotas & authorized RBI treasury linked wallets
+                    State-wise budget allocations & authorized government accounts
                   </div>
                 </div>
 
@@ -646,7 +646,7 @@ const FinanceDashboard = () => {
               >
                 <div className="card-top-row">
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    <span className="card-category-heading">TRANSACTION HISTORY</span>
+                    <span className="card-category-heading">PAYMENT HISTORY</span>
                     <span className="card-feature-pill">
                       <span>● Verified</span>
                     </span>
@@ -658,10 +658,10 @@ const FinanceDashboard = () => {
 
                 <div className="card-content-body">
                   <div className="card-large-title">
-                    <AnimatedCounter value={transfersCount} suffix=" Transactions" />
+                    <AnimatedCounter value={transfersCount} suffix=" Payments" />
                   </div>
                   <div className="card-description-text">
-                    Audited ledger records of central releases to State Treasuries
+                    Verified records of central fund payments to State Government Accounts
                   </div>
                 </div>
 
@@ -680,7 +680,7 @@ const FinanceDashboard = () => {
                 id="fin-card-blockchain"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">BLOCKCHAIN RECORDS</span>
+                  <span className="card-category-heading">VERIFIED RECORDS</span>
                   <div className="card-mono-icon-container icon-box-green">
                     <Activity size={22} />
                   </div>
@@ -688,16 +688,16 @@ const FinanceDashboard = () => {
 
                 <div className="card-content-body">
                   <div className="card-large-title">
-                    Ethereum Consensus
+                    Verified Records
                   </div>
                   <div className="card-description-text">
-                    Real-time inter-governmental smart contract anchoring & tx hashes
+                    Real-time verified government payment records and references
                   </div>
                 </div>
 
                 <div className="card-bottom-row">
                   <div className="card-action-link">
-                    <span>Inspect Ledger</span>
+                    <span>View Records</span>
                     <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
@@ -718,10 +718,10 @@ const FinanceDashboard = () => {
 
                 <div className="card-content-body">
                   <div className="card-large-title">
-                    Treasury Alerts
+                    System Alerts
                   </div>
                   <div className="card-description-text">
-                    Direct central sanction alerts and state disbursal confirmations
+                    Central budget alerts and state payment confirmations
                   </div>
                 </div>
 
@@ -748,10 +748,10 @@ const FinanceDashboard = () => {
 
                 <div className="card-content-body">
                   <div className="card-large-title">
-                    Treasury Settings
+                    Account Settings
                   </div>
                   <div className="card-description-text">
-                    Finance officer credentials, smart contract address & key custody
+                    Finance officer details, secure login & account credentials
                   </div>
                 </div>
 
@@ -770,57 +770,57 @@ const FinanceDashboard = () => {
             {/* ========================================================= */}
             <div className="section-eyebrow-heading">
               <span className="section-bullet" />
-              <span>CAPITAL PIPELINE FLOW</span>
+              <span>FUND FLOW PROCESS</span>
             </div>
 
             <div className="super-admin-section-container">
               <div className="section-container-header">
                 <div className="section-container-title">
                   <GitBranch size={16} color="#006B4F" />
-                  <span>Central to State Capital Disbursal Flow</span>
+                  <span>Central to State Fund Flow</span>
                 </div>
                 <span style={{ fontSize: '11px', color: '#627D98', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-                  Statutory Disbursal Pipeline
+                  Official Fund Flow Process
                 </span>
               </div>
 
               <div className="fund-flow-wrapper">
                 <div className="fund-flow-node">
                   <div className="fund-flow-circle">01</div>
-                  <div className="fund-flow-node-title">Central Cabinet</div>
-                  <div className="fund-flow-node-desc">Planning Ceiling Sanction</div>
+                  <div className="fund-flow-node-title">Central Office</div>
+                  <div className="fund-flow-node-desc">Approved Budget Allocation</div>
                 </div>
 
                 <div className="fund-flow-connector" />
 
                 <div className="fund-flow-node">
                   <div className="fund-flow-circle">02</div>
-                  <div className="fund-flow-node-title">Ministry of Finance</div>
-                  <div className="fund-flow-node-desc">Disbursal Pool Authorization</div>
+                  <div className="fund-flow-node-title">Finance Department</div>
+                  <div className="fund-flow-node-desc">Fund Transfer Approval</div>
                 </div>
 
                 <div className="fund-flow-connector" />
 
                 <div className="fund-flow-node">
                   <div className="fund-flow-circle">03</div>
-                  <div className="fund-flow-node-title">State Treasury</div>
-                  <div className="fund-flow-node-desc">Direct Account Credit</div>
+                  <div className="fund-flow-node-title">State Government</div>
+                  <div className="fund-flow-node-desc">State Account Credit</div>
                 </div>
 
                 <div className="fund-flow-connector" />
 
                 <div className="fund-flow-node">
                   <div className="fund-flow-circle">04</div>
-                  <div className="fund-flow-node-title">District Agency</div>
-                  <div className="fund-flow-node-desc">Execution Work Orders</div>
+                  <div className="fund-flow-node-title">District Office</div>
+                  <div className="fund-flow-node-desc">Project Work Orders</div>
                 </div>
 
                 <div className="fund-flow-connector" />
 
                 <div className="fund-flow-node">
                   <div className="fund-flow-circle">05</div>
-                  <div className="fund-flow-node-title">Contractor Escrow</div>
-                  <div className="fund-flow-node-desc">Milestone Settlement</div>
+                  <div className="fund-flow-node-title">Contractor Account</div>
+                  <div className="fund-flow-node-desc">Milestone Payment</div>
                 </div>
               </div>
             </div>
@@ -830,17 +830,17 @@ const FinanceDashboard = () => {
             {/* ========================================================= */}
             <div className="section-eyebrow-heading">
               <span className="section-bullet" />
-              <span>RECENT DISBURSAL ACTIVITY</span>
+              <span>RECENT PAYMENT ACTIVITY</span>
             </div>
 
             <div className="super-admin-section-container">
               <div className="section-container-header">
                 <div className="section-container-title">
                   <Clock size={16} color="#006B4F" />
-                  <span>Recent Disbursal Events</span>
+                  <span>Recent Payment Activity</span>
                 </div>
                 <span style={{ fontSize: '11px', color: '#627D98', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.8px' }}>
-                  On-Chain Financial Events
+                  Verified System Records
                 </span>
               </div>
 

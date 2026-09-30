@@ -201,8 +201,8 @@ const PublicPortalPage = () => {
       case 'schemes': return 'Centrally Sponsored Schemes & Programs';
       case 'allocation': return 'National Fund Allocation Breakdown';
       case 'progress': return 'Field Project Execution Progress';
-      case 'explorer': return 'Live Blockchain Fund Flow & Transaction Explorer';
-      case 'reports': return 'Public Financial Reports & Utilization Statements';
+      case 'explorer': return 'Public Payment & Fund Records';
+      case 'reports': return 'Public Financial Reports & Funds Used Statements';
       case 'grievances': return 'Citizen Grievance Redressal & Feedback';
       default: return 'Public Transparency Module';
     }
@@ -301,30 +301,30 @@ const PublicPortalPage = () => {
                   <div className="card-header" style={{ marginBottom: '20px' }}>
                     <div className="card-title">
                       <Coins size={20} color="#006B4F" />
-                      <span>National Government Fund Allocation Architecture</span>
+                      <span>National Government Fund Flow</span>
                     </div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '24px' }}>
                     <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '18px' }}>
-                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#627D98' }}>TOTAL UNION CEILING</span>
+                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#627D98' }}>TOTAL APPROVED BUDGET</span>
                       <div style={{ fontSize: '24px', fontWeight: '900', color: '#006B4F', marginTop: '6px' }}>
                         {formatIndianDenomination(totalAllocated)}
                       </div>
-                      <span style={{ fontSize: '12px', color: '#475569' }}>Approved in Union Budget FY 2026-27</span>
+                      <span style={{ fontSize: '12px', color: '#475569' }}>Approved in Central Budget FY 2026-27</span>
                     </div>
                     <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '18px' }}>
-                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#627D98' }}>TRANSFERRED TO STATES</span>
+                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#627D98' }}>SENT TO STATES</span>
                       <div style={{ fontSize: '24px', fontWeight: '900', color: '#2563EB', marginTop: '6px' }}>
                         {formatIndianDenomination(fundsReleased)}
                       </div>
-                      <span style={{ fontSize: '12px', color: '#475569' }}>Credited to State Consolidated Funds</span>
+                      <span style={{ fontSize: '12px', color: '#475569' }}>Sent to State Government Accounts</span>
                     </div>
                     <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '18px' }}>
-                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#627D98' }}>REMAINING LIQUIDITY</span>
+                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#627D98' }}>REMAINING BUDGET</span>
                       <div style={{ fontSize: '24px', fontWeight: '900', color: '#D97706', marginTop: '6px' }}>
                         {formatIndianDenomination(Math.max(0, totalAllocated - fundsReleased))}
                       </div>
-                      <span style={{ fontSize: '12px', color: '#475569' }}>Available for Supplementary Grants</span>
+                      <span style={{ fontSize: '12px', color: '#475569' }}>Available for Upcoming Projects</span>
                     </div>
                   </div>
                 </div>
@@ -380,8 +380,8 @@ const PublicPortalPage = () => {
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     {[
-                      { title: 'National Public Works Expenditure Report (FY 2026-27)', desc: 'Comprehensive state-wise and scheme-wise disbursal summaries', format: 'PDF (Official Gazette)' },
-                      { title: 'Public Blockchain Verification Proof Ledger', desc: 'Immutable Ethereum cryptographic receipt hashes and block confirmations', format: 'JSON / CSV' },
+                      { title: 'National Public Works Expenditure Report (FY 2026-27)', desc: 'Comprehensive state-wise and scheme-wise fund sending summaries', format: 'PDF (Official Gazette)' },
+                      { title: 'Verified Payment & Official Records', desc: 'Permanently verified official payment records and receipts', format: 'JSON / CSV' },
                       { title: 'Citizen Grievance Redressal Status Bulletin', desc: 'Public complaint resolution metrics and site inspection outcomes', format: 'Quarterly PDF' }
                     ].map((r, idx) => (
                       <div key={idx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
@@ -414,7 +414,7 @@ const PublicPortalPage = () => {
                 <span className="live-pulse-dot" />
                 <span className="live-network-text">OPEN CITIZEN ACCESS</span>
                 <span style={{ color: '#CBD5E1' }}>•</span>
-                <span style={{ color: '#486581', fontWeight: '600' }}>ETHEREUM PUBLIC LEDGER</span>
+                <span style={{ color: '#486581', fontWeight: '600' }}>SECURE GOVERNMENT RECORDS</span>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -444,7 +444,7 @@ const PublicPortalPage = () => {
                 Government Fund Allocation & Public Tracking
               </h1>
               <p className="super-admin-sub-title">
-                Real-time tracking of public infrastructure projects, multi-tier treasury transfers, and tamper-proof Ethereum blockchain verification.
+                Real-time tracking of public infrastructure projects, government fund transfers, and verified payment records.
               </p>
 
               {/* Thin Decorative Green Line */}
@@ -805,7 +805,7 @@ const PublicPortalPage = () => {
                   ID: <code style={{ color: '#006B4F', fontWeight: '700' }}>{qrProjectData.project_id}</code> • Scheme: {qrProjectData.scheme_name}
                 </div>
                 <div style={{ fontSize: '13px', color: '#102A43', marginBottom: '6px' }}>
-                  Sanctioned Budget: <strong>{formatCurrency(qrProjectData.total_budget || 0)}</strong>
+                  Approved Budget: <strong>{formatCurrency(qrProjectData.total_budget || 0)}</strong>
                 </div>
                 <div style={{ fontSize: '12px', color: '#627D98', marginBottom: '12px' }}>
                   Location: {qrProjectData.district_name}, {qrProjectData.state_code}

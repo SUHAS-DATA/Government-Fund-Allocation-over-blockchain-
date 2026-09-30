@@ -47,7 +47,7 @@ const PublicVerificationPage = () => {
       })
       .catch((err) => {
         console.error('Error verifying QR:', err);
-        setErrorMsg(err.message || 'Failed to verify QR code with the National Blockchain Registry.');
+        setErrorMsg(err.message || 'Failed to verify QR code with the National Project Registry.');
         if (err.response?.data) {
           setData(err.response.data);
         }
@@ -99,7 +99,7 @@ const PublicVerificationPage = () => {
           Verifying Official Public Record...
         </h3>
         <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '420px' }}>
-          Validating QR identifier against the Government Decentralized Public Ledger and State Treasury records.
+          Validating QR identifier against official Government and District Department records.
         </p>
       </div>
     );
@@ -136,7 +136,7 @@ const PublicVerificationPage = () => {
             Unrecognized Government Identifier
           </h2>
           <p style={{ color: '#64748B', fontSize: '14px', lineHeight: '1.6', margin: '10px 0 24px 0' }}>
-            The scanned QR code token (<code>{qrId}</code>) does not match any officially awarded and accepted project in the National Blockchain Ledger.
+            The scanned QR code token (<code>{qrId}</code>) does not match any officially awarded and accepted project in the Government Records.
           </p>
           <div style={{ background: '#F8FAFC', padding: '14px', borderRadius: '10px', fontSize: '12px', color: '#475569', marginBottom: '24px' }}>
             <strong>Security Advisory:</strong> Official public notices must be authenticated directly through registered public portals. Do not trust static printed data that cannot be verified on this registry.
@@ -330,31 +330,31 @@ const PublicVerificationPage = () => {
             {formatCurrency(finances?.total_budget || 0)}
           </div>
           <div style={{ fontSize: '12px', color: '#64748B', marginTop: '4px' }}>
-            Sanctioned Public Budget
+            Approved Budget
           </div>
         </div>
 
         <div className="card" style={{ padding: '20px 24px', borderLeft: '4px solid #16A34A' }}>
           <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Disbursed Funds
+            Funds Sent
           </div>
           <div style={{ fontSize: '24px', fontWeight: '900', color: '#16A34A', marginTop: '4px' }}>
             {formatCurrency(finances?.released_amount || 0)}
           </div>
           <div style={{ fontSize: '12px', color: '#64748B', marginTop: '4px' }}>
-            Released against Audited Proofs
+            Paid against Verified Work Proof
           </div>
         </div>
 
         <div className="card" style={{ padding: '20px 24px', borderLeft: '4px solid #6366F1' }}>
           <div style={{ fontSize: '11px', color: '#64748B', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Remaining Escrow Balance
+            Remaining Balance
           </div>
           <div style={{ fontSize: '24px', fontWeight: '900', color: '#4F46E5', marginTop: '4px' }}>
             {formatCurrency(finances?.remaining_balance || 0)}
           </div>
           <div style={{ fontSize: '12px', color: '#64748B', marginTop: '4px' }}>
-            Locked on Smart Contract
+            Reserved for Project Milestones
           </div>
         </div>
       </div>
@@ -459,7 +459,7 @@ const PublicVerificationPage = () => {
                     </div>
                     {m.proof_document_hash && (
                       <div style={{ fontSize: '11px', color: '#0284C7', marginTop: '4px', fontFamily: 'monospace' }}>
-                        Proof Hash: {m.proof_document_hash}
+                        Work Proof Stamp: {m.proof_document_hash.substring(0, 16)}...
                       </div>
                     )}
                   </div>
@@ -487,15 +487,15 @@ const PublicVerificationPage = () => {
         </div>
       </div>
 
-      {/* Immutable Blockchain Ledger Receipts */}
+      {/* Official Payment & Verified Records */}
       <div className="card" style={{ padding: '24px 26px', marginBottom: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <h3 style={{ fontSize: '16px', fontWeight: '800', color: '#0F172A', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
             <ShieldCheck size={18} color="#16A34A" />
-            <span>Immutable Blockchain Ledger Verifications</span>
+            <span>Verified Payment & Official Records</span>
           </h3>
           <span style={{ fontSize: '11px', color: '#64748B' }}>
-            Decentralized Proof of Work & Escrow
+            Official Payment & Milestone Records
           </span>
         </div>
 
@@ -503,8 +503,8 @@ const PublicVerificationPage = () => {
           {project?.escrow_tx_hash && (
             <div style={{ background: '#F8FAFC', padding: '12px 16px', borderRadius: '8px', border: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
               <div>
-                <strong style={{ fontSize: '12px', color: '#0F172A' }}>Smart Contract Escrow Anchor</strong>
-                <div style={{ fontSize: '11px', color: '#64748B' }}>On-chain project treasury ceiling commitment</div>
+                <strong style={{ fontSize: '12px', color: '#0F172A' }}>Project Budget Allocation Record</strong>
+                <div style={{ fontSize: '11px', color: '#64748B' }}>Official approved budget allocation record</div>
               </div>
               <BlockchainBadge txHash={project.escrow_tx_hash} />
             </div>
@@ -522,7 +522,7 @@ const PublicVerificationPage = () => {
             ))
           ) : (
             <div style={{ background: '#F8FAFC', padding: '14px', borderRadius: '8px', textAlign: 'center', color: '#64748B', fontSize: '12px' }}>
-              Blockchain milestone release receipts will be cryptographically anchored upon each phase audit.
+              Milestone payment receipts will be recorded upon each phase inspection.
             </div>
           )}
         </div>

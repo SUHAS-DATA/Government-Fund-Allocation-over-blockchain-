@@ -17,38 +17,38 @@ import PortalNavHeader from '../../components/PortalNavHeader';
 const FIELD_ROLES = [
   {
     id: 'STATE',
-    title: 'State Treasury',
+    title: 'State Government',
     roleLabel: 'State Planning & Finance',
     badge: 'State Fund Management',
     icon: Building,
     accentColor: '#0284C7',
     lightBg: 'rgba(2, 132, 199, 0.08)',
-    description: 'Receive central funds and allocate multi-tier budgets to District Development Offices (KA, MH, GJ, TN, UP).',
+    description: 'Receive central funds and send allocations to District Development Offices (KA, MH, GJ, TN, UP).',
     jurisdictions: [
-      { label: 'Karnataka State Treasury (KA)', email: 'karnataka@govtfund.gov.in', pass: 'State@123' },
-      { label: 'Maharashtra State Treasury (MH)', email: 'state@govtfund.gov.in', pass: 'State@123' },
-      { label: 'Gujarat State Treasury (GJ)', email: 'gujarat@govtfund.gov.in', pass: 'State@123' },
-      { label: 'Tamil Nadu State Treasury (TN)', email: 'tamilnadu@govtfund.gov.in', pass: 'State@123' },
-      { label: 'Uttar Pradesh State Treasury (UP)', email: 'up@govtfund.gov.in', pass: 'State@123' }
+      { label: 'Karnataka State Government (KA)', email: 'karnataka@govtfund.gov.in', pass: 'State@123' },
+      { label: 'Maharashtra State Government (MH)', email: 'state@govtfund.gov.in', pass: 'State@123' },
+      { label: 'Gujarat State Government (GJ)', email: 'gujarat@govtfund.gov.in', pass: 'State@123' },
+      { label: 'Tamil Nadu State Government (TN)', email: 'tamilnadu@govtfund.gov.in', pass: 'State@123' },
+      { label: 'Uttar Pradesh State Government (UP)', email: 'up@govtfund.gov.in', pass: 'State@123' }
     ]
   },
   {
     id: 'DISTRICT',
-    title: 'District Agency',
+    title: 'District Office',
     roleLabel: 'District Office / Collectorate',
     badge: 'Project Planning & Execution',
     icon: Layers,
     accentColor: '#7C3AED',
     lightBg: 'rgba(124, 58, 237, 0.08)',
-    description: 'Create development projects, assign contractors, inspect site progress, verify evidence, and release milestone payments.',
+    description: 'Create development projects, assign contractors, inspect site progress, verify work proof, and release milestone payments.',
     jurisdictions: [
       { label: 'Belagavi DRDA (KA)', email: 'district.belagavi@govtfund.gov.in', pass: 'District@123' },
       { label: 'Bengaluru Urban DRDA (KA)', email: 'district.bengaluru@govtfund.gov.in', pass: 'District@123' },
       { label: 'Mysuru District DRDA (KA)', email: 'district.mysuru@govtfund.gov.in', pass: 'District@123' },
       { label: 'Pune District Collectorate (MH)', email: 'district@govtfund.gov.in', pass: 'District@123' },
-      { label: 'Nagpur District Agency (MH)', email: 'district.nagpur@govtfund.gov.in', pass: 'District@123' },
-      { label: 'Chennai District Agency (TN)', email: 'district.chennai@govtfund.gov.in', pass: 'District@123' },
-      { label: 'Lucknow District Agency (UP)', email: 'district.lucknow@govtfund.gov.in', pass: 'District@123' }
+      { label: 'Nagpur District Office (MH)', email: 'district.nagpur@govtfund.gov.in', pass: 'District@123' },
+      { label: 'Chennai District Office (TN)', email: 'district.chennai@govtfund.gov.in', pass: 'District@123' },
+      { label: 'Lucknow District Office (UP)', email: 'district.lucknow@govtfund.gov.in', pass: 'District@123' }
     ]
   }
 ];
@@ -148,7 +148,7 @@ const FieldPortalPage = () => {
           Field Operations Portal
         </h1>
         <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-          Allowed Roles: State Treasury & District Development Agency Only
+          Allowed Roles: State Government & District Office Only
         </p>
       </div>
 
@@ -394,7 +394,7 @@ const FieldPortalPage = () => {
 
         <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '11px', color: 'var(--text-muted)' }}>
           <ShieldCheck size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px', color: 'var(--color-success)' }} />
-          <span>Territorial Field Operations • Multi-Tier Public Ledger</span>
+          <span>Territorial Field Operations • Secure Government Records</span>
         </div>
       </div>
     </div>

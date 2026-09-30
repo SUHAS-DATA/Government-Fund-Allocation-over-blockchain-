@@ -40,7 +40,7 @@ const Footer = () => {
           </div>
           <div>
             <div style={{ fontWeight: '800', color: 'var(--color-gov-navy)', fontSize: '13px' }}>
-              Public Financial Management & Blockchain Ledger System
+              Public Financial Management & Fund Tracking System
             </div>
             <div style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
               Digital Governance Initiative • National Expenditure Oversight
@@ -55,15 +55,15 @@ const Footer = () => {
           </Link>
           <span style={{ color: 'var(--border-color)' }}>•</span>
           <Link to="/public/explorer" style={{ color: 'inherit', textDecoration: 'none' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--color-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'inherit'}>
-            Ledger Explorer
+            Payment Records
           </Link>
           <span style={{ color: 'var(--border-color)' }}>•</span>
           <Link to="/public/grievance" style={{ color: 'inherit', textDecoration: 'none' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--color-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'inherit'}>
-            Grievance Redressal
+            Complaints Inbox
           </Link>
           <span style={{ color: 'var(--border-color)' }}>•</span>
           <Link to="/how-it-works" style={{ color: 'inherit', textDecoration: 'none' }} onMouseOver={(e) => e.currentTarget.style.color = 'var(--color-primary)'} onMouseOut={(e) => e.currentTarget.style.color = 'inherit'}>
-            Architecture
+            How It Works
           </Link>
         </div>
 
@@ -81,7 +81,7 @@ const Footer = () => {
           fontWeight: '700'
         }}>
           <Lock size={12} color="#16A34A" />
-          <span>256-Bit SHA Encryption & On-Chain Audit</span>
+          <span>Government Verified & Secure Records</span>
         </div>
       </div>
 

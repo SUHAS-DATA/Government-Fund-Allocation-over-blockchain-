@@ -216,7 +216,7 @@ const ContractorPortalPage = () => {
               </span>
             </div>
             <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
-              Submit business profile, upload site work photos with blockchain proof, and claim milestone payments.
+              Submit business profile, upload site work photos, and receive milestone payments.
             </p>
           </div>
         </div>
@@ -592,7 +592,7 @@ const ContractorPortalPage = () => {
 
         <div style={{ textAlign: 'center', padding: '12px', background: '#F8FAFC', borderTop: '1px solid var(--border-color)', fontSize: '11px', color: 'var(--text-muted)' }}>
           <ShieldCheck size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px', color: 'var(--color-success)' }} />
-          <span>Contractor Portal • KYC & Smart Contract Escrow Payments</span>
+          <span>Contractor Portal • Verified Credentials & Milestone Payments</span>
         </div>
       </div>
     </div>

@@ -410,7 +410,7 @@ const LoginPage = () => {
 
         <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '11px', color: 'var(--text-muted)' }}>
           <ShieldCheck size={13} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px', color: 'var(--color-success)' }} />
-          <span>256-Bit SHA Encrypted Session • EVM Smart Contract Connected</span>
+          <span>256-Bit Encrypted Session • Official Government Portal</span>
         </div>
       </div>
 
