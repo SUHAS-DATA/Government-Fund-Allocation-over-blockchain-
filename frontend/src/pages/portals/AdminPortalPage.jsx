@@ -102,9 +102,6 @@ const AdminPortalPage = () => {
 
   return (
     <div style={{ maxWidth: '800px', margin: '30px auto', padding: '0 20px' }}>
-      {/* Shared Portal Navigation Header with Back to Portals & Switcher */}
-      <PortalNavHeader currentPortal="admin" />
-
       {/* Portal Header */}
       <div style={{ textAlign: 'center', marginBottom: '24px' }}>
         <div style={{
