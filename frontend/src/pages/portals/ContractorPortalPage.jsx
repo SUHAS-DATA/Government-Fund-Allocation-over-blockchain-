@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { 
   Briefcase, 
   UserPlus, 
@@ -16,6 +16,14 @@ import {
 import API from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import PortalNavHeader from '../../components/PortalNavHeader';
+
+const INDIAN_STATES = [
+  { code: 'KA', name: 'Karnataka' },
+  { code: 'MH', name: 'Maharashtra' },
+  { code: 'GJ', name: 'Gujarat' },
+  { code: 'TN', name: 'Tamil Nadu' },
+  { code: 'UP', name: 'Uttar Pradesh' }
+];
 
 const CONTRACTOR_PROFILES = [
   {
@@ -47,7 +55,16 @@ const CONTRACTOR_PROFILES = [
 const ContractorPortalPage = () => {
   const { user, login } = useAuth();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState('login'); // 'login' or 'register'
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const wantsRegister = location.pathname === '/register' || searchParams.get('tab') === 'register';
+  const [activeTab, setActiveTab] = useState(wantsRegister ? 'register' : 'login');
+
+  useEffect(() => {
+    if (location.pathname === '/register' || searchParams.get('tab') === 'register') {
+      setActiveTab('register');
+    }
+  }, [location.pathname, location.search]);
 
   // Login Form State
   const [selectedProfile, setSelectedProfile] = useState(CONTRACTOR_PROFILES[0]);
@@ -62,10 +79,12 @@ const ContractorPortalPage = () => {
     email: '',
     password: '',
     role: 'CONTRACTOR',
+    state_code: 'KA',
+    state_name: 'Karnataka',
     company_name: '',
-    gst_number: '27AABCU9603R1ZM',
+    gst_number: '29AABCU9603R1ZM',
     pan_number: 'AABCU9603R',
-    license_number: 'PWD/MH/2024/001',
+    license_number: 'PWD/KA/2026/001',
     experience_years: 5
   });
   const [regError, setRegError] = useState('');
@@ -310,6 +329,50 @@ const ContractorPortalPage = () => {
         {/* Tab 1: Contractor Login */}
         {activeTab === 'login' && (
           <div style={{ padding: '24px 28px' }}>
+            {/* Prominent New Contractor Registration CTA */}
+            <div style={{
+              marginBottom: '20px',
+              padding: '12px 16px',
+              backgroundColor: '#FFF7ED',
+              border: '1.5px solid #FDBA74',
+              borderRadius: 'var(--radius-sm)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '10px'
+            }}>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: '800', color: '#9A3412' }}>
+                  Need to Register a New Contractor Entity?
+                </div>
+                <div style={{ fontSize: '11px', color: '#C2410C', marginTop: '2px' }}>
+                  Select your state, provide enterprise credentials, and apply for State Department verification.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('register')}
+                className="btn btn-sm"
+                style={{
+                  backgroundColor: '#EA580C',
+                  color: '#FFFFFF',
+                  fontWeight: '700',
+                  fontSize: '12px',
+                  padding: '7px 14px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer'
+                }}
+              >
+                <UserPlus size={14} />
+                <span>Open Registration Form →</span>
+              </button>
+            </div>
+
             {/* Verified Concessionaires Quick Picker */}
             <div style={{ marginBottom: '18px' }}>
               <label style={{ fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>
@@ -527,6 +590,40 @@ const ContractorPortalPage = () => {
                       onChange={(e) => setRegForm({ ...regForm, password: e.target.value })}
                       required
                     />
+                  </div>
+                </div>
+
+                {/* State of Registration Selection (Mandatory for State Department Verification) */}
+                <div className="form-group" style={{ marginBottom: '14px', background: '#FFF7ED', padding: '12px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid #FFEDD5' }}>
+                  <label className="form-label" style={{ fontSize: '12px', fontWeight: '800', color: '#9A3412', marginBottom: '6px' }}>
+                    State of Registration (Select the state you are in) *
+                  </label>
+                  <select
+                    className="form-control form-select"
+                    value={regForm.state_code}
+                    onChange={(e) => {
+                      const sel = INDIAN_STATES.find(s => s.code === e.target.value) || { code: e.target.value, name: e.target.value };
+                      setRegForm({
+                        ...regForm,
+                        state_code: sel.code,
+                        state_name: sel.name,
+                        license_number: `PWD/${sel.code}/2026/001`
+                      });
+                    }}
+                    required
+                    style={{ fontSize: '13px', fontWeight: '700', borderColor: '#EA580C', background: '#FFFFFF' }}
+                  >
+                    {INDIAN_STATES.map((s) => (
+                      <option key={s.code} value={s.code}>
+                        {s.name} ({s.code})
+                      </option>
+                    ))}
+                  </select>
+                  <div style={{ fontSize: '11px', color: '#7C2D12', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <ShieldCheck size={14} color="#EA580C" />
+                    <span>
+                      Your registration will be routed to the <strong>{regForm.state_name || 'State'} State Department</strong> for statutory verification. Only contractors verified in this state can be allocated projects by District Officers.
+                    </span>
                   </div>
                 </div>
 

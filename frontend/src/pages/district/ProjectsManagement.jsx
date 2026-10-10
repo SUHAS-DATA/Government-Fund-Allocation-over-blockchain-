@@ -110,11 +110,14 @@ const ProjectsManagement = () => {
 
     API.get('/district/contractors').then((res) => {
       if (res.success && res.contractors) {
+        // District officer only sees contractors of their state (filtered by backend)
+        // and only contractors verified by the State Department are eligible for allocation
         const approved = res.contractors.filter((c) => c.kyc_status === 'APPROVED');
-        const listToUse = approved.length > 0 ? approved : res.contractors;
-        setContractors(listToUse);
-        if (listToUse.length > 0) {
-          setAssignContractorId(listToUse[0].user_id || listToUse[0]._id);
+        setContractors(approved);
+        if (approved.length > 0) {
+          setAssignContractorId(approved[0].user_id || approved[0]._id);
+        } else {
+          setAssignContractorId('');
         }
       }
     });
@@ -767,20 +770,24 @@ const ProjectsManagement = () => {
       {/* MODAL 3: Assign Contractor */}
       <Modal title={`Select & Assign Contractor to ${selectedProject?.project_id}`} isOpen={modalMode === 'ASSIGN' && !!selectedProject} onClose={() => setModalMode('')}>
         <div className="form-group">
-          <label className="form-label">Select KYC-Approved Contractor Enterprise</label>
+          <label className="form-label" style={{ fontWeight: '700' }}>
+            Select State-Verified Contractor ({user?.state_name || selectedProject?.state_name || user?.state_code || 'State'})
+          </label>
           <select
             className="form-control form-select"
             value={assignContractorId}
             onChange={(e) => setAssignContractorId(e.target.value)}
+            disabled={contractors.length === 0}
+            style={{ fontWeight: '600' }}
           >
             {contractors.length === 0 ? (
-              <option value="">No registered contractors found</option>
+              <option value="">No verified contractors available in {user?.state_name || 'this state'}</option>
             ) : (
               contractors.map((c) => {
                 const cId = c.user_id || c._id;
                 return (
                   <option key={cId} value={cId}>
-                    {c.company_name || c.name || 'Contractor'} (GST: {c.gst_number || '29AABCU9603R1ZM'} • Bank: {c.bank_name || 'SBI'})
+                    {c.company_name || c.name || 'Contractor'} (State: {c.state_name || c.state_code || 'State'} • State Dept Verified • GST: {c.gst_number || '29AABCU9603R1ZM'})
                   </option>
                 );
               })
@@ -788,18 +795,43 @@ const ProjectsManagement = () => {
           </select>
         </div>
 
+        {contractors.length === 0 && (
+          <div style={{
+            background: '#FFF7ED',
+            border: '1px solid #FFEDD5',
+            borderRadius: '6px',
+            padding: '12px 14px',
+            color: '#9A3412',
+            fontSize: '12px',
+            marginBottom: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <AlertTriangle size={16} color="#EA580C" />
+            <span>
+              No contractors from <strong>{user?.state_name || user?.state_code || 'your state'}</strong> have been approved by the State Department yet. Contractors must register selecting this state and be verified by the State Department before projects can be assigned.
+            </span>
+          </div>
+        )}
+
         <div style={{ background: 'var(--bg-subtle)', padding: '14px', borderRadius: 'var(--radius-sm)', fontSize: '12px', marginBottom: '16px' }}>
           <div>Project: <strong>{selectedProject?.name}</strong></div>
           <div>Scheme: <strong>{selectedProject?.scheme_name}</strong></div>
+          <div>Jurisdiction: <span style={{ color: '#1D4ED8', fontWeight: '700' }}>{selectedProject?.district_name}, {selectedProject?.state_name || user?.state_name}</span></div>
           <div>Budget: <strong style={{ color: 'var(--color-success)' }}>{formatCurrency(selectedProject?.total_budget)}</strong></div>
           <div style={{ marginTop: '6px', color: 'var(--text-secondary)' }}>
-            * Assigning sends a real-time notification to the contractor to <strong>Accept or Reject</strong> the assignment.
+            * Assigning sends a real-time notification to the state-approved contractor to <strong>Accept or Reject</strong> the assignment.
           </div>
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
           <button className="btn btn-secondary" onClick={() => setModalMode('')}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleAssignContractor}>
+          <button 
+            className="btn btn-primary" 
+            onClick={handleAssignContractor}
+            disabled={contractors.length === 0 || !assignContractorId}
+          >
             <UserCheck size={14} />
             <span>Assign & Notify Contractor</span>
           </button>

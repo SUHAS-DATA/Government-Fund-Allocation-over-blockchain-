@@ -86,10 +86,10 @@ const ContractorKYCReview = () => {
         <div>
           <h1 className="page-title">
             <UserCheck size={24} color="var(--color-primary)" />
-            <span>Contractor Verification & Document Review</span>
+            <span>State-Verified Contractors Directory</span>
           </h1>
           <p className="page-subtitle">
-            Inspect uploaded GST, PAN, and PWD credentials, check verified records, and approve project bidding eligibility.
+            Contractors registered and verified by the State Department. District Officers may only allocate projects to contractors available and verified within their state.
           </p>
         </div>
       </div>

@@ -24,7 +24,8 @@ import {
   MapPin,
   CreditCard,
   Bell,
-  FileText
+  FileText,
+  UserCheck
 } from 'lucide-react';
 import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
@@ -39,6 +40,7 @@ import StateReceivedFunds from './StateReceivedFunds';
 import StateHistory from './StateHistory';
 import BlockchainExplorer from '../../components/BlockchainExplorer';
 import NotificationsPage from '../common/NotificationsPage';
+import StateContractorVerification from './StateContractorVerification';
 
 /**
  * Animated Number Counter Hook & Component
@@ -140,6 +142,8 @@ const StateDashboard = () => {
 
   const districtAllocationsCount = metrics?.district_allocations_count || 0;
   const receivedTransfersCount = metrics?.received_transfers_count || 0;
+  const pendingContractorsCount = metrics?.pending_contractors_count || 0;
+  const totalContractorsCount = metrics?.total_contractors_count || 0;
   const stateName = data?.state_name || user?.state_name || 'State Government';
   const stateCode = data?.state_code || user?.state_code || 'KA';
 
@@ -161,6 +165,8 @@ const StateDashboard = () => {
         return 'District Payment History';
       case 'blockchain':
         return 'Verified Payment Records';
+      case 'contractors':
+        return 'Contractor Statutory Verification & Eligibility';
       case 'reports':
         return 'Financial Reports';
       case 'notifications':
@@ -330,6 +336,10 @@ const StateDashboard = () => {
 
               {activeTab === 'history' && (
                 <StateHistory />
+              )}
+
+              {activeTab === 'contractors' && (
+                <StateContractorVerification stateCode={stateCode} stateName={stateName} />
               )}
 
               {activeTab === 'blockchain' && (
@@ -723,6 +733,47 @@ const StateDashboard = () => {
                 <div className="card-bottom-row">
                   <div className="card-action-link">
                     <span>View Records</span>
+                    <ArrowRight size={14} className="action-arrow" />
+                  </div>
+                </div>
+              </div>
+
+              {/* CARD: Contractor Statutory Verification */}
+              <div
+                className="super-admin-operation-card card-border-orange"
+                onClick={() => setTab('contractors')}
+                id="state-card-contractors"
+              >
+                <div className="card-top-row">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <span className="card-category-heading">CONTRACTOR VERIFICATION</span>
+                    {pendingContractorsCount > 0 ? (
+                      <span className="card-feature-pill" style={{ background: '#FFF7ED', color: '#EA580C', border: '1px solid #FFEDD5' }}>
+                        <span>● {pendingContractorsCount} Pending Review</span>
+                      </span>
+                    ) : (
+                      <span className="card-feature-pill">
+                        <span>● State Department</span>
+                      </span>
+                    )}
+                  </div>
+                  <div className="card-mono-icon-container" style={{ background: '#FFF7ED', color: '#EA580C' }}>
+                    <UserCheck size={22} />
+                  </div>
+                </div>
+
+                <div className="card-content-body">
+                  <div className="card-large-title">
+                    <AnimatedCounter value={totalContractorsCount} suffix=" Contractors" />
+                  </div>
+                  <div className="card-description-text">
+                    Verify statutory PWD credentials and grant district project bidding eligibility in {stateName}
+                  </div>
+                </div>
+
+                <div className="card-bottom-row">
+                  <div className="card-action-link" style={{ color: '#EA580C' }}>
+                    <span>Verify Registrations</span>
                     <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>

@@ -174,9 +174,15 @@ async def create_scheme(
 # --- Contractor KYC Review & Directory ---
 @router.get("/contractors")
 async def get_contractors(
-    current_user: dict = Depends(require_roles(["DISTRICT"]))
+    current_user: dict = Depends(require_roles(["DISTRICT", "SUPER_ADMIN"]))
 ):
+    user_state = (current_user.get("state_code") or "").strip().upper()
+    user_state_name = current_user.get("state_name") or ""
+    is_admin = current_user.get("role") == "SUPER_ADMIN"
+
     contractors = list(db.contractor_kyc.find().sort("created_at", -1))
+    result = []
+
     for c in contractors:
         user = None
         uid = c.get("user_id")
@@ -184,16 +190,38 @@ async def get_contractors(
             user = db.users.find_one({"_id": ObjectId(uid)})
         elif uid:
             user = db.users.find_one({"email": uid}) or db.users.find_one({"user_id": uid})
+        elif c.get("email"):
+            user = db.users.find_one({"email": c.get("email")})
+
+        c_state_code = (c.get("state_code") or (user.get("state_code") if user else None) or "").strip().upper()
+        c_state_name = c.get("state_name") or (user.get("state_name") if user else None) or ""
+
+        # Sync back to KYC document if missing
+        if not c.get("state_code") and c_state_code:
+            c["state_code"] = c_state_code
+            c["state_name"] = c_state_name
+            db.contractor_kyc.update_one({"_id": c["_id"]}, {"$set": {"state_code": c_state_code, "state_name": c_state_name}})
 
         if user:
-            c["email"] = user.get("email")
-            c["contact_name"] = user.get("name")
-            c["wallet_address"] = user.get("wallet_address", "0x70997970C51812dc3A010C7d01b50e0d17dc79C8")
-        
+            c["email"] = user.get("email", c.get("email"))
+            c["contact_name"] = user.get("name", c.get("company_name"))
+            c["wallet_address"] = user.get("wallet_address", c.get("wallet_address", "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"))
+            if not c_state_name and user.get("state_name"):
+                c["state_name"] = user.get("state_name")
+
         docs = list(db.documents.find({"entity_id": str(uid)})) if uid else []
         c["kyc_documents"] = serialize_doc(docs)
 
-    return {"success": True, "contractors": serialize_doc(contractors)}
+        # STRICT STATE ISOLATION: Only include contractors matching the District Officer's state!
+        if is_admin or not user_state or c_state_code == user_state:
+            result.append(c)
+
+    return {
+        "success": True,
+        "state_code": user_state,
+        "state_name": user_state_name,
+        "contractors": serialize_doc(result)
+    }
 
 @router.post("/contractor/{user_id}/kyc-review")
 async def review_contractor_kyc(
@@ -613,6 +641,30 @@ async def assign_contractor(
     if ObjectId.is_valid(str(contractor_user_id)):
         user_query["$or"].append({"_id": ObjectId(contractor_user_id)})
     user = db.users.find_one(user_query)
+
+    # 1. State Isolation Check: Contractor must be in the same state as the project
+    con_state = (kyc.get("state_code") if kyc else None) or (user.get("state_code") if user else None) or ""
+    proj_state = (proj.get("state_code") or current_user.get("state_code") or "").strip().upper()
+
+    if con_state and proj_state and con_state.strip().upper() != proj_state:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "success": False,
+                "message": f"Cross-state contractor assignment is not permitted. This project is in {proj_state}, but contractor is registered in {con_state.strip().upper()}. District officers can only allocate projects to contractors available in their state ({proj_state})."
+            }
+        )
+
+    # 2. State Department Approval Check: Contractor must be verified by State Dept
+    kyc_status = (kyc.get("kyc_status") if kyc else None) or (user.get("kyc_status") if user else "UNDER_REVIEW")
+    if kyc_status != "APPROVED":
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "success": False,
+                "message": f"Contractor registration status is '{kyc_status}'. Contractor must first be verified and approved by the State Department before projects can be allocated."
+            }
+        )
 
     company_name = (kyc.get("company_name") if kyc else None) or (user.get("company_name") if user else None) or (user.get("name") if user else None) or "Apex Infrastructure Contractors Pvt Ltd"
     contractor_email = user.get("email") if user else "contractor@buildcorp.in"

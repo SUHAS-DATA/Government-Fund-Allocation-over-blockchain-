@@ -4,16 +4,26 @@ import { UserPlus, ArrowRight, AlertCircle } from 'lucide-react';
 import API from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
+const INDIAN_STATES = [
+  { code: 'KA', name: 'Karnataka' },
+  { code: 'MH', name: 'Maharashtra' },
+  { code: 'GJ', name: 'Gujarat' },
+  { code: 'TN', name: 'Tamil Nadu' },
+  { code: 'UP', name: 'Uttar Pradesh' }
+];
+
 const RegisterPage = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     role: 'CONTRACTOR',
+    state_code: 'KA',
+    state_name: 'Karnataka',
     company_name: '',
-    gst_number: '27AABCU9603R1ZM',
+    gst_number: '29AABCU9603R1ZM',
     pan_number: 'AABCU9603R',
-    license_number: 'PWD/MH/2024/001',
+    license_number: 'PWD/KA/2026/001',
     experience_years: 5
   });
 
@@ -120,6 +130,37 @@ const RegisterPage = () => {
               onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
               required
             />
+          </div>
+
+          {/* State of Registration Selection */}
+          <div className="form-group" style={{ background: '#FFF7ED', padding: '12px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid #FFEDD5', marginBottom: '14px' }}>
+            <label className="form-label" style={{ color: '#9A3412', fontWeight: '800' }}>
+              State of Registration (Select Your State) *
+            </label>
+            <select
+              className="form-control form-select"
+              value={formData.state_code}
+              onChange={(e) => {
+                const sel = INDIAN_STATES.find(s => s.code === e.target.value) || { code: e.target.value, name: e.target.value };
+                setFormData({
+                  ...formData,
+                  state_code: sel.code,
+                  state_name: sel.name,
+                  license_number: `PWD/${sel.code}/2026/001`
+                });
+              }}
+              required
+              style={{ fontWeight: '700', borderColor: '#EA580C', background: '#FFFFFF' }}
+            >
+              {INDIAN_STATES.map((s) => (
+                <option key={s.code} value={s.code}>
+                  {s.name} ({s.code})
+                </option>
+              ))}
+            </select>
+            <div style={{ fontSize: '11px', color: '#7C2D12', marginTop: '6px' }}>
+              * Registration is verified by the <strong>{formData.state_name} State Department</strong>. District Officers can only allocate projects to contractors verified in their state.
+            </div>
           </div>
 
           <div className="grid-2">

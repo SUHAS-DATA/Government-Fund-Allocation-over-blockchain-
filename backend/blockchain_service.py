@@ -424,9 +424,12 @@ def record_state_transfer_onchain(trf_id, alloc_id, state_name, amount, receiver
     rec_addr = receiver_address or get_entity_wallet("STATE", state_name)
     rec_addr_checksum = w3.to_checksum_address(rec_addr) if w3.is_address(rec_addr) else w3.to_checksum_address(WALLET_REGISTRY["STATE"]["address"])
     
-    try:
+    code = w3.eth.get_code(contract.address).hex()
+    sel_with_receiver = Web3.keccak(text="transferToStateWithReceiver(string,string,string,uint256,address)")[:4].hex()[2:]
+
+    if sel_with_receiver in code and hasattr(contract.functions, "transferToStateWithReceiver"):
         func = contract.functions.transferToStateWithReceiver(trf_id, alloc_id, state_name, int(amount), rec_addr_checksum)
-    except Exception:
+    else:
         func = contract.functions.transferToState(trf_id, alloc_id, state_name, int(amount))
 
     return execute_contract_transaction(func, role="FINANCE")
@@ -439,9 +442,12 @@ def record_district_allocation_onchain(dist_alloc_id, trf_id, district_name, amo
     rec_addr = receiver_address or get_entity_wallet("DISTRICT", district_name)
     rec_addr_checksum = w3.to_checksum_address(rec_addr) if w3.is_address(rec_addr) else w3.to_checksum_address(WALLET_REGISTRY["DISTRICT"]["address"])
 
-    try:
+    code = w3.eth.get_code(contract.address).hex()
+    sel_with_receiver = Web3.keccak(text="allocateToDistrictWithReceiver(string,string,string,uint256,address)")[:4].hex()[2:]
+
+    if sel_with_receiver in code and hasattr(contract.functions, "allocateToDistrictWithReceiver"):
         func = contract.functions.allocateToDistrictWithReceiver(dist_alloc_id, trf_id, district_name, int(amount), rec_addr_checksum)
-    except Exception:
+    else:
         func = contract.functions.allocateToDistrict(dist_alloc_id, trf_id, district_name, int(amount))
 
     return execute_contract_transaction(func, role="STATE")
@@ -460,7 +466,11 @@ def record_contractor_transfer_onchain(transfer_id, project_id, district_name, c
     rec_addr = receiver_address or get_entity_wallet("CONTRACTOR", contractor_name)
     rec_addr_checksum = w3.to_checksum_address(rec_addr) if w3.is_address(rec_addr) else w3.to_checksum_address(CONTRACTOR_ADDR)
 
-    try:
+    code = w3.eth.get_code(contract.address).hex()
+    sel_trf = Web3.keccak(text="transferToContractor(string,string,address,string,string,uint256)")[:4].hex()[2:]
+    sel_rec = Web3.keccak(text="recordFundTransfer(string,address,string,string,string,uint256)")[:4].hex()[2:]
+
+    if sel_trf in code and hasattr(contract.functions, "transferToContractor"):
         func = contract.functions.transferToContractor(
             transfer_id,
             project_id,
@@ -469,7 +479,8 @@ def record_contractor_transfer_onchain(transfer_id, project_id, district_name, c
             contractor_name,
             int(amount)
         )
-    except Exception:
+        return execute_contract_transaction(func, role="DISTRICT")
+    elif sel_rec in code and hasattr(contract.functions, "recordFundTransfer"):
         func = contract.functions.recordFundTransfer(
             transfer_id,
             rec_addr_checksum,
@@ -478,8 +489,8 @@ def record_contractor_transfer_onchain(transfer_id, project_id, district_name, c
             project_id,
             int(amount)
         )
-
-    return execute_contract_transaction(func, role="DISTRICT")
+        return execute_contract_transaction(func, role="DISTRICT")
+    return None
 
 def create_project_escrow_onchain(project_id, project_name, contractor_address, total_budget):
     contract = get_contract()

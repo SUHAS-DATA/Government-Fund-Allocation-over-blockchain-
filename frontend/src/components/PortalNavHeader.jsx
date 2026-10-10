@@ -98,9 +98,44 @@ const PortalNavHeader = ({ currentPortal }) => {
           </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
-          <ShieldCheck size={14} color="var(--color-success)" />
-          <span>Active Portal Deployment: <strong>VITE_PORTAL={activePortal}</strong></span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '11px', fontWeight: '700', color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+            Switch Portal:
+          </span>
+          {PORTALS_LIST.map((p) => {
+            const isCur = activePortal === p.id;
+            const PIcon = p.icon;
+            return (
+              <a
+                key={p.id}
+                href={`/?portal=${p.id}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  try { sessionStorage.setItem('VITE_PORTAL_ACTIVE', p.id); } catch (err) {}
+                  window.location.href = `/?portal=${p.id}`;
+                }}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  padding: '4px 9px',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  fontWeight: isCur ? '800' : '600',
+                  color: isCur ? '#FFFFFF' : p.color,
+                  backgroundColor: isCur ? p.color : `${p.color}12`,
+                  border: `1px solid ${isCur ? p.color : `${p.color}35`}`,
+                  textDecoration: 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+                title={`Switch to ${p.label}`}
+              >
+                <PIcon size={12} />
+                <span>{p.label.replace(' Portal', '')}</span>
+              </a>
+            );
+          })}
         </div>
       </div>
     );

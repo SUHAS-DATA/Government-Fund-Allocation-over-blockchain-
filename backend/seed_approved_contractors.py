@@ -98,7 +98,13 @@ contractors_seed = [
 ]
 
 for c in contractors_seed:
+    state_code = c.get("state_code", "KA")
+    state_names = {"KA": "Karnataka", "MH": "Maharashtra", "TN": "Tamil Nadu", "GJ": "Gujarat", "UP": "Uttar Pradesh"}
+    state_name = state_names.get(state_code, "State")
+
     user_data = dict(c)
+    user_data["state_code"] = state_code
+    user_data["state_name"] = state_name
     db.users.update_one({"email": c["email"]}, {"$set": user_data}, upsert=True)
     user_record = db.users.find_one({"email": c["email"]})
     user_id = str(user_record["_id"])
@@ -109,6 +115,9 @@ for c in contractors_seed:
         "email": c["email"],
         "contractor_id": c["contractor_id"],
         "company_name": c["company_name"],
+        "state_code": state_code,
+        "state_name": state_name,
+        "district_name": c.get("district_name", "Headquarters"),
         "wallet_address": c.get("wallet_address"),
         "bank_name": c.get("bank_name"),
         "account_number": c.get("account_number"),
@@ -119,8 +128,10 @@ for c in contractors_seed:
         "license_number": c["license_number"],
         "experience_years": c["experience_years"],
         "kyc_status": "APPROVED",
-        "verified_by": "District Development Authority",
-        "verification_remarks": "Class-1 PWD registered highway contractor verified with ISO-9001 certification.",
+        "state_verified": True,
+        "verified_by": f"{state_name} State Department of Finance & Infrastructure",
+        "verification_authority": "STATE_DEPARTMENT",
+        "verification_remarks": f"Class-1 PWD registered contractor verified by {state_name} State Department.",
         "updated_at": datetime.utcnow()
     }
     db.contractor_kyc.update_one({"$or": [{"user_id": user_id}, {"email": c["email"]}]}, {"$set": kyc_doc}, upsert=True)

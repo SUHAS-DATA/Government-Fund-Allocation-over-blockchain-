@@ -22,13 +22,14 @@ const ContractorKYC = () => {
   const loadKyc = () => {
     API.get('/contractor/kyc-status').then((res) => {
       if (res.success) {
-        setKycData(res);
+        const con = res.contractor || {};
+        setKycData(con);
         setFormData({
-          company_name: res.company_name || '',
-          gst_number: res.gst_number || '',
-          pan_number: res.pan_number || '',
-          license_number: res.license_number || '',
-          experience_years: res.experience_years || 5
+          company_name: con.company_name || '',
+          gst_number: con.gst_number || '',
+          pan_number: con.pan_number || '',
+          license_number: con.license_number || '',
+          experience_years: con.experience_years || 5
         });
       }
     }).finally(() => setLoading(false));
@@ -69,6 +70,10 @@ const ContractorKYC = () => {
     }
   };
 
+  const isApproved = kycData?.kyc_status === 'APPROVED';
+  const stName = kycData?.state_name || 'State';
+  const stCode = kycData?.state_code || 'State';
+
   return (
     <div style={{ maxWidth: '850px', margin: '0 auto', padding: '10px 0 60px 0' }}>
       <div className="page-header">
@@ -82,9 +87,43 @@ const ContractorKYC = () => {
           </p>
         </div>
 
-        <span className={`badge ${kycData?.kyc_status === 'APPROVED' ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: '13px', padding: '6px 14px' }}>
-          STATUS: {kycData?.kyc_status || 'UNDER_REVIEW'}
+        <span className={`badge ${isApproved ? 'badge-success' : 'badge-warning'}`} style={{ fontSize: '13px', padding: '6px 14px' }}>
+          STATE KYC STATUS: {kycData?.kyc_status || 'UNDER_REVIEW'}
         </span>
+      </div>
+
+      {/* State Department Verification Jurisdiction Pill */}
+      <div style={{
+        background: isApproved ? '#ECFDF5' : '#FFFBEB',
+        border: `1px solid ${isApproved ? '#A7F3D0' : '#FDE68A'}`,
+        borderRadius: '8px',
+        padding: '14px 18px',
+        marginBottom: '20px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '12px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {isApproved ? <CheckCircle2 size={24} color="#059669" /> : <Clock size={24} color="#D97706" />}
+          <div>
+            <div style={{ fontWeight: '800', color: isApproved ? '#065F46' : '#92400E', fontSize: '14px' }}>
+              {isApproved ? `Approved by ${stName} State Department` : `Under Review by ${stName} State Department`}
+            </div>
+            <div style={{ fontSize: '12px', color: isApproved ? '#047857' : '#B45309', marginTop: '2px' }}>
+              State of Registration: <strong>{stName} ({stCode})</strong> • 
+              {isApproved 
+                ? ` Eligible for infrastructure project allocation by District Officers in ${stName}.`
+                : ` Awaiting statutory verification by ${stName} State Department before project allocation.`}
+            </div>
+            {kycData?.verification_remarks && (
+              <div style={{ fontSize: '11px', color: '#64748B', marginTop: '4px', fontStyle: 'italic' }}>
+                State Remarks: "{kycData.verification_remarks}"
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       {successMsg && (

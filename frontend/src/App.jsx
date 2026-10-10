@@ -169,6 +169,12 @@ function App() {
                   <Route path="/profile" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'FINANCE']} activePortal={activePortal}><ProfilePage /></ProtectedRoute>} />
                   <Route path="/notifications" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'FINANCE']} activePortal={activePortal}><NotificationsPage /></ProtectedRoute>} />
 
+                  {/* Inter-portal links */}
+                  <Route path="/contractor-portal" element={<Navigate to="/?portal=CONTRACTOR" replace />} />
+                  <Route path="/contractor-login" element={<Navigate to="/?portal=CONTRACTOR" replace />} />
+                  <Route path="/register" element={<Navigate to="/?portal=CONTRACTOR&tab=register" replace />} />
+                  <Route path="/field-portal" element={<Navigate to="/?portal=FIELD" replace />} />
+
                   {/* Catch-all: Redirect to Admin Portal Entry */}
                   <Route path="*" element={<Navigate to="/" replace />} />
                 </>
@@ -198,6 +204,7 @@ function App() {
                   <Route path="/state/received-funds" element={<Navigate to="/state?tab=received" replace />} />
                   <Route path="/state/allocations" element={<Navigate to="/state?tab=allocations" replace />} />
                   <Route path="/state/history" element={<Navigate to="/state?tab=history" replace />} />
+                  <Route path="/state/contractors" element={<Navigate to="/state?tab=contractors" replace />} />
 
                   {/* Role-based Department Entry Dispatcher */}
                   <Route path="/department" element={<ProtectedRoute allowedRoles={['STATE', 'DISTRICT', 'DEPARTMENT']} activePortal={activePortal}><DepartmentDashboard /></ProtectedRoute>} />
@@ -206,6 +213,12 @@ function App() {
                   {/* Common Authenticated Routes */}
                   <Route path="/profile" element={<ProtectedRoute allowedRoles={['STATE', 'DISTRICT', 'DEPARTMENT']} activePortal={activePortal}><ProfilePage /></ProtectedRoute>} />
                   <Route path="/notifications" element={<ProtectedRoute allowedRoles={['STATE', 'DISTRICT', 'DEPARTMENT']} activePortal={activePortal}><NotificationsPage /></ProtectedRoute>} />
+
+                  {/* Inter-portal links */}
+                  <Route path="/contractor-portal" element={<Navigate to="/?portal=CONTRACTOR" replace />} />
+                  <Route path="/contractor-login" element={<Navigate to="/?portal=CONTRACTOR" replace />} />
+                  <Route path="/register" element={<Navigate to="/?portal=CONTRACTOR&tab=register" replace />} />
+                  <Route path="/admin-portal" element={<Navigate to="/?portal=ADMIN" replace />} />
 
                   {/* Catch-all: Redirect to Field Portal Entry */}
                   <Route path="*" element={<Navigate to="/" replace />} />

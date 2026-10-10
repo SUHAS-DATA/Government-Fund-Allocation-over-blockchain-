@@ -18,9 +18,43 @@ export const VALID_PORTALS = Object.values(PORTAL_TYPES);
  * Returns null if missing, 'INVALID' if unrecognized, or the valid uppercase portal name.
  */
 export const getActivePortal = () => {
+  if (typeof window !== 'undefined') {
+    // 1. URL search param ?portal=CONTRACTOR
+    const searchParams = new URLSearchParams(window.location.search);
+    const queryPortal = searchParams.get('portal');
+    if (queryPortal && VALID_PORTALS.includes(queryPortal.toUpperCase())) {
+      const norm = queryPortal.toUpperCase();
+      try { sessionStorage.setItem('VITE_PORTAL_ACTIVE', norm); } catch (e) {}
+      return norm;
+    }
+
+    // 2. Direct path-based portal resolution
+    const path = window.location.pathname.toLowerCase();
+    if (path.startsWith('/contractor') || path === '/register') {
+      return PORTAL_TYPES.CONTRACTOR;
+    }
+    if (path.startsWith('/field') || path.startsWith('/district') || path.startsWith('/state') || path.startsWith('/department')) {
+      return PORTAL_TYPES.FIELD;
+    }
+    if (path.startsWith('/public') || path.startsWith('/how-it-works') || path.startsWith('/verify')) {
+      return PORTAL_TYPES.PUBLIC;
+    }
+    if (path.startsWith('/admin') || path.startsWith('/finance')) {
+      return PORTAL_TYPES.ADMIN;
+    }
+
+    // 3. Session override if previously selected
+    try {
+      const saved = sessionStorage.getItem('VITE_PORTAL_ACTIVE');
+      if (saved && VALID_PORTALS.includes(saved)) {
+        return saved;
+      }
+    } catch (e) {}
+  }
+
   const envVal = import.meta.env.VITE_PORTAL;
   if (!envVal || typeof envVal !== 'string' || !envVal.trim()) {
-    // Default fallback to ADMIN (Super Admin & Finance) if VITE_PORTAL is not configured in deployment environment
+    // Default fallback to ADMIN (Super Admin & Finance) if VITE_PORTAL is not configured
     return PORTAL_TYPES.ADMIN;
   }
   const normalized = envVal.trim().toUpperCase();

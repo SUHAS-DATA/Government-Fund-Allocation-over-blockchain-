@@ -1,4 +1,6 @@
 import os
+import random
+import string
 from datetime import datetime, timezone
 from fastapi import APIRouter, Request, Depends, status
 from fastapi.responses import JSONResponse
@@ -38,14 +40,49 @@ async def register(request: Request):
             content={"success": False, "message": "An officer or contractor with this email already exists"}
         )
 
+    # State Selection resolution
+    state_code = (data.get("state_code") or "").strip().upper()
+    state_name = (data.get("state_name") or "").strip()
+
+    if not state_code and data.get("state"):
+        st_val = str(data.get("state")).strip()
+        if "(" in st_val and ")" in st_val:
+            state_code = st_val.split("(")[-1].split(")")[0].strip().upper()
+        else:
+            st_match = db.states.find_one({"$or": [{"code": st_val.upper()}, {"name": {"$regex": f"^{st_val}$", "$options": "i"}}]})
+            if st_match:
+                state_code = st_match.get("code")
+                state_name = st_match.get("name")
+
+    if role == "CONTRACTOR" and not state_code:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "State selection is required for contractor registration. Please select the state you operate in."}
+        )
+
+    if not state_code:
+        state_code = "MH"
+
+    if not state_name:
+        st_doc = db.states.find_one({"code": state_code})
+        state_name = st_doc.get("name") if st_doc else state_code
+
+    contractor_id = None
+    if role == "CONTRACTOR":
+        rand_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
+        clean_name = "".join(c for c in name.split()[0] if c.isalnum()).upper()[:4]
+        contractor_id = f"CON-{state_code}-{clean_name or rand_str}"
+
     user_doc = {
         "email": email,
         "password": hash_password(password),
         "name": name,
         "role": role,
         "department": data.get("department", "Public Infrastructure Division"),
-        "state_code": data.get("state_code", "MH"),
-        "district_name": data.get("district_name", "Pune"),
+        "state_code": state_code,
+        "state_name": state_name,
+        "district_name": data.get("district_name", "Headquarters"),
+        "contractor_id": contractor_id,
         "is_active": True,
         "created_at": datetime.now(timezone.utc)
     }
@@ -53,20 +90,50 @@ async def register(request: Request):
     res = db.users.insert_one(user_doc)
     user_id = str(res.inserted_id)
 
-    # Initialize Contractor KYC document if contractor
+    # Initialize Contractor KYC document with State Dept verification pending
     if role == "CONTRACTOR":
+        company_name = data.get("company_name", name)
         db.contractor_kyc.insert_one({
             "user_id": user_id,
-            "company_name": data.get("company_name", name),
-            "gst_number": data.get("gst_number", "27AABCU9603R1ZM"),
+            "contractor_id": contractor_id,
+            "company_name": company_name,
+            "state_code": state_code,
+            "state_name": state_name,
+            "district_name": data.get("district_name", "Headquarters"),
+            "email": email,
+            "gst_number": data.get("gst_number", "29AABCU9603R1ZM"),
             "pan_number": data.get("pan_number", "AABCU9603R"),
-            "license_number": data.get("license_number", "PWD/MH/2024/001"),
+            "license_number": data.get("license_number", f"PWD/{state_code}/2026/001"),
             "experience_years": int(data.get("experience_years", 5)),
             "kyc_status": "UNDER_REVIEW",
+            "state_verified": False,
+            "verification_dept": f"{state_name} State Department of Finance & Infrastructure",
             "created_at": datetime.now(timezone.utc)
         })
 
-    token = generate_token(user_id, email, role, name)
+        # Notify State Department Officers in this state
+        state_officers = list(db.users.find({"role": "STATE", "state_code": state_code}))
+        for so in state_officers:
+            db.notifications.insert_one({
+                "recipient_user_id": str(so["_id"]),
+                "recipient_role": "STATE",
+                "title": f"New Contractor Registration ({state_code})",
+                "message": f"Contractor '{company_name}' registered in {state_name}. Awaiting State Department statutory verification.",
+                "link": "/state?tab=contractors",
+                "read": False,
+                "created_at": datetime.now(timezone.utc)
+            })
+
+    token = generate_token(
+        user_id,
+        email,
+        role,
+        name,
+        state_code=state_code,
+        state_name=state_name,
+        district_name=user_doc.get("district_name"),
+        officer_id=contractor_id
+    )
     user_data = serialize_doc(user_doc)
     user_data["user_id"] = user_id
     if "password" in user_data:
@@ -74,7 +141,7 @@ async def register(request: Request):
 
     return {
         "success": True,
-        "message": "User account registered successfully",
+        "message": f"Contractor registered successfully in {state_name}. Registration submitted to {state_name} State Department for verification.",
         "token": token,
         "user": user_data
     }

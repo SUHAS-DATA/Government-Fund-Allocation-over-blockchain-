@@ -95,6 +95,16 @@ def run_simulation():
     print_step("Super Admin", "Accessed Cabinet Secretariat Master Dashboard", 
                f"Active Cycle: FY {dash_data.get('metrics', {}).get('selected_financial_year', '2026-27')} | Sanctioned Union Ceiling: INR {dash_data.get('metrics', {}).get('sanctioned_union_ceiling', 0):,.2f}")
 
+    # 1.15 Ensure Scheme exists
+    client.post('/api/admin/schemes', json={
+        "code": "NHRCM",
+        "name": "National Highway & Rural Connectivity Mission",
+        "department_code": "MORTH",
+        "department_name": "Ministry of Road Transport & Highways",
+        "target_budget": 1000000000.0,
+        "description": "National highway and rural connectivity mission"
+    }, headers=admin_headers)
+
     # 1.2 Sanction Central Scheme Budget Allocation on Blockchain
     alloc_payload = {
         "financial_year": "2026-27",
@@ -203,8 +213,15 @@ def run_simulation():
     res = client.get('/api/district/contractors', headers=district_headers)
     contractors = res.get_json().get("contractors", [])
     contractor_id = None
-    if contractors:
+    c = None
+    for candidate in contractors:
+        if candidate.get("email") == "contractor@buildcorp.in" or str(candidate.get("user_id")) == "6a778ad47ece000bdaf65b68" or "Apex" in candidate.get("company_name", ""):
+            c = candidate
+            break
+    if not c and contractors:
         c = contractors[0]
+
+    if c:
         contractor_id = c.get("user_id") or str(c.get("_id"))
         session_data["contractor_id"] = contractor_id
         # Approve KYC

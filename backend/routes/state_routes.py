@@ -70,6 +70,10 @@ async def dashboard(
 
     current_state_title = user_state_name or (received_funds[0].get("state_name") if received_funds else "State Treasury")
 
+    con_query = {"state_code": user_state_code} if user_state_code else {}
+    pending_contractors = db.contractor_kyc.count_documents({**con_query, "kyc_status": "UNDER_REVIEW"})
+    total_contractors = db.contractor_kyc.count_documents(con_query)
+
     return {
         "success": True,
         "state_code": user_state_code or (received_funds[0].get("state_code") if received_funds else "ALL"),
@@ -79,7 +83,9 @@ async def dashboard(
             "total_allocated_to_districts": total_allocated_to_districts,
             "remaining_state_treasury_balance": remaining_state_balance,
             "received_transfers_count": len(received_funds),
-            "district_allocations_count": len(district_allocations)
+            "district_allocations_count": len(district_allocations),
+            "pending_contractors_count": pending_contractors,
+            "total_contractors_count": total_contractors
         },
         "recent_received_funds": serialize_doc(received_funds[:5]),
         "district_breakdown": serialize_doc(district_breakdown)
@@ -170,7 +176,8 @@ async def allocate_to_district(
         contract = bcs.get_contract()
         if contract:
             try:
-                exists = contract.functions.stateTransfers(transfer_id).call()[4]
+                st_rec = contract.functions.stateTransfers(transfer_id).call()
+                exists = bool(st_rec[6]) if len(st_rec) > 6 else bool(st_rec[-1])
             except Exception:
                 exists = False
 
@@ -333,3 +340,140 @@ async def get_allocations(
     state_code = current_user.get("state_code", "MH")
     allocations = list(db.district_allocations.find({"state_code": state_code}).sort("created_at", -1))
     return {"success": True, "allocations": serialize_doc(allocations)}
+
+# --- State Department Contractor Verification & Directory ---
+@router.get("/contractors")
+async def get_state_contractors(
+    current_user: dict = Depends(require_roles(["STATE", "SUPER_ADMIN"]))
+):
+    user_state = (current_user.get("state_code") or "").strip().upper()
+    user_state_name = current_user.get("state_name") or ""
+    is_admin = current_user.get("role") == "SUPER_ADMIN"
+
+    contractors = list(db.contractor_kyc.find().sort("created_at", -1))
+    result = []
+
+    for c in contractors:
+        user = None
+        uid = c.get("user_id")
+        if uid and ObjectId.is_valid(str(uid)):
+            user = db.users.find_one({"_id": ObjectId(uid)})
+        elif uid:
+            user = db.users.find_one({"email": uid}) or db.users.find_one({"user_id": uid})
+        elif c.get("email"):
+            user = db.users.find_one({"email": c.get("email")})
+
+        # Resolve state_code & state_name
+        c_state_code = (c.get("state_code") or (user.get("state_code") if user else None) or "").strip().upper()
+        c_state_name = c.get("state_name") or (user.get("state_name") if user else None) or ""
+
+        # Sync back to KYC document if missing
+        if not c.get("state_code") and c_state_code:
+            c["state_code"] = c_state_code
+            c["state_name"] = c_state_name
+            db.contractor_kyc.update_one({"_id": c["_id"]}, {"$set": {"state_code": c_state_code, "state_name": c_state_name}})
+
+        if user:
+            c["email"] = user.get("email", c.get("email"))
+            c["contact_name"] = user.get("name", c.get("company_name"))
+            c["wallet_address"] = user.get("wallet_address", c.get("wallet_address", "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"))
+            if not c_state_name and user.get("state_name"):
+                c["state_name"] = user.get("state_name")
+
+        docs = list(db.documents.find({"entity_id": str(uid)})) if uid else []
+        c["kyc_documents"] = serialize_doc(docs)
+
+        # Filter strictly for this state
+        if is_admin or not user_state or c_state_code == user_state:
+            result.append(c)
+
+    return {
+        "success": True,
+        "state_code": user_state,
+        "state_name": user_state_name,
+        "contractors": serialize_doc(result)
+    }
+
+@router.post("/contractor/{user_id}/kyc-review")
+async def review_contractor_kyc_state(
+    user_id: str,
+    request: Request,
+    current_user: dict = Depends(require_roles(["STATE", "SUPER_ADMIN"]))
+):
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
+    action = data.get("action", "APPROVED").upper()
+    user_state = (current_user.get("state_code") or "").strip().upper()
+    user_state_name = current_user.get("state_name") or "State"
+    officer_name = current_user.get("name") or "State Treasury Officer"
+    default_remarks = f"Statutory registration credentials and licensing verified and {action.lower()} by {user_state_name} State Department."
+    remarks = data.get("remarks") or default_remarks
+
+    # Find the contractor KYC record
+    query = {"$or": [{"user_id": str(user_id)}, {"contractor_id": str(user_id)}, {"email": str(user_id).lower()}]}
+    if ObjectId.is_valid(str(user_id)):
+        query["$or"].append({"_id": ObjectId(user_id)})
+    
+    kyc = db.contractor_kyc.find_one(query)
+    
+    user_query = {"$or": [{"email": str(user_id).lower()}, {"contractor_id": str(user_id)}]}
+    if ObjectId.is_valid(str(user_id)):
+        user_query["$or"].append({"_id": ObjectId(user_id)})
+    user = db.users.find_one(user_query)
+
+    con_state = (kyc.get("state_code") if kyc else None) or (user.get("state_code") if user else None) or ""
+    if con_state and user_state and current_user.get("role") != "SUPER_ADMIN":
+        if con_state.strip().upper() != user_state:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={
+                    "success": False,
+                    "message": f"Unauthorized: Contractor is registered in {con_state.strip().upper()}, while your jurisdiction is {user_state}. State officers may only verify contractors of their own state."
+                }
+            )
+
+    update_fields = {
+        "kyc_status": action,
+        "verification_remarks": remarks,
+        "verified_by": officer_name,
+        "verification_dept": f"{user_state_name} State Department",
+        "verified_state_code": user_state,
+        "state_verified": (action == "APPROVED"),
+        "reviewed_at": datetime.now(timezone.utc)
+    }
+    if con_state:
+        update_fields["state_code"] = con_state.strip().upper()
+
+    db.contractor_kyc.update_one(query, {"$set": update_fields})
+    if user:
+        db.users.update_one({"_id": user["_id"]}, {"$set": {"kyc_status": action, "state_verified": (action == "APPROVED")}})
+
+    company_name = (kyc.get("company_name") if kyc else None) or (user.get("name") if user else "Contractor")
+
+    # Send Notification to Contractor
+    db.notifications.insert_one({
+        "recipient_user_id": str(user["_id"]) if user else str(user_id),
+        "title": f"State Department Verification: {action}",
+        "message": f"Your contractor registration for {user_state_name} has been {action} by the State Department. Remarks: {remarks}",
+        "link": "/contractor/kyc",
+        "read": False,
+        "created_at": datetime.now(timezone.utc)
+    })
+
+    # Trigger Realtime sync
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "contractors",
+        "action": "KYC_REVIEWED",
+        "status": action,
+        "user_id": str(user_id)
+    })
+
+    return {
+        "success": True,
+        "message": f"Contractor '{company_name}' registration successfully {action} by {user_state_name} State Department",
+        "status": action
+    }
+

@@ -169,7 +169,8 @@ async def approve_and_transfer(
         contract = bcs.get_contract()
         if contract:
             try:
-                exists = contract.functions.centralAllocations(alloc_id).call()[4]
+                alloc_record = contract.functions.budgetAllocations(alloc_id).call()
+                exists = bool(alloc_record[6]) if len(alloc_record) > 6 else bool(alloc_record[-1])
             except Exception:
                 exists = False
 

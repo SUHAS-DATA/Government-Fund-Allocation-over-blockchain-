@@ -183,6 +183,7 @@ const Sidebar = ({ collapsed = false, mobileOpen = false, onCloseMobile }) => {
               <li><NavLink to="/state/received-funds" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><Coins size={17}/><span>Received Funds</span></NavLink></li>
               <li><NavLink to="/state/allocations" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><Send size={17}/><span>Send Funds</span></NavLink></li>
               <li><NavLink to="/state/history" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><Activity size={17}/><span>Payment History</span></NavLink></li>
+              <li><NavLink to="/state/contractors" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><UserCheck size={17}/><span>Contractor Verification</span></NavLink></li>
             </ul>
 
             <div className="sidebar-header">System</div>
