@@ -139,7 +139,56 @@ def run_tests():
         assert c_st == "MH", f"Pollution! Pune received contractor with state {c_st}: {c.get('company_name')}"
     print("[OK] All contractors returned to Pune belong strictly to Maharashtra (MH)!")
 
-    print("\n=== ALL WORKFLOW TESTS PASSED 100%! ===")
+    # 12. Test login behavior for unverified contractor (Should return 403)
+    print("\n--- 12. Testing unverified contractor login (Should be blocked with 403) ---")
+    res = client.post("/api/auth/login", json={
+        "email": con_email,
+        "password": "Contractor@123"
+    })
+    # Since contractor was approved in step 8, let's register another contractor specifically to test rejection and under-review!
+    con2_suffix = str(uuid.uuid4())[:6]
+    con2_email = f"contractor.reject.{con2_suffix}@infra.in"
+    res2 = client.post("/api/auth/register", json={
+        "name": f"Reject Candidate Infra {con2_suffix}",
+        "email": con2_email,
+        "password": "Contractor@123",
+        "role": "CONTRACTOR",
+        "state_code": "KA",
+        "state_name": "Karnataka",
+        "company_name": f"Reject Candidate Infra {con2_suffix}"
+    })
+    assert res2.status_code == 201
+    reject_con_id = res2.json()["user"]["user_id"]
+
+    # 13. Try logging in while UNDER_REVIEW (Should be 403)
+    print("\n--- 13. Testing login while UNDER_REVIEW (Should be blocked with 403) ---")
+    res_pending = client.post("/api/auth/login", json={
+        "email": con2_email,
+        "password": "Contractor@123"
+    })
+    assert res_pending.status_code == 403, f"Expected 403 for under-review login, got: {res_pending.status_code}"
+    assert res_pending.json().get("kyc_status") == "UNDER_REVIEW"
+    print(f"[OK] Blocked login for pending contractor with 403: {res_pending.json().get('message')}")
+
+    # 14. State Department REJECTS this contractor
+    print("\n--- 14. State Department REJECTS contractor ---")
+    res_rej = client.post(f"/api/state/contractor/{reject_con_id}/kyc-review", headers=state_headers, json={
+        "action": "REJECTED",
+        "remarks": "Invalid PWD Class-1 license documents."
+    })
+    assert res_rej.status_code == 200
+
+    # 15. Rejected contractor attempts to log in (Must be strictly blocked with 403 REJECTED)
+    print("\n--- 15. Testing login after State Department REJECTION (Should be blocked with 403) ---")
+    res_rej_login = client.post("/api/auth/login", json={
+        "email": con2_email,
+        "password": "Contractor@123"
+    })
+    assert res_rej_login.status_code == 403, f"Expected 403 for rejected login, got: {res_rej_login.status_code}"
+    assert res_rej_login.json().get("kyc_status") == "REJECTED"
+    print(f"[OK] Blocked login for REJECTED contractor with 403: {res_rej_login.json().get('message')}")
+
+    print("\n=== ALL WORKFLOW & REJECTION TESTS PASSED 100%! ===")
 
 if __name__ == "__main__":
     run_tests()

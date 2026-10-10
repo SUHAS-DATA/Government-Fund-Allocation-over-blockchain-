@@ -8,6 +8,9 @@ import {
   Mail, 
   ArrowRight, 
   AlertCircle, 
+  AlertTriangle,
+  Clock,
+  XCircle,
   Zap,
   Building,
   FileCheck,
@@ -71,6 +74,9 @@ const ContractorPortalPage = () => {
   const [loginEmail, setLoginEmail] = useState(CONTRACTOR_PROFILES[0].email);
   const [loginPassword, setLoginPassword] = useState(CONTRACTOR_PROFILES[0].password);
   const [loginError, setLoginError] = useState('');
+  const [loginKycStatus, setLoginKycStatus] = useState(''); // 'REJECTED' | 'UNDER_REVIEW' | ''
+  const [loginKycRemarks, setLoginKycRemarks] = useState('');
+  const [loginKycState, setLoginKycState] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
 
   // Register Form State
@@ -90,6 +96,7 @@ const ContractorPortalPage = () => {
   const [regError, setRegError] = useState('');
   const [regLoading, setRegLoading] = useState(false);
   const [regSuccess, setRegSuccess] = useState(false);
+  const [registeredData, setRegisteredData] = useState(null);
 
   // If already logged in, redirect to permitted dashboard or role home
   if (user) {
@@ -105,10 +112,14 @@ const ContractorPortalPage = () => {
     setLoginEmail(p.email);
     setLoginPassword(p.password);
     setLoginError('');
+    setLoginKycStatus('');
   };
 
   const handleExecuteLogin = async (emailToUse, passToUse) => {
     setLoginError('');
+    setLoginKycStatus('');
+    setLoginKycRemarks('');
+    setLoginKycState('');
     setLoginLoading(true);
     try {
       const res = await login((emailToUse || loginEmail).trim(), passToUse || loginPassword);
@@ -124,7 +135,17 @@ const ContractorPortalPage = () => {
         }
       }
     } catch (err) {
-      setLoginError(err.message || 'Contractor authentication failed. Please verify credentials.');
+      const msg = err.message || '';
+      const data = err.response?.data || {};
+      if (data.kyc_status === 'REJECTED' || msg.includes('REJECTED') || msg.toLowerCase().includes('rejected')) {
+        setLoginKycStatus('REJECTED');
+        setLoginKycRemarks(data.remarks || data.verification_remarks || '');
+        setLoginKycState(data.state_name || '');
+      } else if (data.kyc_status === 'UNDER_REVIEW' || msg.includes('UNDER REVIEW') || msg.toLowerCase().includes('under review')) {
+        setLoginKycStatus('UNDER_REVIEW');
+        setLoginKycState(data.state_name || '');
+      }
+      setLoginError(msg || 'Contractor authentication failed. Please verify credentials.');
     } finally {
       setLoginLoading(false);
     }
@@ -142,18 +163,9 @@ const ContractorPortalPage = () => {
     try {
       const res = await API.post('/auth/register', regForm);
       if (res.success) {
+        setRegisteredData({ ...regForm });
         setRegSuccess(true);
-        // Auto-login after registration
-        setTimeout(async () => {
-          try {
-            await login(regForm.email, regForm.password);
-            navigate('/contractor/dashboard');
-          } catch {
-            setActiveTab('login');
-            setLoginEmail(regForm.email);
-            setLoginPassword(regForm.password);
-          }
-        }, 1200);
+        // DO NOT auto-login! Contractors must wait for State Department verification.
       } else {
         setRegError(res.message || 'Registration failed. Please check form details.');
       }
@@ -414,22 +426,43 @@ const ContractorPortalPage = () => {
               </div>
             </div>
 
-            {/* Error Alert */}
+            {/* Rejection / Under Review / Generic Error Alert */}
             {loginError && (
               <div style={{
-                background: 'var(--color-danger-bg)',
-                border: '1px solid var(--color-danger-border)',
+                background: loginKycStatus === 'REJECTED' ? '#FEF2F2' : loginKycStatus === 'UNDER_REVIEW' ? '#FFFBEB' : 'var(--color-danger-bg)',
+                border: `1.5px solid ${loginKycStatus === 'REJECTED' ? '#F87171' : loginKycStatus === 'UNDER_REVIEW' ? '#FCD34D' : 'var(--color-danger-border)'}`,
                 borderRadius: 'var(--radius-sm)',
-                padding: '10px 14px',
-                color: 'var(--color-danger)',
+                padding: '14px 16px',
+                color: loginKycStatus === 'REJECTED' ? '#991B1B' : loginKycStatus === 'UNDER_REVIEW' ? '#92400E' : 'var(--color-danger)',
                 fontSize: '12px',
-                marginBottom: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
+                marginBottom: '16px'
               }}>
-                <AlertCircle size={16} />
-                <span>{loginError}</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: '800', marginBottom: '6px' }}>
+                  {loginKycStatus === 'REJECTED' ? (
+                    <>
+                      <XCircle size={18} color="#DC2626" />
+                      <span style={{ color: '#DC2626' }}>REGISTRATION REJECTED BY STATE DEPARTMENT</span>
+                    </>
+                  ) : loginKycStatus === 'UNDER_REVIEW' ? (
+                    <>
+                      <Clock size={18} color="#D97706" />
+                      <span style={{ color: '#D97706' }}>VERIFICATION PENDING ({loginKycState || 'STATE'} DEPT)</span>
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle size={16} />
+                      <span>AUTHENTICATION FAILED</span>
+                    </>
+                  )}
+                </div>
+                <div style={{ lineHeight: '1.4' }}>
+                  {loginError}
+                </div>
+                {loginKycRemarks && (
+                  <div style={{ marginTop: '8px', padding: '8px 12px', background: '#FFFFFF', borderRadius: '4px', border: '1px solid #FECACA', fontSize: '11px', color: '#991B1B' }}>
+                    <strong>State Department Remarks:</strong> {loginKycRemarks}
+                  </div>
+                )}
               </div>
             )}
 
@@ -508,18 +541,84 @@ const ContractorPortalPage = () => {
             {regSuccess ? (
               <div style={{
                 textAlign: 'center',
-                padding: '24px',
-                background: 'rgba(5, 150, 105, 0.08)',
+                padding: '32px 24px',
+                background: '#FFFBEB',
                 borderRadius: 'var(--radius-sm)',
-                border: '1px solid var(--color-success)'
+                border: '1.5px solid #FCD34D'
               }}>
-                <CheckCircle2 size={36} color="var(--color-success)" style={{ margin: '0 auto 8px' }} />
-                <h3 style={{ fontSize: '16px', fontWeight: '800', color: 'var(--color-success)', margin: 0 }}>
-                  Contractor Registration Successful!
+                <Clock size={44} color="#D97706" style={{ margin: '0 auto 12px' }} />
+                <div style={{
+                  display: 'inline-block',
+                  padding: '4px 12px',
+                  borderRadius: '999px',
+                  background: 'rgba(217, 119, 6, 0.12)',
+                  color: '#B45309',
+                  fontSize: '11px',
+                  fontWeight: '800',
+                  textTransform: 'uppercase',
+                  marginBottom: '10px'
+                }}>
+                  Status: Pending State Department Verification
+                </div>
+                <h3 style={{ fontSize: '18px', fontWeight: '800', color: '#92400E', margin: '0 0 8px 0' }}>
+                  Contractor Registration Submitted!
                 </h3>
-                <p style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                  Logging into your Contractor Dashboard...
+                <p style={{ fontSize: '13px', color: '#78350F', maxWidth: '520px', margin: '0 auto 16px auto', lineHeight: '1.5' }}>
+                  Your application for <strong>{(registeredData || regForm).company_name}</strong> in <strong>{(registeredData || regForm).state_name} ({(registeredData || regForm).state_code})</strong> has been submitted to the <strong>{(registeredData || regForm).state_name} State Department</strong>.
                 </p>
+                
+                <div style={{
+                  background: '#FFFFFF',
+                  padding: '16px',
+                  borderRadius: 'var(--radius-xs)',
+                  border: '1px solid #FDE68A',
+                  maxWidth: '480px',
+                  margin: '0 auto 20px auto',
+                  textAlign: 'left',
+                  fontSize: '12px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Corporate Email:</span>
+                    <strong style={{ color: 'var(--text-main)' }}>{(registeredData || regForm).email}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>State Jurisdiction:</span>
+                    <strong style={{ color: '#EA580C' }}>{(registeredData || regForm).state_name} State Department</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>GST / License:</span>
+                    <strong style={{ color: 'var(--text-main)' }}>{(registeredData || regForm).gst_number}</strong>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #FEF3C7', paddingTop: '8px' }}>
+                    <span style={{ color: 'var(--text-secondary)' }}>Statutory Requirement:</span>
+                    <span style={{ color: '#B45309', fontWeight: '800' }}>State Officer Review & Approval</span>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: '12px', color: '#92400E', marginBottom: '22px', maxWidth: '500px', margin: '0 auto 22px auto', lineHeight: '1.4' }}>
+                  🔒 <em>Per governance rules, you cannot log into the Contractor Portal or receive project allocations until the <strong>{(registeredData || regForm).state_name} State Department</strong> reviews and approves your KYC credentials.</em>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRegSuccess(false);
+                    setActiveTab('login');
+                    setLoginEmail((registeredData || regForm).email);
+                    setLoginPassword((registeredData || regForm).password);
+                  }}
+                  className="btn btn-primary"
+                  style={{
+                    padding: '10px 22px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    backgroundColor: '#EA580C',
+                    borderColor: '#EA580C',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Return to Contractor Sign In
+                </button>
               </div>
             ) : (
               <form onSubmit={handleRegisterSubmit}>

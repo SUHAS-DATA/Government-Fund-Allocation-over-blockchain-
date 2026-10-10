@@ -449,7 +449,11 @@ async def review_contractor_kyc_state(
 
     db.contractor_kyc.update_one(query, {"$set": update_fields})
     if user:
-        db.users.update_one({"_id": user["_id"]}, {"$set": {"kyc_status": action, "state_verified": (action == "APPROVED")}})
+        db.users.update_one({"_id": user["_id"]}, {"$set": {
+            "kyc_status": action,
+            "state_verified": (action == "APPROVED"),
+            "verification_remarks": remarks
+        }})
 
     company_name = (kyc.get("company_name") if kyc else None) or (user.get("name") if user else "Contractor")
 

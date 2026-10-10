@@ -70,6 +70,17 @@ async def dashboard(
 ):
     user_id, email, officer_id = get_contractor_identifiers(current_user)
     kyc = db.contractor_kyc.find_one({"$or": [{"user_id": user_id}, {"user_id": email}, {"email": email}]})
+    kyc_status = (kyc.get("kyc_status") if kyc else None) or current_user.get("kyc_status") or "APPROVED"
+    if kyc_status == "REJECTED":
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={
+                "success": False,
+                "kyc_status": "REJECTED",
+                "message": f"Contractor Registration Rejected by {(kyc or {}).get('state_name', 'State')} State Department. Portal access is denied.",
+                "remarks": (kyc or {}).get("verification_remarks", "")
+            }
+        )
     
     projects = list(db.projects.find(build_contractor_project_query(current_user)).sort("created_at", -1))
 

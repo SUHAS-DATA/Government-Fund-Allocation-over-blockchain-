@@ -10,6 +10,7 @@ import {
   Upload,
   Clock,
   CheckCircle2,
+  XCircle,
   AlertTriangle,
   ArrowRight,
   ArrowLeft,
@@ -241,6 +242,77 @@ const ContractorDashboard = () => {
       detail: `Official contract agreement verified and registered`
     }
   ];
+
+  // Statutory KYC Gate: Strict block for REJECTED or UNAPPROVED contractors
+  const isRejected = contractor?.kyc_status === 'REJECTED' || user?.kyc_status === 'REJECTED' || (actionError && actionError.toLowerCase().includes('rejected'));
+  const isUnderReview = contractor?.kyc_status === 'UNDER_REVIEW' || user?.kyc_status === 'UNDER_REVIEW' || (actionError && actionError.toLowerCase().includes('under review'));
+
+  if (isRejected) {
+    return (
+      <div style={{ maxWidth: '640px', margin: '60px auto', padding: '0 20px', textAlign: 'center' }}>
+        <div className="card" style={{ padding: '40px 30px', background: '#FEF2F2', border: '1.5px solid #F87171', borderRadius: 'var(--radius-md)' }}>
+          <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#FEE2E2', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <XCircle size={38} color="#DC2626" />
+          </div>
+          <div style={{ display: 'inline-block', padding: '4px 12px', borderRadius: '999px', background: 'rgba(220, 38, 38, 0.12)', color: '#DC2626', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', marginBottom: '12px' }}>
+            Status: Registration Rejected
+          </div>
+          <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#991B1B', margin: '0 0 10px 0' }}>
+            Contractor Portal Access Denied
+          </h2>
+          <p style={{ fontSize: '13px', color: '#7F1D1D', lineHeight: '1.5', maxWidth: '500px', margin: '0 auto 16px' }}>
+            Your contractor registration was <strong>REJECTED</strong> by the <strong>{contractor?.state_name || user?.state_name || 'State'} State Department</strong>. You are barred from viewing projects, submitting bids, and claiming milestone funds.
+          </p>
+          {(contractor?.verification_remarks || data?.remarks) && (
+            <div style={{ background: '#FFFFFF', padding: '12px 16px', borderRadius: '6px', border: '1px solid #FECACA', maxWidth: '460px', margin: '0 auto 20px', textAlign: 'left', fontSize: '12px', color: '#991B1B' }}>
+              <strong>State Department Rejection Remarks:</strong> {contractor?.verification_remarks || data?.remarks}
+            </div>
+          )}
+          <button
+            onClick={() => {
+              logout();
+              navigate('/?portal=CONTRACTOR');
+            }}
+            className="btn btn-secondary"
+            style={{ fontWeight: '700', padding: '10px 24px', cursor: 'pointer' }}
+          >
+            Logout and Exit Portal
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isUnderReview && !loading) {
+    return (
+      <div style={{ maxWidth: '640px', margin: '60px auto', padding: '0 20px', textAlign: 'center' }}>
+        <div className="card" style={{ padding: '40px 30px', background: '#FFFBEB', border: '1.5px solid #FCD34D', borderRadius: 'var(--radius-md)' }}>
+          <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: '#FEF3C7', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+            <Clock size={38} color="#D97706" />
+          </div>
+          <div style={{ display: 'inline-block', padding: '4px 12px', borderRadius: '999px', background: 'rgba(217, 119, 6, 0.12)', color: '#B45309', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', marginBottom: '12px' }}>
+            Status: Pending State Department Verification
+          </div>
+          <h2 style={{ fontSize: '20px', fontWeight: '800', color: '#92400E', margin: '0 0 10px 0' }}>
+            Application Under Review
+          </h2>
+          <p style={{ fontSize: '13px', color: '#78350F', lineHeight: '1.5', maxWidth: '500px', margin: '0 auto 20px' }}>
+            Your contractor registration is currently undergoing statutory review by the <strong>{contractor?.state_name || user?.state_name || 'State'} State Department</strong>. Operational features will unlock once approved.
+          </p>
+          <button
+            onClick={() => {
+              logout();
+              navigate('/?portal=CONTRACTOR');
+            }}
+            className="btn btn-primary"
+            style={{ fontWeight: '700', padding: '10px 24px', backgroundColor: '#EA580C', borderColor: '#EA580C', cursor: 'pointer' }}
+          >
+            Logout and Return to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="super-admin-root-layout">

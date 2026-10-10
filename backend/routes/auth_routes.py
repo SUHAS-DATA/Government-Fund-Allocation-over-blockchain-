@@ -124,6 +124,24 @@ async def register(request: Request):
                 "created_at": datetime.now(timezone.utc)
             })
 
+    user_data = serialize_doc(user_doc)
+    user_data["user_id"] = user_id
+    if "password" in user_data:
+        del user_data["password"]
+
+    # For CONTRACTOR role: Do NOT issue an active session token. Registration requires State Dept approval first!
+    if role == "CONTRACTOR":
+        return {
+            "success": True,
+            "requires_approval": True,
+            "kyc_status": "UNDER_REVIEW",
+            "state_name": state_name,
+            "state_code": state_code,
+            "contractor_id": contractor_id,
+            "message": f"Contractor application submitted successfully for {state_name}. It is now pending statutory verification by the {state_name} State Department before portal access can be granted.",
+            "user": user_data
+        }
+
     token = generate_token(
         user_id,
         email,
@@ -134,14 +152,10 @@ async def register(request: Request):
         district_name=user_doc.get("district_name"),
         officer_id=contractor_id
     )
-    user_data = serialize_doc(user_doc)
-    user_data["user_id"] = user_id
-    if "password" in user_data:
-        del user_data["password"]
 
     return {
         "success": True,
-        "message": f"Contractor registered successfully in {state_name}. Registration submitted to {state_name} State Department for verification.",
+        "message": f"User registered successfully.",
         "token": token,
         "user": user_data
     }
@@ -213,6 +227,43 @@ async def login(request: Request):
             status_code=status.HTTP_401_UNAUTHORIZED,
             content={"success": False, "message": "Invalid ID, email or credentials"}
         )
+
+    # State Department Statutory Verification Gate for Contractors
+    if user.get("role") == "CONTRACTOR":
+        user_cid = user.get("contractor_id")
+        kyc = db.contractor_kyc.find_one({
+            "$or": [
+                {"user_id": str(user["_id"])},
+                {"contractor_id": user_cid} if user_cid else {"contractor_id": "NONE"},
+                {"email": user.get("email", "").lower()}
+            ]
+        })
+        kyc_status = (kyc.get("kyc_status") if kyc else None) or user.get("kyc_status") or "UNDER_REVIEW"
+        state_name = user.get("state_name") or (kyc.get("state_name") if kyc else None) or "State"
+        remarks = (kyc.get("verification_remarks") if kyc else None) or user.get("verification_remarks") or ""
+
+        if kyc_status == "REJECTED":
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={
+                    "success": False,
+                    "kyc_status": "REJECTED",
+                    "state_name": state_name,
+                    "remarks": remarks,
+                    "message": f"Registration Rejected: Your contractor registration was REJECTED by the {state_name} State Department. Remarks: {remarks or 'Application does not meet statutory criteria'}. Access to the Contractor Portal is denied."
+                }
+            )
+
+        if kyc_status != "APPROVED":
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={
+                    "success": False,
+                    "kyc_status": "UNDER_REVIEW",
+                    "state_name": state_name,
+                    "message": f"Verification Pending: Your contractor registration for {state_name} is currently UNDER REVIEW by the {state_name} State Department. Portal access will be granted once your application is verified and approved."
+                }
+            )
 
     token = generate_token(
         str(user["_id"]),

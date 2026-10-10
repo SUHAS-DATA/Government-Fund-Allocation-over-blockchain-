@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { UserPlus, ArrowRight, AlertCircle } from 'lucide-react';
+import { UserPlus, ArrowRight, AlertCircle, Clock, CheckCircle2 } from 'lucide-react';
 import API from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
@@ -29,6 +29,7 @@ const RegisterPage = () => {
 
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -40,9 +41,8 @@ const RegisterPage = () => {
     try {
       const res = await API.post('/auth/register', formData);
       if (res.success) {
-        // Log in immediately
-        await login(formData.email, formData.password);
-        navigate('/contractor/dashboard');
+        setSubmitted(true);
+        // DO NOT auto login! Registration requires State Department verification
       }
     } catch (err) {
       setError(err.message || 'Registration failed');
@@ -50,6 +50,51 @@ const RegisterPage = () => {
       setLoading(false);
     }
   };
+
+  if (submitted) {
+    return (
+      <div style={{ maxWidth: '520px', margin: '40px auto', padding: '0 20px' }}>
+        <div className="card" style={{ padding: '32px 28px', textAlign: 'center', background: '#FFFBEB', border: '1.5px solid #FCD34D' }}>
+          <Clock size={48} color="#D97706" style={{ margin: '0 auto 12px' }} />
+          <div style={{
+            display: 'inline-block',
+            padding: '4px 12px',
+            borderRadius: '999px',
+            background: 'rgba(217, 119, 6, 0.12)',
+            color: '#B45309',
+            fontSize: '11px',
+            fontWeight: '800',
+            textTransform: 'uppercase',
+            marginBottom: '10px'
+          }}>
+            Status: Pending State Department Verification
+          </div>
+          <h2 style={{ fontSize: '18px', fontWeight: '800', color: '#92400E', margin: '0 0 8px 0' }}>
+            Registration Submitted to {formData.state_name} State Department
+          </h2>
+          <p style={{ fontSize: '13px', color: '#78350F', lineHeight: '1.5', marginBottom: '20px' }}>
+            Your application for <strong>{formData.company_name}</strong> has been registered under <strong>{formData.state_name} ({formData.state_code})</strong>. Portal access and bidding eligibility will only be unlocked after State Department verification.
+          </p>
+
+          <Link
+            to="/?portal=CONTRACTOR"
+            className="btn btn-primary"
+            style={{
+              padding: '10px 20px',
+              fontSize: '13px',
+              fontWeight: '700',
+              backgroundColor: '#EA580C',
+              borderColor: '#EA580C',
+              textDecoration: 'none',
+              display: 'inline-block'
+            }}
+          >
+            Go to Contractor Login
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: '520px', margin: '40px auto', padding: '0 20px' }}>
