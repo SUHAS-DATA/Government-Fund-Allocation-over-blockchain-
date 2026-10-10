@@ -135,15 +135,18 @@ const ContractorPortalPage = () => {
         }
       }
     } catch (err) {
-      const msg = err.message || '';
-      const data = err.response?.data || {};
-      if (data.kyc_status === 'REJECTED' || msg.includes('REJECTED') || msg.toLowerCase().includes('rejected')) {
+      const msg = err.message || (typeof err === 'string' ? err : '');
+      const kycStatus = err.kyc_status || err.response?.data?.kyc_status || '';
+      const remarks = err.remarks || err.verification_remarks || err.response?.data?.remarks || '';
+      const stateName = err.state_name || err.response?.data?.state_name || '';
+
+      if (kycStatus === 'REJECTED' || msg.includes('REJECTED') || msg.toLowerCase().includes('rejected')) {
         setLoginKycStatus('REJECTED');
-        setLoginKycRemarks(data.remarks || data.verification_remarks || '');
-        setLoginKycState(data.state_name || '');
-      } else if (data.kyc_status === 'UNDER_REVIEW' || msg.includes('UNDER REVIEW') || msg.toLowerCase().includes('under review')) {
+        setLoginKycRemarks(remarks);
+        setLoginKycState(stateName);
+      } else if (kycStatus === 'UNDER_REVIEW' || msg.includes('UNDER REVIEW') || msg.toLowerCase().includes('under review') || msg.toLowerCase().includes('pending')) {
         setLoginKycStatus('UNDER_REVIEW');
-        setLoginKycState(data.state_name || '');
+        setLoginKycState(stateName);
       }
       setLoginError(msg || 'Contractor authentication failed. Please verify credentials.');
     } finally {
