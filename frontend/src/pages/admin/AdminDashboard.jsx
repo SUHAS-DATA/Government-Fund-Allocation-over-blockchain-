@@ -141,6 +141,11 @@ const AdminDashboard = () => {
           txCount: bcRes.value.total_count ?? (bcRes.value.transactions?.length || 0),
           connected: bcRes.value.status?.connected !== false
         });
+      } else {
+        setBlockchainStats((prev) => ({
+          txCount: prev?.txCount || 0,
+          connected: false
+        }));
       }
       if (schemesRes.status === 'fulfilled' && schemesRes.value?.success) {
         setSchemesList(schemesRes.value.schemes || []);
