@@ -38,7 +38,7 @@ const Navbar = ({ onToggleSidebar }) => {
 
   useEffect(() => {
     fetchActiveFY();
-  }, [user, location.pathname]);
+  }, [user]);
 
   useEffect(() => {
     const handleFyUpdate = (e) => {

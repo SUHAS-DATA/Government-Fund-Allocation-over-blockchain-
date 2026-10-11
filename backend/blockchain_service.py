@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import hashlib
 from web3 import Web3
 from dotenv import load_dotenv
@@ -292,11 +293,19 @@ def get_entity_info(address_or_key):
         "address": address_or_key
     }
 
-def is_blockchain_connected():
+_bc_connected_cache = {"status": False, "expires_at": 0}
+
+def is_blockchain_connected(force_refresh: bool = False) -> bool:
+    global _bc_connected_cache
+    now = time.time()
+    if not force_refresh and now < _bc_connected_cache["expires_at"]:
+        return _bc_connected_cache["status"]
     try:
-        return w3.is_connected()
+        status = bool(w3.is_connected())
     except Exception:
-        return False
+        status = False
+    _bc_connected_cache = {"status": status, "expires_at": now + 10}
+    return status
 
 def get_private_key_for_role(role: str = "FINANCE") -> str:
     """

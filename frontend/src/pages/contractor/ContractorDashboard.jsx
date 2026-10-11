@@ -137,7 +137,7 @@ const ContractorDashboard = () => {
     loadDashboard(false);
   }, []);
 
-  useRealtimeSync(loadDashboard, { interval: 6000 });
+  useRealtimeSync(loadDashboard, { interval: 20000 });
 
   const setTab = (tabName) => {
     setSearchParams(tabName === 'overview' ? {} : { tab: tabName });

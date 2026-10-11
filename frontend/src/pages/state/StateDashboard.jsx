@@ -120,9 +120,9 @@ const StateDashboard = () => {
 
   useEffect(() => {
     loadStateData(true);
-  }, [data?.state_code]);
+  }, []);
 
-  useRealtimeSync(() => loadStateData(false), { interval: 6000 });
+  useRealtimeSync(() => loadStateData(false), { interval: 20000 });
 
   const setTab = (tabName) => {
     setSearchParams(tabName === 'overview' ? {} : { tab: tabName });

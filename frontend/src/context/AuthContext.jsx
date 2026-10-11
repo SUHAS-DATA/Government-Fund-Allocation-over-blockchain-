@@ -5,10 +5,20 @@ const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('govtfund_user');
-    return saved ? JSON.parse(saved) : null;
+    try {
+      const saved = localStorage.getItem('govtfund_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
   });
-  const [loading, setLoading] = useState(true);
+  // Instant unblock if user is already cached in localStorage
+  const [loading, setLoading] = useState(() => {
+    const token = localStorage.getItem('govtfund_token');
+    const saved = localStorage.getItem('govtfund_user');
+    // Only block if token exists but user profile is not yet hydrated
+    return !!token && !saved;
+  });
 
   useEffect(() => {
     const token = localStorage.getItem('govtfund_token');

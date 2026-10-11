@@ -643,6 +643,7 @@ async def toggle_user_status(
 # --- Blockchain Explorer ---
 @router.get("/blockchain-explorer")
 async def admin_blockchain_explorer(
+    summary_only: bool = False,
     current_user: dict = Depends(require_roles(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT"]))
 ):
     connected = bcs.is_blockchain_connected()
@@ -655,9 +656,11 @@ async def admin_blockchain_explorer(
         except Exception:
             chain_id = 1337
 
-    txs = list(db.blockchain_transactions.find().sort("timestamp", -1).limit(200))
+    tx_count = db.blockchain_transactions.count_documents({})
+    txs = [] if summary_only else list(db.blockchain_transactions.find().sort("timestamp", -1).limit(200))
     return {
         "success": True,
+        "total_count": tx_count,
         "status": {
             "connected": connected,
             "rpc_url": bcs.RPC_URL,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { RealtimeProvider } from './context/RealtimeContext';
@@ -13,59 +13,66 @@ import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import Footer from './components/Footer';
 
-// 4 Dedicated Frontend Portal Entry Pages
-import AdminPortalPage from './pages/portals/AdminPortalPage';
-import FieldPortalPage from './pages/portals/FieldPortalPage';
-import ContractorPortalPage from './pages/portals/ContractorPortalPage';
-import PublicPortalPage from './pages/portals/PublicPortalPage';
+// Lightweight fallback spinner for route transitions
+const PageFallback = () => (
+  <div style={{
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: '45vh',
+    gap: '12px',
+    color: '#64748B'
+  }}>
+    <div style={{
+      width: '28px',
+      height: '28px',
+      border: '3px solid #E2E8F0',
+      borderTopColor: '#002B49',
+      borderRadius: '50%',
+      animation: 'spin 0.8s linear infinite'
+    }} />
+    <span style={{ fontSize: '13px', fontWeight: '600' }}>Loading module...</span>
+  </div>
+);
 
-// Public Pages
-import PublicProjects from './pages/public/PublicProjects';
-import PublicProjectDetail from './pages/public/PublicProjectDetail';
-import PublicVerificationPage from './pages/public/PublicVerificationPage';
-import PublicExplorer from './pages/public/PublicExplorer';
-import GrievancePortal from './pages/public/GrievancePortal';
-import GrievanceTrack from './pages/public/GrievanceTrack';
-import HowItWorks from './pages/public/HowItWorks';
+// 4 Dedicated Frontend Portal Entry Pages (Lazy Loaded)
+const AdminPortalPage = lazy(() => import('./pages/portals/AdminPortalPage'));
+const FieldPortalPage = lazy(() => import('./pages/portals/FieldPortalPage'));
+const ContractorPortalPage = lazy(() => import('./pages/portals/ContractorPortalPage'));
+const PublicPortalPage = lazy(() => import('./pages/portals/PublicPortalPage'));
 
-// Admin Pages
-import AdminDashboard from './pages/admin/AdminDashboard';
-import FinancialYears from './pages/admin/FinancialYears';
-import Departments from './pages/admin/Departments';
-import StatesDistricts from './pages/admin/StatesDistricts';
-import Schemes from './pages/admin/Schemes';
-import BudgetAllocation from './pages/admin/BudgetAllocation';
-import SendToFinance from './pages/admin/SendToFinance';
-import UserManagement from './pages/admin/UserManagement';
+// Public Pages (Lazy Loaded)
+const PublicProjects = lazy(() => import('./pages/public/PublicProjects'));
+const PublicProjectDetail = lazy(() => import('./pages/public/PublicProjectDetail'));
+const PublicVerificationPage = lazy(() => import('./pages/public/PublicVerificationPage'));
+const PublicExplorer = lazy(() => import('./pages/public/PublicExplorer'));
+const GrievancePortal = lazy(() => import('./pages/public/GrievancePortal'));
+const GrievanceTrack = lazy(() => import('./pages/public/GrievanceTrack'));
+const HowItWorks = lazy(() => import('./pages/public/HowItWorks'));
 
-// Finance Pages
-import FinanceDashboard from './pages/finance/FinanceDashboard';
-import ReceivedBudgets from './pages/finance/ReceivedBudgets';
-import TransferToState from './pages/finance/TransferToState';
-import FinanceHistory from './pages/finance/FinanceHistory';
+// Admin Pages (Lazy Loaded)
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 
-// State Pages
-import StateDashboard from './pages/state/StateDashboard';
-import StateReceivedFunds from './pages/state/StateReceivedFunds';
-import AllocateToDistrict from './pages/state/AllocateToDistrict';
-import StateHistory from './pages/state/StateHistory';
+// Finance Pages (Lazy Loaded)
+const FinanceDashboard = lazy(() => import('./pages/finance/FinanceDashboard'));
 
-// Department / District Pages
-import DistrictDashboard from './pages/district/DistrictDashboard';
-import DepartmentDashboard from './pages/department/DepartmentDashboard';
-import ProjectsManagement from './pages/district/ProjectsManagement';
-import ContractorKYCReview from './pages/district/ContractorKYCReview';
-import GrievanceInbox from './pages/district/GrievanceInbox';
+// State Pages (Lazy Loaded)
+const StateDashboard = lazy(() => import('./pages/state/StateDashboard'));
 
-// Contractor Pages
-import ContractorDashboard from './pages/contractor/ContractorDashboard';
-import ContractorKYC from './pages/contractor/ContractorKYC';
-import MyProjects from './pages/contractor/MyProjects';
-import MilestonePayments from './pages/contractor/MilestonePayments';
+// Department / District Pages (Lazy Loaded)
+const DistrictDashboard = lazy(() => import('./pages/district/DistrictDashboard'));
+const DepartmentDashboard = lazy(() => import('./pages/department/DepartmentDashboard'));
 
-// Common Pages
-import ProfilePage from './pages/common/ProfilePage';
-import NotificationsPage from './pages/common/NotificationsPage';
+// Contractor Pages (Lazy Loaded)
+const ContractorDashboard = lazy(() => import('./pages/contractor/ContractorDashboard'));
+const ContractorKYC = lazy(() => import('./pages/contractor/ContractorKYC'));
+const MyProjects = lazy(() => import('./pages/contractor/MyProjects'));
+const MilestonePayments = lazy(() => import('./pages/contractor/MilestonePayments'));
+
+// Common Pages (Lazy Loaded)
+const ProfilePage = lazy(() => import('./pages/common/ProfilePage'));
+const NotificationsPage = lazy(() => import('./pages/common/NotificationsPage'));
 
 // Role Home Helper based on Active Portal
 const getRoleHome = (role, activePortal) => {
@@ -84,7 +91,7 @@ const getRoleHome = (role, activePortal) => {
 // Protected Route Guard Component with Portal-Specific Redirection
 const ProtectedRoute = ({ allowedRoles, activePortal, children }) => {
   const { user, loading } = useAuth();
-  if (loading) return <div style={{ padding: '60px', textAlign: 'center' }}>Authenticating government session...</div>;
+  if (loading) return <PageFallback />;
   if (!user) return <Navigate to="/" replace />;
   if (allowedRoles && !allowedRoles.includes(user.role)) {
     return <Navigate to={getRoleHome(user.role, activePortal)} replace />;
@@ -127,7 +134,8 @@ function App() {
         <NotificationProvider>
           <BrowserRouter>
           <PortalLayout>
-            <Routes>
+            <Suspense fallback={<PageFallback />}>
+              <Routes>
               {/* ========================================================= */}
               {/* Universal Public QR Verification (No Login Required)      */}
               {/* ========================================================= */}
@@ -275,6 +283,7 @@ function App() {
 
 
             </Routes>
+            </Suspense>
           </PortalLayout>
         </BrowserRouter>
       </NotificationProvider>

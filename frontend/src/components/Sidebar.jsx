@@ -66,7 +66,7 @@ const Sidebar = ({ collapsed = false, mobileOpen = false, onCloseMobile }) => {
                 </NavLink>
               </li>
               <li>
-                <NavLink to="/district/projects" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`} title="National Projects Directory">
+                <NavLink to="/admin/projects" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`} title="National Projects Directory">
                   <FolderKanban size={17} />
                   <span>Projects</span>
                 </NavLink>
@@ -179,7 +179,7 @@ const Sidebar = ({ collapsed = false, mobileOpen = false, onCloseMobile }) => {
           <>
             <div className="sidebar-header">State Government Account ({user.state_name || user.state_code || 'State'})</div>
             <ul className="sidebar-menu">
-              <li><NavLink to="/department" end className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><LayoutDashboard size={17}/><span>Dashboard</span></NavLink></li>
+              <li><NavLink to="/state" end className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><LayoutDashboard size={17}/><span>Dashboard</span></NavLink></li>
               <li><NavLink to="/state/received-funds" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><Coins size={17}/><span>Received Funds</span></NavLink></li>
               <li><NavLink to="/state/allocations" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><Send size={17}/><span>Send Funds</span></NavLink></li>
               <li><NavLink to="/state/history" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><Activity size={17}/><span>Payment History</span></NavLink></li>
@@ -200,7 +200,7 @@ const Sidebar = ({ collapsed = false, mobileOpen = false, onCloseMobile }) => {
           <>
             <div className="sidebar-header">District Development Office</div>
             <ul className="sidebar-menu">
-              <li><NavLink to="/department" end className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><LayoutDashboard size={17}/><span>Dashboard</span></NavLink></li>
+              <li><NavLink to="/district" end className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><LayoutDashboard size={17}/><span>Dashboard</span></NavLink></li>
               <li><NavLink to="/district/projects" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><FolderKanban size={17}/><span>Projects & Funds</span></NavLink></li>
               <li><NavLink to="/district/contractors" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><UserCheck size={17}/><span>Contractor Check</span></NavLink></li>
               <li><NavLink to="/district/grievances" className={({isActive}) => `sidebar-link ${isActive ? 'active' : ''}`}><MessageSquareWarning size={17}/><span>Complaints Inbox</span></NavLink></li>

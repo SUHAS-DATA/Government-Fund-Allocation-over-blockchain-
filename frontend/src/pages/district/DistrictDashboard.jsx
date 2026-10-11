@@ -150,12 +150,12 @@ const DistrictDashboard = () => {
     } else {
       loadDashboard(selectedDistrict, true);
     }
-  }, [selectedDistrict, user]);
+  }, [selectedDistrict, user?.district_name, user?.role]);
 
   useRealtimeSync(() => {
     const target = isDistrictOfficer ? assignedDistrict : selectedDistrict;
     loadDashboard(target, false);
-  }, { interval: 6000 });
+  }, { interval: 20000 });
 
   const setTab = (tabName) => {
     setSearchParams(tabName === 'overview' ? {} : { tab: tabName });

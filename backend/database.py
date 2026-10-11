@@ -70,26 +70,57 @@ def init_indexes():
     # 6. Budget Allocations collection
     try:
         db.budget_allocations.create_index([("allocation_id", ASCENDING)], unique=True, sparse=True)
+        db.budget_allocations.create_index([("financial_year", ASCENDING), ("status", ASCENDING)])
+        db.budget_allocations.create_index([("state_code", ASCENDING)])
     except Exception as e:
         print(f"Warning initializing budget_allocations index: {e}")
 
     # 7. State Transfers collection
     try:
         db.state_transfers.create_index([("transfer_id", ASCENDING)], unique=True, sparse=True)
+        db.state_transfers.create_index([("state_code", ASCENDING), ("status", ASCENDING)])
+        db.state_transfers.create_index([("created_at", DESCENDING)])
     except Exception as e:
         print(f"Warning initializing state_transfers index: {e}")
 
     # 8. District Allocations collection
     try:
         db.district_allocations.create_index([("district_alloc_id", ASCENDING)], unique=True, sparse=True)
+        db.district_allocations.create_index([("district_name", ASCENDING), ("status", ASCENDING)])
+        db.district_allocations.create_index([("state_code", ASCENDING)])
     except Exception as e:
         print(f"Warning initializing district_allocations index: {e}")
 
     # 9. Projects collection
     try:
         db.projects.create_index([("project_id", ASCENDING)], unique=True, sparse=True)
+        db.projects.create_index([("district_name", ASCENDING), ("status", ASCENDING)])
+        db.projects.create_index([("state_code", ASCENDING), ("status", ASCENDING)])
+        db.projects.create_index([("contractor_id", ASCENDING), ("status", ASCENDING)])
+        db.projects.create_index([("created_at", DESCENDING)])
     except Exception as e:
         print(f"Warning initializing projects index: {e}")
+
+    # 9b. Milestones collection
+    try:
+        db.milestones.create_index([("milestone_id", ASCENDING)], unique=True, sparse=True)
+        db.milestones.create_index([("project_id", ASCENDING)])
+    except Exception as e:
+        print(f"Warning initializing milestones index: {e}")
+
+    # 9c. Contractor KYC collection
+    try:
+        db.contractor_kyc.create_index([("contractor_id", ASCENDING)])
+        db.contractor_kyc.create_index([("state_code", ASCENDING), ("kyc_status", ASCENDING)])
+    except Exception as e:
+        print(f"Warning initializing contractor_kyc index: {e}")
+
+    # 9d. Notifications collection
+    try:
+        db.notifications.create_index([("recipient_user_id", ASCENDING), ("read", ASCENDING), ("created_at", DESCENDING)])
+        db.notifications.create_index([("role", ASCENDING), ("created_at", DESCENDING)])
+    except Exception as e:
+        print(f"Warning initializing notifications index: {e}")
 
     # 10. Documents collection
     try:

@@ -123,7 +123,7 @@ const AdminDashboard = () => {
         API.get('/admin/dashboard'),
         API.get('/admin/allocations'),
         API.get('/admin/departments'),
-        API.get('/admin/blockchain-explorer'),
+        API.get('/admin/blockchain-explorer?summary_only=true'),
         API.get('/admin/schemes')
       ]);
 
@@ -138,7 +138,7 @@ const AdminDashboard = () => {
       }
       if (bcRes.status === 'fulfilled' && bcRes.value?.success) {
         setBlockchainStats({
-          txCount: bcRes.value.transactions?.length || 0,
+          txCount: bcRes.value.total_count ?? (bcRes.value.transactions?.length || 0),
           connected: bcRes.value.status?.connected !== false
         });
       }
@@ -156,7 +156,7 @@ const AdminDashboard = () => {
     fetchAllData(true);
   }, []);
 
-  useRealtimeSync(() => fetchAllData(false), { interval: 6000 });
+  useRealtimeSync(() => fetchAllData(false), { interval: 20000 });
 
   // Compute live data figures
   const metrics = dashboardData?.metrics || {};

@@ -51,7 +51,7 @@ export const getWsUrl = () => {
 
 const api = axios.create({
   baseURL: getApiBaseUrl(),
-  timeout: 60000,
+  timeout: 12000, // 12 seconds max timeout to avoid hanging UI indefinitely
   headers: {
     'Content-Type': 'application/json',
   },
@@ -69,25 +69,23 @@ api.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
-// Response interceptor with automatic cold-start retry & error handling
+// Response interceptor with fast-fail and selective retry
 api.interceptors.response.use(
   (response) => response.data,
   async (error) => {
     const config = error.config;
-    // Detect cold-start, container restart, or temporary network failure (no response or 5xx/Cloudflare 520-526 Gateway errors)
-    const isColdStartOrNetworkError =
-      !error.response ||
-      (error.response && error.response.status >= 500 && error.response.status <= 530);
+    // Only retry transient Gateway errors (502, 503, 504) or network drop, NOT application 500 errors
+    const status = error.response ? error.response.status : null;
+    const isGatewayOrNetworkError = !error.response || (status >= 502 && status <= 504);
 
-    // Automatically retry idempotent GET requests while Render wakes up or restarts
-    if (config && isColdStartOrNetworkError && (!config.method || config.method.toLowerCase() === 'get')) {
+    if (config && isGatewayOrNetworkError && (!config.method || config.method.toLowerCase() === 'get')) {
       config.__retryCount = config.__retryCount || 0;
-      const MAX_RETRIES = 4;
+      const MAX_RETRIES = 2; // Reduced from 4 to 2 to eliminate 25s client freezing
 
       if (config.__retryCount < MAX_RETRIES) {
         config.__retryCount += 1;
-        const delayMs = config.__retryCount * 2500;
-        console.warn(`[API] Cloud server waking up or transient network drop (${error.response ? error.response.status : 'no response'}). Retrying ${config.url} (Attempt ${config.__retryCount}/${MAX_RETRIES}) in ${delayMs}ms...`);
+        const delayMs = config.__retryCount * 800; // Small delay (800ms, 1600ms)
+        console.warn(`[API] Transient gateway drop (${status || 'network error'}). Retrying ${config.url} (Attempt ${config.__retryCount}/${MAX_RETRIES}) in ${delayMs}ms...`);
         await new Promise((resolve) => setTimeout(resolve, delayMs));
         return api(config);
       }

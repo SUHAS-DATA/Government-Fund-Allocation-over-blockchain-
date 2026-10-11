@@ -184,8 +184,13 @@ export const RealtimeProvider = ({ children }) => {
   useEffect(() => {
     connectWebSocket();
 
-    // Background HTTP fallback polling in case WebSocket is blocked or disconnected
+    // Background HTTP fallback polling ONLY in case WebSocket is blocked or disconnected
     const fallbackPollInterval = setInterval(async () => {
+      // If WebSocket is already connected and active, skip polling completely
+      if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+        return;
+      }
+
       try {
         const res = await API.get('/realtime/status');
         if (res && res.mutation_counter !== undefined) {
@@ -197,7 +202,7 @@ export const RealtimeProvider = ({ children }) => {
       } catch (e) {
         // Polling error silently suppressed
       }
-    }, 6000);
+    }, 25000); // 25s offline fallback interval
 
     return () => {
       clearInterval(fallbackPollInterval);
@@ -234,14 +239,14 @@ export const useRealtime = () => useContext(RealtimeContext);
  * Automatically executes the given refreshFunction whenever:
  * 1. An action occurs anywhere in the system (across laptops/browsers via WebSocket)
  * 2. Window/tab is focused or resumed
- * 3. Fallback polling tick triggers
+ * 3. Fallback polling tick triggers when disconnected
  *
  * @param {Function} refreshFunction - Function to refresh page data (e.g. loadData)
  * @param {Object} options - { interval: ms, enabled: boolean }
  */
 export const useRealtimeSync = (refreshFunction, options = {}) => {
-  const { interval = 6000, enabled = true } = options;
-  const { registerListener, mutationTick } = useRealtime();
+  const { interval = 20000, enabled = true } = options;
+  const { registerListener, mutationTick, isConnected } = useRealtime();
   const refreshRef = useRef(refreshFunction);
   const debounceTimerRef = useRef(null);
 
@@ -276,15 +281,15 @@ export const useRealtimeSync = (refreshFunction, options = {}) => {
     };
   }, [registerListener, triggerDebounced, enabled]);
 
-  // Fallback periodic sync interval
+  // Fallback periodic sync interval: only runs when WebSocket is NOT connected
   useEffect(() => {
-    if (!enabled || !interval) return;
+    if (!enabled || !interval || isConnected) return;
     const timer = setInterval(() => {
       triggerDebounced();
-    }, interval);
+    }, Math.max(interval, 15000));
 
     return () => clearInterval(timer);
-  }, [interval, enabled, triggerDebounced]);
+  }, [interval, enabled, isConnected, triggerDebounced]);
 };
 
 /**

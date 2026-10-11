@@ -30,7 +30,7 @@ export const NotificationProvider = ({ children }) => {
   }, [user]);
 
   // Real-time synchronization across laptops and tabs
-  useRealtimeSync(fetchNotifications, { interval: 5000, enabled: !!user });
+  useRealtimeSync(fetchNotifications, { interval: 25000, enabled: !!user });
 
   const markAsRead = async (id) => {
     try {
