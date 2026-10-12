@@ -53,6 +53,15 @@ async def lifespan(app: FastAPI):
         seed()
     except Exception as e:
         logging.warning(f"Database seed warning: {e}")
+    try:
+        diag = bcs.get_blockchain_diagnostics()
+        if diag.get("warnings"):
+            for w in diag["warnings"]:
+                logging.warning(f"[BLOCKCHAIN_CONFIG_ADVISORY] {w}")
+        else:
+            logging.info(f"[BLOCKCHAIN_READY] Connected to chain {diag['active_chain_id']} at {diag['rpc_url']}")
+    except Exception as e:
+        logging.warning(f"Startup blockchain diagnostic warning: {e}")
     yield
     logging.info("System shutdown.")
 
@@ -192,24 +201,26 @@ async def health():
     except Exception as e:
         db_status = f"ERROR: {str(e)}"
 
-    bc_connected = bcs.is_blockchain_connected()
-
-    chain_id = int(os.getenv("CHAIN_ID", 5777))
-    if bc_connected:
-        try:
-            chain_id = bcs.w3.eth.chain_id
-        except Exception:
-            pass
+    diag = bcs.get_blockchain_diagnostics()
 
     return {
         "status": "HEALTHY",
         "framework": "FastAPI",
-        "environment": os.getenv("APP_ENV", "production"),
+        "environment": diag["environment"],
         "database": db_status,
         "blockchain": {
-            "connected": bc_connected,
-            "contract_address": bcs.contract_address,
-            "chain_id": chain_id
+            "connected": diag["connected"],
+            "contract_address": diag["contract_address"],
+            "chain_id": diag["active_chain_id"] or diag["configured_chain_id"],
+            "contract_deployed": diag["contract_deployed"]
+        },
+        "blockchain_diagnostics": {
+            "rpc_url": diag["rpc_url"],
+            "configured_chain_id": diag["configured_chain_id"],
+            "active_chain_id": diag["active_chain_id"],
+            "chain_id_match": diag["chain_id_match"],
+            "roles_configured": {k: v["ready"] for k, v in diag["roles"].items()},
+            "warnings": diag["warnings"]
         }
     }
 

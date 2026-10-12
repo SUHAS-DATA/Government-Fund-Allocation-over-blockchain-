@@ -321,6 +321,97 @@ def is_blockchain_connected(force_refresh: bool = False) -> bool:
     _bc_connected_cache = {"status": status, "expires_at": now + 10}
     return status
 
+def mask_rpc_url(url: str) -> str:
+    if not url:
+        return "NOT_CONFIGURED"
+    if "127.0.0.1" in url or "localhost" in url:
+        return url
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        path = parsed.path
+        if len(path) > 10:
+            path = path[:6] + "..." + path[-4:]
+        return f"{parsed.scheme}://{parsed.netloc}{path}"
+    except Exception:
+        return url[:15] + "..."
+
+def get_blockchain_diagnostics() -> dict:
+    """
+    Safely validates active blockchain configuration without exposing private keys or secrets.
+    """
+    env = os.getenv("APP_ENV") or os.getenv("ENVIRONMENT") or "development"
+    warnings = []
+    
+    connected = is_blockchain_connected(force_refresh=True)
+    active_chain_id = None
+    configured_chain_id = int(os.getenv("CHAIN_ID", 1337))
+    chain_id_match = False
+
+    if connected:
+        try:
+            active_chain_id = w3.eth.chain_id
+            chain_id_match = (active_chain_id == configured_chain_id)
+            if not chain_id_match:
+                warnings.append(
+                    f"Configured CHAIN_ID ({configured_chain_id}) does not match active network chain ID ({active_chain_id}). "
+                    f"Update CHAIN_ID={active_chain_id} in your environment variables."
+                )
+        except Exception as e:
+            warnings.append(f"Unable to query network chain ID: {e}")
+    else:
+        warnings.append(f"Blockchain RPC node is unreachable at {mask_rpc_url(RPC_URL)}.")
+
+    # Loopback advisory in production
+    is_production = env.lower() in ["production", "prod"]
+    if is_production and ("127.0.0.1" in RPC_URL or "localhost" in RPC_URL):
+        warnings.append(
+            "Production environment is using a loopback RPC URL (127.0.0.1/localhost). "
+            "Cloud containers (Render) cannot connect to local networks without an external RPC or public tunnel."
+        )
+
+    # Contract bytecode verification
+    contract_deployed = False
+    if connected and contract_address:
+        try:
+            code = w3.eth.get_code(w3.to_checksum_address(contract_address))
+            contract_deployed = len(code) > 2
+            if not contract_deployed:
+                warnings.append(
+                    f"No smart contract bytecode deployed at {contract_address} on chain {active_chain_id}."
+                )
+        except Exception as e:
+            warnings.append(f"Failed to verify contract code: {e}")
+    elif not contract_address:
+        warnings.append("CONTRACT_ADDRESS is not configured.")
+
+    # Role signing keys presence validation (Never reveals private keys)
+    roles = ["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR"]
+    roles_status = {}
+    for r in roles:
+        acc = get_account(r)
+        roles_status[r] = {
+            "key_configured": bool(get_private_key_for_role(r)),
+            "wallet_derived": acc.address if acc else None,
+            "ready": bool(acc)
+        }
+        if not roles_status[r]["ready"]:
+            warnings.append(f"Missing or invalid private key for role: {r}")
+
+    return {
+        "environment": env,
+        "rpc_url": mask_rpc_url(RPC_URL),
+        "connected": connected,
+        "configured_chain_id": configured_chain_id,
+        "active_chain_id": active_chain_id,
+        "chain_id_match": chain_id_match,
+        "contract_address": contract_address,
+        "contract_deployed": contract_deployed,
+        "roles": roles_status,
+        "warnings": warnings,
+        "status": "HEALTHY" if (connected and (chain_id_match or not active_chain_id) and contract_deployed and len(warnings) == 0) else "DEGRADED"
+    }
+
 def get_private_key_for_role(role: str = "FINANCE") -> str:
     """
     Dynamically resolve the private key corresponding to the administrative role:
