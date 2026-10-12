@@ -29,7 +29,14 @@ if os.path.exists(contract_info_path):
             contract_address = info.get("contractAddress")
         contract_abi = info.get("abi")
 
-w3 = Web3(Web3.HTTPProvider(RPC_URL, request_kwargs={"timeout": 15.0}))
+w3 = Web3(Web3.HTTPProvider(RPC_URL, request_kwargs={
+    "timeout": 15.0,
+    "headers": {
+        "bypass-tunnel-reminder": "true",
+        "Bypass-Tunnel-Reminder": "1",
+        "User-Agent": "Mozilla/5.0"
+    }
+}))
 
 def _derive_address_from_key(pk: str, fallback: str) -> str:
     if not pk:
