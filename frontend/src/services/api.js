@@ -51,7 +51,7 @@ export const getWsUrl = () => {
 
 const api = axios.create({
   baseURL: getApiBaseUrl(),
-  timeout: 12000, // 12 seconds max timeout to avoid hanging UI indefinitely
+  timeout: 30000, // 30 seconds to allow on-chain transaction mining without client abort
   headers: {
     'Content-Type': 'application/json',
   },

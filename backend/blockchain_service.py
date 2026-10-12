@@ -2,10 +2,17 @@ import os
 import json
 import time
 import hashlib
+import logging
 from web3 import Web3
 from dotenv import load_dotenv
 
-load_dotenv()
+_env_path = os.path.join(os.path.dirname(__file__), ".env")
+if os.path.exists(_env_path):
+    load_dotenv(_env_path)
+else:
+    load_dotenv()
+
+bc_logger = logging.getLogger("blockchain_service")
 
 RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL") or os.getenv("RPC_URL", "http://127.0.0.1:7545")
 PRIVATE_KEY = os.getenv("BLOCKCHAIN_PRIVATE_KEY", "0x5c1773faf03c71052871f2ce322dc5b61bedc26b92f9a1943d408b81edb378ba")
@@ -22,7 +29,7 @@ if os.path.exists(contract_info_path):
             contract_address = info.get("contractAddress")
         contract_abi = info.get("abi")
 
-w3 = Web3(Web3.HTTPProvider(RPC_URL, request_kwargs={"timeout": 1.5}))
+w3 = Web3(Web3.HTTPProvider(RPC_URL, request_kwargs={"timeout": 15.0}))
 
 def _derive_address_from_key(pk: str, fallback: str) -> str:
     if not pk:
@@ -365,54 +372,71 @@ def execute_contract_transaction(func_call, role: str = "FINANCE", custom_privat
     Sign and send a transaction to the Ethereum smart contract using
     the designated wallet private key for the specified administrative role.
     """
+    fn_name = getattr(func_call, "fn_name", "ContractCall")
     account = get_account(role=role, custom_private_key=custom_private_key)
     pk = custom_private_key or get_private_key_for_role(role)
     if not account or not pk or not w3.is_connected():
-        raise Exception(f"Blockchain RPC not connected or private key missing for role: {role}")
-
-    nonce = w3.eth.get_transaction_count(account.address)
-    
-    # Estimate gas with buffer
-    try:
-        gas_est = func_call.estimate_gas({"from": account.address})
-        gas_limit = int(gas_est * 1.3)
-    except Exception:
-        gas_limit = 600000
+        err_msg = f"Blockchain RPC not connected or private key missing for role: {role} (RPC: {RPC_URL})"
+        bc_logger.error(f"[BLOCKCHAIN_TX_ERROR] Op={fn_name} | {err_msg}")
+        raise Exception(err_msg)
 
     try:
-        chain_id = w3.eth.chain_id
-    except Exception:
-        chain_id = int(os.getenv("CHAIN_ID", 5777))
+        nonce = w3.eth.get_transaction_count(account.address)
+        
+        # Estimate gas with buffer
+        try:
+            gas_est = func_call.estimate_gas({"from": account.address})
+            gas_limit = int(gas_est * 1.3)
+        except Exception:
+            gas_limit = 600000
 
-    try:
-        gas_price = w3.eth.gas_price or w3.to_wei(20, 'gwei')
-    except Exception:
-        gas_price = w3.to_wei(20, 'gwei')
+        try:
+            chain_id = w3.eth.chain_id
+        except Exception:
+            chain_id = int(os.getenv("CHAIN_ID", 5777))
 
-    tx = func_call.build_transaction({
-        "from": account.address,
-        "nonce": nonce,
-        "gas": gas_limit,
-        "gasPrice": gas_price,
-        "chainId": chain_id
-    })
+        try:
+            gas_price = w3.eth.gas_price or w3.to_wei(20, 'gwei')
+        except Exception:
+            gas_price = w3.to_wei(20, 'gwei')
 
-    signed_tx = w3.eth.account.sign_transaction(tx, pk)
-    raw_tx = getattr(signed_tx, "raw_transaction", None) or getattr(signed_tx, "rawTransaction")
-    tx_hash = w3.eth.send_raw_transaction(raw_tx)
-    receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=30)
+        tx = func_call.build_transaction({
+            "from": account.address,
+            "nonce": nonce,
+            "gas": gas_limit,
+            "gasPrice": gas_price,
+            "chainId": chain_id
+        })
 
-    tx_hash_hex = receipt.transactionHash.hex() if hasattr(receipt.transactionHash, "hex") else str(receipt.transactionHash)
-    if not tx_hash_hex.startswith("0x"):
-        tx_hash_hex = "0x" + tx_hash_hex
+        signed_tx = w3.eth.account.sign_transaction(tx, pk)
+        raw_tx = getattr(signed_tx, "raw_transaction", None) or getattr(signed_tx, "rawTransaction")
+        tx_hash = w3.eth.send_raw_transaction(raw_tx)
+        receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=30)
 
-    return {
-        "tx_hash": tx_hash_hex,
-        "block_number": receipt.blockNumber,
-        "gas_used": receipt.gasUsed,
-        "from_address": account.address,
-        "status": "SUCCESS" if receipt.status == 1 else "FAILED"
-    }
+        tx_hash_hex = receipt.transactionHash.hex() if hasattr(receipt.transactionHash, "hex") else str(receipt.transactionHash)
+        if not tx_hash_hex.startswith("0x"):
+            tx_hash_hex = "0x" + tx_hash_hex
+
+        status_str = "SUCCESS" if receipt.status == 1 else "FAILED"
+        bc_logger.info(
+            f"[BLOCKCHAIN_TX] Op={fn_name} | Role={role} | Sender={account.address} | "
+            f"Contract={contract_address} | ChainID={chain_id} | Block=#{receipt.blockNumber} | "
+            f"GasUsed={receipt.gasUsed} | Status={status_str} | TxHash={tx_hash_hex}"
+        )
+
+        return {
+            "tx_hash": tx_hash_hex,
+            "block_number": receipt.blockNumber,
+            "gas_used": receipt.gasUsed,
+            "from_address": account.address,
+            "status": status_str
+        }
+    except Exception as e:
+        bc_logger.error(
+            f"[BLOCKCHAIN_TX_FAILED] Op={fn_name} | Role={role} | Sender={account.address} | "
+            f"Contract={contract_address} | Error={str(e)}"
+        )
+        raise
 
 # --- Contract Action Wrappers ---
 
