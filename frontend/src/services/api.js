@@ -9,6 +9,11 @@ import axios from 'axios';
  * - Custom overrides via localStorage ('govtfund_api_host')
  */
 export const getApiBaseUrl = () => {
+  // If running locally in browser, always direct requests to local FastAPI on port 5000
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return 'http://127.0.0.1:5000/api';
+  }
+
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem('govtfund_api_host');
     if (saved) {
