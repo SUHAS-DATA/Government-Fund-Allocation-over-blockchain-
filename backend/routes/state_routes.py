@@ -188,13 +188,14 @@ async def allocate_to_district(
                     trf.get("state_name", "Karnataka"),
                     float(trf.get("amount", amount))
                 )
-                db.state_transfers.update_one(
-                    {"transfer_id": transfer_id},
-                    {"$set": {
-                        "blockchain_tx_hash": rec_trf["tx_hash"],
-                        "blockchain_block": rec_trf["block_number"]
-                    }}
-                )
+                if rec_trf:
+                    db.state_transfers.update_one(
+                        {"transfer_id": transfer_id},
+                        {"$set": {
+                            "blockchain_tx_hash": rec_trf["tx_hash"],
+                            "blockchain_block": rec_trf["block_number"]
+                        }}
+                    )
 
         tx_receipt = bcs.record_district_allocation_onchain(dist_alloc_id, transfer_id, district_name, amount, receiver_address=to_dist)
         if tx_receipt:

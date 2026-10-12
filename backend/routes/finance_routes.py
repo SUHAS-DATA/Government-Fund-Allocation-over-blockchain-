@@ -181,30 +181,31 @@ async def approve_and_transfer(
                     alloc.get("department", "Infrastructure"),
                     float(alloc.get("amount", amount))
                 )
-                db.budget_allocations.update_one(
-                    {"allocation_id": alloc_id},
-                    {"$set": {
-                        "blockchain_tx_hash": rec_parent["tx_hash"],
-                        "blockchain_block": rec_parent["block_number"]
-                    }}
-                )
-                from_admin = bcs.get_entity_wallet("ADMIN")
-                to_fin = bcs.get_entity_wallet("FINANCE")
-                db.blockchain_transactions.insert_one({
-                    "tx_hash": rec_parent["tx_hash"],
-                    "block_number": rec_parent["block_number"],
-                    "operation_type": "CENTRAL_BUDGET_ALLOCATION",
-                    "entity_id": alloc_id,
-                    "from_address": from_admin,
-                    "to_address": to_fin,
-                    "from_entity": "Central Secretariat (Cabinet Planning)",
-                    "to_entity": "Ministry of Finance (Public Fund Authority)",
-                    "transfer_tier": "CENTRAL_TO_FINANCE",
-                    "flow_stage": "1. Central Sanction -> Finance Dept",
-                    "amount": alloc.get("amount", amount),
-                    "details": f"Budget Sanctioned for {alloc.get('scheme_name')} ({alloc.get('department')}) -> Forwarded to Ministry of Finance",
-                    "timestamp": datetime.now(timezone.utc)
-                })
+                if rec_parent:
+                    db.budget_allocations.update_one(
+                        {"allocation_id": alloc_id},
+                        {"$set": {
+                            "blockchain_tx_hash": rec_parent["tx_hash"],
+                            "blockchain_block": rec_parent["block_number"]
+                        }}
+                    )
+                    from_admin = bcs.get_entity_wallet("ADMIN")
+                    to_fin = bcs.get_entity_wallet("FINANCE")
+                    db.blockchain_transactions.insert_one({
+                        "tx_hash": rec_parent["tx_hash"],
+                        "block_number": rec_parent["block_number"],
+                        "operation_type": "CENTRAL_BUDGET_ALLOCATION",
+                        "entity_id": alloc_id,
+                        "from_address": from_admin,
+                        "to_address": to_fin,
+                        "from_entity": "Central Secretariat (Cabinet Planning)",
+                        "to_entity": "Ministry of Finance (Public Fund Authority)",
+                        "transfer_tier": "CENTRAL_TO_FINANCE",
+                        "flow_stage": "1. Central Sanction -> Finance Dept",
+                        "amount": alloc.get("amount", amount),
+                        "details": f"Budget Sanctioned for {alloc.get('scheme_name')} ({alloc.get('department')}) -> Forwarded to Ministry of Finance",
+                        "timestamp": datetime.now(timezone.utc)
+                    })
 
         tx_receipt = bcs.record_state_transfer_onchain(trf_id, alloc_id, state_name, amount, receiver_address=to_state)
         if tx_receipt:

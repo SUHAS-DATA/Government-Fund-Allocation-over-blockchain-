@@ -425,6 +425,68 @@ def record_budget_allocation_onchain(alloc_id, scheme, dept, amount):
         role="SUPER_ADMIN"
     )
 
+def send_native_eth_transfer(sender_role: str, receiver_address: str, amount_eth: float = 0.1):
+    """
+    Sends native ETH between Ganache wallets so that the receiver's balance
+    in Ganache visually and measurably increases!
+    """
+    try:
+        account = get_account(role=sender_role)
+        pk = get_private_key_for_role(sender_role)
+        if not account or not pk or not w3.is_connected():
+            return None
+        
+        target = w3.to_checksum_address(receiver_address)
+        if account.address.lower() == target.lower():
+            return None
+
+        bal = w3.eth.get_balance(account.address)
+        val_wei = w3.to_wei(amount_eth, 'ether')
+        if bal <= val_wei + w3.to_wei(0.01, 'ether'):
+            val_wei = int(bal * 0.05)
+            if val_wei <= 0:
+                return None
+
+        nonce = w3.eth.get_transaction_count(account.address)
+        chain_id = w3.eth.chain_id
+        gas_price = w3.eth.gas_price or w3.to_wei(20, 'gwei')
+
+        tx = {
+            "from": account.address,
+            "to": target,
+            "value": val_wei,
+            "gas": 21000,
+            "gasPrice": gas_price,
+            "nonce": nonce,
+            "chainId": chain_id
+        }
+        signed = w3.eth.account.sign_transaction(tx, pk)
+        raw_tx = getattr(signed, "raw_transaction", None) or getattr(signed, "rawTransaction")
+        tx_hash = w3.eth.send_raw_transaction(raw_tx)
+        receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=10)
+        return receipt
+    except Exception as e:
+        print(f"Warning sending native ETH transfer ({sender_role} -> {receiver_address}): {e}")
+        return None
+
+def acknowledge_state_receipt_onchain(trf_id: str, state_name: str, amount: float):
+    """
+    State Treasury Officer signs an on-chain receipt anchoring the transfer,
+    so that Account #1's TX COUNT in Ganache also increments immediately upon receiving funds!
+    """
+    try:
+        contract = get_contract()
+        if not contract or not hasattr(contract.functions, "anchorDocumentHash"):
+            return None
+        
+        doc_id = f"ACK-{trf_id}"
+        doc_hash = hashlib.sha256(f"{trf_id}:{state_name}:{amount}".encode()).hexdigest()
+        func = contract.functions.anchorDocumentHash(doc_id, doc_hash, "STATE_RECEIPT", trf_id)
+        return execute_contract_transaction(func, role="STATE")
+    except Exception as e:
+        print(f"Warning acknowledging state receipt on-chain: {e}")
+        return None
+
 def record_state_transfer_onchain(trf_id, alloc_id, state_name, amount, receiver_address=None):
     contract = get_contract()
     if not contract:
@@ -441,7 +503,18 @@ def record_state_transfer_onchain(trf_id, alloc_id, state_name, amount, receiver
     else:
         func = contract.functions.transferToState(trf_id, alloc_id, state_name, int(amount))
 
-    return execute_contract_transaction(func, role="FINANCE")
+    tx_res = execute_contract_transaction(func, role="FINANCE")
+
+    # 1. Native ETH Transfer: Finance -> State (Updates Ganache Account 1 Balance)
+    send_native_eth_transfer("FINANCE", rec_addr_checksum, amount_eth=0.1)
+
+    # 2. State Treasury Receipt: State signs acknowledgment (Updates Ganache Account 1 TX Count)
+    ack_res = acknowledge_state_receipt_onchain(trf_id, state_name, amount)
+    if ack_res and tx_res:
+        tx_res["state_ack_tx_hash"] = ack_res.get("tx_hash")
+        tx_res["state_ack_block"] = ack_res.get("block_number")
+
+    return tx_res
 
 def record_district_allocation_onchain(dist_alloc_id, trf_id, district_name, amount, receiver_address=None):
     contract = get_contract()
@@ -459,7 +532,12 @@ def record_district_allocation_onchain(dist_alloc_id, trf_id, district_name, amo
     else:
         func = contract.functions.allocateToDistrict(dist_alloc_id, trf_id, district_name, int(amount))
 
-    return execute_contract_transaction(func, role="STATE")
+    tx_res = execute_contract_transaction(func, role="STATE")
+
+    # Native ETH Transfer: State -> District (Updates Ganache Account 2 Balance)
+    send_native_eth_transfer("STATE", rec_addr_checksum, amount_eth=0.05)
+
+    return tx_res
 
 def record_contractor_transfer_onchain(transfer_id, project_id, district_name, contractor_name, amount, receiver_address=None):
     """
@@ -479,6 +557,7 @@ def record_contractor_transfer_onchain(transfer_id, project_id, district_name, c
     sel_trf = Web3.keccak(text="transferToContractor(string,string,address,string,string,uint256)")[:4].hex()[2:]
     sel_rec = Web3.keccak(text="recordFundTransfer(string,address,string,string,string,uint256)")[:4].hex()[2:]
 
+    res = None
     if sel_trf in code and hasattr(contract.functions, "transferToContractor"):
         func = contract.functions.transferToContractor(
             transfer_id,
@@ -488,7 +567,7 @@ def record_contractor_transfer_onchain(transfer_id, project_id, district_name, c
             contractor_name,
             int(amount)
         )
-        return execute_contract_transaction(func, role="DISTRICT")
+        res = execute_contract_transaction(func, role="DISTRICT")
     elif sel_rec in code and hasattr(contract.functions, "recordFundTransfer"):
         func = contract.functions.recordFundTransfer(
             transfer_id,
@@ -498,8 +577,11 @@ def record_contractor_transfer_onchain(transfer_id, project_id, district_name, c
             project_id,
             int(amount)
         )
-        return execute_contract_transaction(func, role="DISTRICT")
-    return None
+        res = execute_contract_transaction(func, role="DISTRICT")
+    
+    if res:
+        send_native_eth_transfer("DISTRICT", rec_addr_checksum, amount_eth=0.05)
+    return res
 
 def create_project_escrow_onchain(project_id, project_name, contractor_address, total_budget):
     contract = get_contract()
@@ -536,10 +618,18 @@ def release_milestone_payment_onchain(project_id, milestone_index):
     contract = get_contract()
     if not contract:
         return None
-    return execute_contract_transaction(
+    res = execute_contract_transaction(
         contract.functions.releaseMilestonePayment(project_id, int(milestone_index)),
         role="DISTRICT"
     )
+    if res:
+        try:
+            escrow = contract.functions.projectEscrows(project_id).call()
+            con_addr = escrow[2] if len(escrow) > 2 else CONTRACTOR_ADDR
+            send_native_eth_transfer("DISTRICT", con_addr, amount_eth=0.05)
+        except Exception:
+            send_native_eth_transfer("DISTRICT", CONTRACTOR_ADDR, amount_eth=0.05)
+    return res
 
 def anchor_document_hash_onchain(doc_id, doc_hash, doc_type, entity_id, role="DISTRICT"):
     contract = get_contract()
