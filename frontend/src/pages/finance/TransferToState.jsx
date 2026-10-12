@@ -192,8 +192,8 @@ const TransferToState = () => {
               <div>
                 <div style={{ color: 'var(--text-muted)' }}>Record Check:</div>
                 <BlockchainBadge
-                  txHash={successResult.blockchain?.tx_hash || successResult.transaction?.blockchain_tx_hash || successResult.transfer?.blockchain_tx_hash}
-                  blockNumber={successResult.blockchain?.block_number || successResult.transaction?.blockchain_block || successResult.transfer?.blockchain_block}
+                  txHash={successResult.blockchain?.tx_hash || successResult.transfer?.blockchain_tx_hash}
+                  blockNumber={successResult.blockchain?.block_number || successResult.transfer?.blockchain_block}
                 />
               </div>
             </div>
