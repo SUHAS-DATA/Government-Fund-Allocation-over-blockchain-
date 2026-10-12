@@ -332,17 +332,43 @@ def get_private_key_for_role(role: str = "FINANCE") -> str:
     r = str(role or "FINANCE").strip().upper()
     
     if r in ["SUPER_ADMIN", "ADMIN"]:
-        key = os.getenv("ADMIN_PRIVATE_KEY") or os.getenv("FINANCE_PRIVATE_KEY") or os.getenv("BLOCKCHAIN_PRIVATE_KEY")
+        key = (
+            os.getenv("ADMIN_PRIVATE_KEY")
+            or os.getenv("SUPER_ADMIN_PRIVATE_KEY")
+            or os.getenv("FINANCE_PRIVATE_KEY")
+            or os.getenv("BLOCKCHAIN_PRIVATE_KEY")
+        )
     elif r == "FINANCE":
-        key = os.getenv("FINANCE_PRIVATE_KEY") or os.getenv("BLOCKCHAIN_PRIVATE_KEY")
+        key = (
+            os.getenv("FINANCE_PRIVATE_KEY")
+            or os.getenv("ADMIN_PRIVATE_KEY")
+            or os.getenv("SUPER_ADMIN_PRIVATE_KEY")
+            or os.getenv("BLOCKCHAIN_PRIVATE_KEY")
+        )
     elif r == "STATE":
-        key = os.getenv("STATE_PRIVATE_KEY") or os.getenv("FINANCE_PRIVATE_KEY") or os.getenv("BLOCKCHAIN_PRIVATE_KEY")
+        key = (
+            os.getenv("STATE_PRIVATE_KEY")
+            or os.getenv("FINANCE_PRIVATE_KEY")
+            or os.getenv("BLOCKCHAIN_PRIVATE_KEY")
+        )
     elif r == "DISTRICT":
-        key = os.getenv("DISTRICT_PRIVATE_KEY") or os.getenv("FINANCE_PRIVATE_KEY") or os.getenv("BLOCKCHAIN_PRIVATE_KEY")
+        key = (
+            os.getenv("DISTRICT_PRIVATE_KEY")
+            or os.getenv("FINANCE_PRIVATE_KEY")
+            or os.getenv("BLOCKCHAIN_PRIVATE_KEY")
+        )
     elif r == "CONTRACTOR":
-        key = os.getenv("CONTRACTOR_PRIVATE_KEY") or os.getenv("FINANCE_PRIVATE_KEY") or os.getenv("BLOCKCHAIN_PRIVATE_KEY")
+        key = (
+            os.getenv("CONTRACTOR_PRIVATE_KEY")
+            or os.getenv("FINANCE_PRIVATE_KEY")
+            or os.getenv("BLOCKCHAIN_PRIVATE_KEY")
+        )
     else:
-        key = os.getenv("FINANCE_PRIVATE_KEY") or os.getenv("BLOCKCHAIN_PRIVATE_KEY")
+        key = (
+            os.getenv("FINANCE_PRIVATE_KEY")
+            or os.getenv("ADMIN_PRIVATE_KEY")
+            or os.getenv("BLOCKCHAIN_PRIVATE_KEY")
+        )
         
     return key or PRIVATE_KEY
 
@@ -380,10 +406,30 @@ def execute_contract_transaction(func_call, role: str = "FINANCE", custom_privat
     the designated wallet private key for the specified administrative role.
     """
     fn_name = getattr(func_call, "fn_name", "ContractCall")
-    account = get_account(role=role, custom_private_key=custom_private_key)
+
+    if not w3.is_connected():
+        err_msg = (
+            f"Blockchain RPC node at '{RPC_URL}' is unreachable or disconnected. "
+            f"If deploying to cloud (Render), ensure a live public RPC URL or active tunnel is set in BLOCKCHAIN_RPC_URL."
+        )
+        bc_logger.error(f"[BLOCKCHAIN_TX_ERROR] Op={fn_name} | {err_msg}")
+        raise Exception(err_msg)
+
     pk = custom_private_key or get_private_key_for_role(role)
-    if not account or not pk or not w3.is_connected():
-        err_msg = f"Blockchain RPC not connected or private key missing for role: {role} (RPC: {RPC_URL})"
+    if not pk:
+        err_msg = (
+            f"Signing private key missing for role '{role}'. "
+            f"Please set {role}_PRIVATE_KEY or ADMIN_PRIVATE_KEY in your environment variables."
+        )
+        bc_logger.error(f"[BLOCKCHAIN_TX_ERROR] Op={fn_name} | {err_msg}")
+        raise Exception(err_msg)
+
+    account = get_account(role=role, custom_private_key=custom_private_key)
+    if not account:
+        err_msg = (
+            f"Invalid private key configured for role '{role}'. "
+            f"Unable to derive Ethereum wallet address."
+        )
         bc_logger.error(f"[BLOCKCHAIN_TX_ERROR] Op={fn_name} | {err_msg}")
         raise Exception(err_msg)
 
@@ -400,7 +446,7 @@ def execute_contract_transaction(func_call, role: str = "FINANCE", custom_privat
         try:
             chain_id = w3.eth.chain_id
         except Exception:
-            chain_id = int(os.getenv("CHAIN_ID", 5777))
+            chain_id = int(os.getenv("CHAIN_ID", 1337))
 
         try:
             gas_price = w3.eth.gas_price or w3.to_wei(20, 'gwei')

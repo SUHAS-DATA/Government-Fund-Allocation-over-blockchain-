@@ -21,7 +21,13 @@ services:
       - key: CONTRACT_ADDRESS
         sync: false
       - key: CHAIN_ID
-        value: 5777
+        value: 1337
+      - key: ADMIN_PRIVATE_KEY
+        sync: false
+      - key: SUPER_ADMIN_PRIVATE_KEY
+        sync: false
+      - key: BLOCKCHAIN_PRIVATE_KEY
+        sync: false
       - key: FINANCE_PRIVATE_KEY
         sync: false
       - key: STATE_PRIVATE_KEY
