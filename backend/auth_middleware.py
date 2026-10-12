@@ -83,8 +83,9 @@ def require_roles(allowed_roles):
         allowed_roles = [allowed_roles]
 
     async def role_checker(current_user: dict = Depends(get_current_user)) -> dict:
-        user_role = current_user.get("role")
-        if user_role not in allowed_roles and user_role != "SUPER_ADMIN":
+        user_role = str(current_user.get("role", "")).strip().upper()
+        allowed_roles_upper = [str(r).strip().upper() for r in allowed_roles]
+        if user_role not in allowed_roles_upper and user_role != "SUPER_ADMIN":
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Access Denied. Role '{user_role}' is not authorized for this resource."

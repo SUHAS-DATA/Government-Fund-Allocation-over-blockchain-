@@ -42,8 +42,16 @@ const TransferToState = () => {
     API.get('/finance/received-budgets').then((res) => {
       if (res.success) {
         setBudgets(res.budgets || []);
-        if (!selectedAllocId && res.budgets?.length > 0) {
-          setSelectedAllocId(res.budgets[0].allocation_id);
+        if (res.budgets?.length > 0) {
+          const current = res.budgets.find((b) => b.allocation_id === selectedAllocId);
+          if (!current || (current.amount - (current.disbursed_amount || 0) <= 0)) {
+            const firstWithBal = res.budgets.find((b) => (b.amount - (b.disbursed_amount || 0)) > 0) || res.budgets[0];
+            setSelectedAllocId(firstWithBal.allocation_id);
+            const avail = firstWithBal.amount - (firstWithBal.disbursed_amount || 0);
+            if (avail > 0) {
+              setAmount(Math.min(avail, 10000000));
+            }
+          }
         }
       }
     });
@@ -86,6 +94,15 @@ const TransferToState = () => {
 
   const activeBudget = budgets.find((b) => b.allocation_id === selectedAllocId);
   const availableBalance = activeBudget ? (activeBudget.amount - (activeBudget.disbursed_amount || 0)) : 0;
+
+  useEffect(() => {
+    if (activeBudget) {
+      const avail = activeBudget.amount - (activeBudget.disbursed_amount || 0);
+      if (avail > 0 && (amount <= 0 || amount > avail)) {
+        setAmount(Math.min(avail, 10000000));
+      }
+    }
+  }, [selectedAllocId, activeBudget]);
 
   const handleTransfer = async (e) => {
     e.preventDefault();

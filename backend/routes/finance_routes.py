@@ -208,12 +208,21 @@ async def approve_and_transfer(
                     })
 
         tx_receipt = bcs.record_state_transfer_onchain(trf_id, alloc_id, state_name, amount, receiver_address=to_state)
-        if tx_receipt:
+        if tx_receipt and tx_receipt.get("tx_hash"):
             tx_hash = tx_receipt["tx_hash"]
             block_num = tx_receipt["block_number"]
             from_fin = tx_receipt.get("from_address", from_fin)
+        else:
+            raise Exception("Blockchain transaction failed to return a valid transaction hash.")
     except Exception as e:
-        print(f"Warning executing state transfer on blockchain: {e}")
+        print(f"Error executing state transfer on blockchain: {e}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "success": False,
+                "message": f"Blockchain Transaction Failed: {str(e)}. Funds were not disbursed."
+            }
+        )
 
     # 2. Record Transfer in MongoDB
     now_utc = datetime.now(timezone.utc)

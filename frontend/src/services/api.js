@@ -21,12 +21,8 @@ export const getApiBaseUrl = () => {
   }
 
   if (typeof window !== 'undefined' && window.location.hostname) {
-    const host = window.location.hostname;
-    // If accessing from another machine on LAN (e.g. 192.168.x.x, 10.x.x.x, etc.)
-    if (host !== 'localhost' && host !== '127.0.0.1') {
-      const proto = window.location.protocol === 'https:' ? 'https:' : 'http:';
-      return `${proto}//${host}:5000/api`;
-    }
+    const proto = window.location.protocol === 'https:' ? 'https:' : 'http:';
+    return `${proto}//${window.location.hostname}:5000/api`;
   }
 
   return 'http://127.0.0.1:5000/api';
