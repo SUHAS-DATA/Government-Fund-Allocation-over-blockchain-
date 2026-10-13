@@ -21,17 +21,10 @@ export const getApiBaseUrl = () => {
     }
   }
 
-  // If running locally in browser on laptop without explicit override, use local backend
-  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-    return 'http://127.0.0.1:5000/api';
-  }
-
-  // Deployed default (Vercel cloud)
-  if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
-  }
-
-  return 'https://government-fund-allocation-over.onrender.com/api';
+  // Fixed single backend across all environments (including deployed Vercel link):
+  // Directly targets local FastAPI backend connected to local Ganache (Chain ID 1337)
+  // so every transaction executes on Ganache without having to choose or switch.
+  return 'http://127.0.0.1:5000/api';
 };
 
 export const getApiConnectionDetails = () => {
