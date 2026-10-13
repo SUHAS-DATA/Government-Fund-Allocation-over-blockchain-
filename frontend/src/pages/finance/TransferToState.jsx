@@ -1,7 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { Send, ShieldCheck, CheckCircle2, AlertCircle, Landmark, ArrowRight, Eye } from 'lucide-react';
-import API from '../../services/api';
+import {
+  Send,
+  ShieldCheck,
+  CheckCircle2,
+  AlertCircle,
+  Landmark,
+  ArrowRight,
+  Eye,
+  Laptop,
+  Cloud,
+  Settings2,
+  RefreshCw
+} from 'lucide-react';
+import API, {
+  getApiConnectionDetails,
+  setApiHost,
+  DEFAULT_LOCAL_BACKEND,
+  DEFAULT_CLOUD_BACKEND
+} from '../../services/api';
+import ApiConnectionModal from '../../components/ApiConnectionModal';
 import { formatCurrency } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
 import FundAmountInput from '../../components/FundAmountInput';
@@ -22,6 +40,9 @@ const TransferToState = () => {
     { code: 'RJ', name: 'Rajasthan' },
     { code: 'WB', name: 'West Bengal' }
   ];
+
+  const [connectionDetails, setConnectionDetails] = useState(getApiConnectionDetails());
+  const [showApiModal, setShowApiModal] = useState(false);
 
   const [budgets, setBudgets] = useState([]);
   const [states, setStates] = useState(DEFAULT_STATES);
@@ -80,6 +101,15 @@ const TransferToState = () => {
         // Keep DEFAULT_STATES
       });
     });
+  }, []);
+
+  useEffect(() => {
+    const handleHostChange = () => {
+      setConnectionDetails(getApiConnectionDetails());
+      loadBudgets();
+    };
+    window.addEventListener('govtfund_api_host_changed', handleHostChange);
+    return () => window.removeEventListener('govtfund_api_host_changed', handleHostChange);
   }, []);
 
   useEffect(() => {
@@ -145,6 +175,121 @@ const TransferToState = () => {
           <p className="page-subtitle">
             Send approved central budget funds directly to state government accounts with secure verification.
           </p>
+        </div>
+      </div>
+
+      {/* Blockchain Execution Target Banner */}
+      <div
+        style={{
+          borderRadius: '12px',
+          padding: '16px 20px',
+          marginBottom: '20px',
+          border: connectionDetails.isLocalTarget ? '1.5px solid #10B981' : '1.5px solid #0284C7',
+          backgroundColor: connectionDetails.isLocalTarget ? '#ECFDF5' : '#F0F9FF',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '10px'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div
+              style={{
+                width: '36px',
+                height: '36px',
+                borderRadius: '8px',
+                backgroundColor: connectionDetails.isLocalTarget ? '#D1FAE5' : '#E0F2FE',
+                color: connectionDetails.isLocalTarget ? '#059669' : '#0284C7',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              {connectionDetails.isLocalTarget ? <Laptop size={20} /> : <Cloud size={20} />}
+            </div>
+            <div>
+              <div style={{ fontSize: '11px', fontWeight: '800', color: connectionDetails.isLocalTarget ? '#065F46' : '#0369A1', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                BLOCKCHAIN EXECUTION TARGET
+              </div>
+              <div style={{ fontSize: '14px', fontWeight: '800', color: '#0F172A', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span>{connectionDetails.isLocalTarget ? 'Local Ganache Blockchain' : 'Cloud Deployed Backend'}</span>
+                <span
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: '700',
+                    padding: '1px 8px',
+                    borderRadius: '10px',
+                    backgroundColor: connectionDetails.isLocalTarget ? '#10B981' : '#0284C7',
+                    color: '#FFFFFF'
+                  }}
+                >
+                  {connectionDetails.isLocalTarget ? 'Chain ID: 1337' : 'Render Cloud'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {!connectionDetails.isLocalTarget && (
+              <button
+                type="button"
+                onClick={() => {
+                  setApiHost(DEFAULT_LOCAL_BACKEND);
+                  setConnectionDetails(getApiConnectionDetails());
+                  loadBudgets();
+                }}
+                style={{
+                  background: '#059669',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '6px 12px',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
+                <Laptop size={14} />
+                <span>Switch to Local Ganache Backend</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowApiModal(true)}
+              style={{
+                background: '#FFFFFF',
+                color: '#334155',
+                border: '1px solid #CBD5E1',
+                borderRadius: '6px',
+                padding: '6px 12px',
+                fontSize: '12px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+            >
+              <Settings2 size={14} />
+              <span>Configure Connection</span>
+            </button>
+          </div>
+        </div>
+
+        <div style={{ fontSize: '12px', color: connectionDetails.isLocalTarget ? '#047857' : '#0369A1', lineHeight: '1.4' }}>
+          {connectionDetails.isLocalTarget ? (
+            <span>
+              Targeting API: <code>{connectionDetails.currentBaseUrl}</code>. Transactions are signed locally and verified on Ganache contract <code>0x7A259d42d1F6e24cfF76aDDF89eEBDAC195E1c20</code>.
+            </span>
+          ) : (
+            <span>
+              Targeting API: <code>{connectionDetails.currentBaseUrl}</code>. To execute transactions directly on your local Ganache without cloud tunnels, click <strong>"Switch to Local Ganache Backend"</strong> above.
+            </span>
+          )}
         </div>
       </div>
 
@@ -381,6 +526,12 @@ const TransferToState = () => {
         onClose={() => setShowDetailsModal(false)}
         transaction={successResult?.transaction || successResult?.transfer}
         autoVerify={true}
+      />
+
+      {/* API & Blockchain Network Connection Modal */}
+      <ApiConnectionModal
+        isOpen={showApiModal}
+        onClose={() => setShowApiModal(false)}
       />
     </div>
   );

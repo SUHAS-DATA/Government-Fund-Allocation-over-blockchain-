@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';
 import API from '../services/api';
 import RoleAccessModal from './RoleAccessModal';
+import ApiConnectionModal, { ApiConnectionPill } from './ApiConnectionModal';
 import { getActivePortal, PORTAL_DETAILS } from '../config/portalConfig';
 import { LiveSyncIndicator } from '../context/RealtimeContext';
 
@@ -15,6 +16,7 @@ const Navbar = ({ onToggleSidebar }) => {
   const [financialYears, setFinancialYears] = useState([]);
   const [showFyDropdown, setShowFyDropdown] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
+  const [showApiModal, setShowApiModal] = useState(false);
   const [activatingYear, setActivatingYear] = useState(null);
   const fyDropdownRef = useRef(null);
   const location = useLocation();
@@ -298,6 +300,8 @@ const Navbar = ({ onToggleSidebar }) => {
 
               <LiveSyncIndicator />
 
+              <ApiConnectionPill onOpenModal={() => setShowApiModal(true)} />
+
               <span className="role-pill">
                 {user.role?.replace(/_/g, ' ')}
               </span>
@@ -322,6 +326,10 @@ const Navbar = ({ onToggleSidebar }) => {
                 <span>Exit</span>
               </button>
             </>
+          )}
+
+          {!user && (
+            <ApiConnectionPill onOpenModal={() => setShowApiModal(true)} />
           )}
 
           {/* Top-Right 3-Line Hamburger Menu Button to Access All Roles in Columns (Only if no specific VITE_PORTAL deployment is active) */}
@@ -361,6 +369,9 @@ const Navbar = ({ onToggleSidebar }) => {
               <RoleAccessModal isOpen={showRoleModal} onClose={() => setShowRoleModal(false)} />
             </>
           )}
+
+          {/* API & Blockchain Network Connection Modal */}
+          <ApiConnectionModal isOpen={showApiModal} onClose={() => setShowApiModal(false)} />
         </div>
       </header>
     </>

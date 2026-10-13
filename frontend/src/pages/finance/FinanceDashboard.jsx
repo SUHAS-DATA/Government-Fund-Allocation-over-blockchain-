@@ -38,6 +38,7 @@ import FinanceHistory from './FinanceHistory';
 import BlockchainExplorer from '../../components/BlockchainExplorer';
 import NotificationsPage from '../common/NotificationsPage';
 import ProfilePage from '../common/ProfilePage';
+import ApiConnectionModal, { ApiConnectionPill } from '../../components/ApiConnectionModal';
 
 /**
  * Animated Number Counter Hook & Component
@@ -99,6 +100,7 @@ const FinanceDashboard = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [schemesList, setSchemesList] = useState([]);
+  const [showApiModal, setShowApiModal] = useState(false);
 
   const setTab = (t) => {
     setSearchParams(t === 'overview' ? {} : { tab: t });
@@ -362,9 +364,12 @@ const FinanceDashboard = () => {
           <>
             {/* Top Meta Bar: Operational Status & Officer Session */}
             <div className="super-admin-top-meta">
-              <div className="super-admin-status-pill">
-                <span className="live-pulse-dot" />
-                <span>Finance System Online • Payment Operations</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <div className="super-admin-status-pill">
+                  <span className="live-pulse-dot" />
+                  <span>Finance System Online • Payment Operations</span>
+                </div>
+                <ApiConnectionPill onOpenModal={() => setShowApiModal(true)} />
               </div>
 
               <div className="super-admin-user-pill">
@@ -733,14 +738,14 @@ const FinanceDashboard = () => {
                 </div>
               </div>
 
-              {/* CARD 8: Settings */}
+              {/* CARD 8: API & Blockchain Connection */}
               <div
                 className="super-admin-operation-card card-border-navy"
-                onClick={() => setTab('settings')}
+                onClick={() => setShowApiModal(true)}
                 id="fin-card-settings"
               >
                 <div className="card-top-row">
-                  <span className="card-category-heading">SETTINGS</span>
+                  <span className="card-category-heading">API & NETWORK SETTINGS</span>
                   <div className="card-mono-icon-container icon-box-navy">
                     <Settings size={22} />
                   </div>
@@ -748,16 +753,16 @@ const FinanceDashboard = () => {
 
                 <div className="card-content-body">
                   <div className="card-large-title">
-                    Account Settings
+                    API & Blockchain Target
                   </div>
                   <div className="card-description-text">
-                    Finance officer details, secure login & account credentials
+                    Configure local Ganache connection, test backend ping & verify on-chain contracts
                   </div>
                 </div>
 
                 <div className="card-bottom-row">
                   <div className="card-action-link">
-                    <span>Configure Profile</span>
+                    <span>Configure Connection</span>
                     <ArrowRight size={14} className="action-arrow" />
                   </div>
                 </div>
@@ -865,6 +870,8 @@ const FinanceDashboard = () => {
           </>
         )}
 
+        {/* API & Blockchain Network Connection Modal */}
+        <ApiConnectionModal isOpen={showApiModal} onClose={() => setShowApiModal(false)} />
       </div>
     </div>
   );

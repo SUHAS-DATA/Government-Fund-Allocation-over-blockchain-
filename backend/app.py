@@ -95,6 +95,7 @@ async def cors_and_security_middleware(request: Request, call_next):
             "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
             "Access-Control-Allow-Headers": request.headers.get("access-control-request-headers") or "*",
             "Access-Control-Max-Age": "86400",
+            "Access-Control-Allow-Private-Network": "true",
         }
         if origin:
             preflight_headers["Access-Control-Allow-Origin"] = origin
@@ -124,6 +125,7 @@ async def cors_and_security_middleware(request: Request, call_next):
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
         response.headers["Access-Control-Allow-Headers"] = "*"
 
+    response.headers["Access-Control-Allow-Private-Network"] = "true"
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
 
@@ -229,6 +231,7 @@ def _cors_headers(request: Request) -> dict:
     headers = {
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, PATCH, OPTIONS",
         "Access-Control-Allow-Headers": "*",
+        "Access-Control-Allow-Private-Network": "true",
     }
     if origin:
         headers["Access-Control-Allow-Origin"] = origin

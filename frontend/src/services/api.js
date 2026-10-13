@@ -1,36 +1,137 @@
 import axios from 'axios';
 
+export const DEFAULT_LOCAL_BACKEND = 'http://127.0.0.1:5000';
+export const DEFAULT_CLOUD_BACKEND = import.meta.env.VITE_API_URL
+  ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
+  : 'https://government-fund-allocation-over.onrender.com';
+
 /**
  * Intelligent Dynamic API URL resolver
  * Automatically supports:
- * - Production cloud / Vercel with VITE_API_URL
- * - Localhost single laptop
- * - Multiple laptops / PCs on local Wi-Fi / LAN (resolves to host machine hostname automatically)
+ * - Production cloud / Vercel default with VITE_API_URL
+ * - Localhost single laptop default
  * - Custom overrides via localStorage ('govtfund_api_host')
  */
 export const getApiBaseUrl = () => {
-  // If running locally in browser, always direct requests to local FastAPI on port 5000
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('govtfund_api_host');
+    if (saved && saved.trim()) {
+      const clean = saved.trim().replace(/\/+$/, '');
+      return clean.endsWith('/api') ? clean : `${clean}/api`;
+    }
+  }
+
+  // If running locally in browser on laptop without explicit override, use local backend
   if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
     return 'http://127.0.0.1:5000/api';
   }
 
-  if (typeof window !== 'undefined') {
-    const saved = localStorage.getItem('govtfund_api_host');
-    if (saved) {
-      return saved.endsWith('/api') ? saved : `${saved}/api`;
-    }
-  }
-
+  // Deployed default (Vercel cloud)
   if (import.meta.env.VITE_API_URL) {
     return import.meta.env.VITE_API_URL;
   }
 
-  if (typeof window !== 'undefined' && window.location.hostname) {
-    const proto = window.location.protocol === 'https:' ? 'https:' : 'http:';
-    return `${proto}//${window.location.hostname}:5000/api`;
+  return 'https://government-fund-allocation-over.onrender.com/api';
+};
+
+export const getApiConnectionDetails = () => {
+  const currentBase = getApiBaseUrl();
+  const saved = typeof window !== 'undefined' ? localStorage.getItem('govtfund_api_host') : null;
+  const isLocalHost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+  let mode = 'CLOUD';
+  if (saved && saved.trim()) {
+    if (saved.includes('127.0.0.1:5000') || saved.includes('localhost:5000')) {
+      mode = 'LOCAL';
+    } else if (saved.includes('onrender.com')) {
+      mode = 'CLOUD';
+    } else {
+      mode = 'CUSTOM';
+    }
+  } else {
+    mode = isLocalHost ? 'LOCAL' : 'CLOUD';
   }
 
-  return 'http://127.0.0.1:5000/api';
+  return {
+    currentBaseUrl: currentBase,
+    currentHost: currentBase.replace(/\/api\/?$/, ''),
+    mode,
+    isLocalTarget: currentBase.includes('127.0.0.1') || currentBase.includes('localhost'),
+    hasCustomOverride: Boolean(saved && saved.trim()),
+    defaultCloudUrl: DEFAULT_CLOUD_BACKEND,
+    defaultLocalUrl: DEFAULT_LOCAL_BACKEND,
+  };
+};
+
+export const setApiHost = (host) => {
+  if (typeof window === 'undefined') return;
+  if (!host || !host.trim()) {
+    localStorage.removeItem('govtfund_api_host');
+  } else {
+    const clean = host.trim().replace(/\/+$/, '');
+    localStorage.setItem('govtfund_api_host', clean);
+  }
+  window.dispatchEvent(new CustomEvent('govtfund_api_host_changed', { detail: { host } }));
+};
+
+export const resetApiHost = () => {
+  setApiHost(null);
+};
+
+export const testBackendHealth = async (targetHost = null) => {
+  const host = (targetHost || getApiConnectionDetails().currentHost).replace(/\/+$/, '');
+  const url = `${host}/api/health`;
+  const startTime = Date.now();
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 7000);
+
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    const latency = Date.now() - startTime;
+    if (!res.ok) {
+      return {
+        success: false,
+        latency,
+        status: res.status,
+        error: `Server returned HTTP ${res.status}: ${res.statusText}`,
+      };
+    }
+
+    const data = await res.json();
+    return {
+      success: true,
+      latency,
+      status: res.status,
+      data,
+    };
+  } catch (err) {
+    const latency = Date.now() - startTime;
+    let hint = '';
+
+    if (err.name === 'AbortError') {
+      hint = 'Connection timed out after 7s. Please verify the backend process is running.';
+    } else if (typeof window !== 'undefined' && window.location.protocol === 'https:' && (host.startsWith('http://127.0.0.1') || host.startsWith('http://localhost'))) {
+      hint = 'Browser security (Private Network Access / Mixed Content): If your browser blocks HTTPS to local HTTP, please ensure your local backend is running, or click the site settings lock icon in the address bar to permit local network requests.';
+    } else if (err.message && err.message.toLowerCase().includes('failed to fetch')) {
+      hint = 'Connection failed. Verify that "python app.py" is running on port 5000 on your computer.';
+    }
+
+    return {
+      success: false,
+      latency,
+      error: err.message || 'Connection failed',
+      hint,
+    };
+  }
 };
 
 export const getWsUrl = () => {
