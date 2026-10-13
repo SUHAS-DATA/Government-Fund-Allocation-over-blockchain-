@@ -643,38 +643,6 @@ const ProjectsManagement = () => {
             </select>
           </div>
 
-          {/* Real-Time District Scheme Fund Pool Card */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: '8px',
-            padding: '12px',
-            backgroundColor: 'var(--bg-subtle)',
-            border: '1px solid var(--border-color)',
-            borderRadius: 'var(--radius-sm)',
-            marginBottom: '14px'
-          }}>
-            <div>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>State Sanction</div>
-              <div style={{ fontSize: '13px', fontWeight: '800', color: 'var(--color-primary)' }}>
-                {formatCurrency(currentSchemeData.total_received)}
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: '700', textTransform: 'uppercase' }}>Committed</div>
-              <div style={{ fontSize: '13px', fontWeight: '800', color: 'var(--color-warning)' }}>
-                {formatCurrency(currentSchemeData.committed_budget)}
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: '10px', color: currentSchemeData.available_balance > 0 ? 'var(--color-success)' : 'var(--color-danger)', fontWeight: '700', textTransform: 'uppercase' }}>
-                District Available
-              </div>
-              <div style={{ fontSize: '13px', fontWeight: '800', color: currentSchemeData.available_balance > 0 ? 'var(--color-success)' : 'var(--color-danger)' }}>
-                {formatCurrency(currentSchemeData.available_balance)}
-              </div>
-            </div>
-          </div>
 
           {/* Warning Banner if No Balance */}
           {currentSchemeData.available_balance <= 0 && (

@@ -978,8 +978,11 @@
 }
 
 /* ==========================================================================
-   Super Admin & Finance Hub Dark Theme Overrides
+   Super Admin, State, District, Finance & Contractor Control Hubs
+   Complete Dark Theme & Light Theme Architecture
    ========================================================================== */
+
+/* Dark Theme Overrides */
 [data-theme="dark"] .super-admin-root-layout,
 body.dark-theme .super-admin-root-layout {
   background-color: #0B1120;
@@ -1003,10 +1006,35 @@ body.dark-theme .super-admin-sub-title {
 [data-theme="dark"] .super-admin-status-pill,
 body.dark-theme .super-admin-status-pill,
 [data-theme="dark"] .super-admin-fy-pill,
-body.dark-theme .super-admin-fy-pill {
+body.dark-theme .super-admin-fy-pill,
+[data-theme="dark"] .gov-official-badge,
+body.dark-theme .gov-official-badge {
   background-color: #131C31;
   border-color: #24324D;
   color: #34D399;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .super-admin-top-meta-bar,
+body.dark-theme .super-admin-top-meta-bar {
+  border-bottom-color: #24324D;
+}
+
+[data-theme="dark"] .super-admin-badge-left,
+body.dark-theme .super-admin-badge-left {
+  color: #94A3B8;
+}
+
+[data-theme="dark"] .live-network-text,
+body.dark-theme .live-network-text {
+  color: #34D399;
+}
+
+[data-theme="dark"] .super-admin-jurisdiction-pill,
+body.dark-theme .super-admin-jurisdiction-pill {
+  background-color: #131C31;
+  border-color: #24324D;
+  color: #F8FAFC;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
@@ -1014,11 +1042,29 @@ body.dark-theme .super-admin-fy-pill {
 body.dark-theme .super-admin-user-pill {
   background-color: #131C31;
   border-color: #24324D;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
 [data-theme="dark"] .super-admin-user-name,
 body.dark-theme .super-admin-user-name {
   color: #F8FAFC;
+}
+
+[data-theme="dark"] .super-admin-logout-btn,
+body.dark-theme .super-admin-logout-btn {
+  color: #94A3B8;
+}
+
+[data-theme="dark"] .super-admin-logout-btn:hover,
+body.dark-theme .super-admin-logout-btn:hover {
+  color: #EF4444;
+  background-color: rgba(239, 68, 68, 0.15);
+}
+
+[data-theme="dark"] .header-green-divider,
+body.dark-theme .header-green-divider {
+  background-color: #10B981;
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
 }
 
 [data-theme="dark"] .super-admin-financial-overview-panel,
@@ -1031,6 +1077,7 @@ body.dark-theme .super-admin-financial-overview-panel {
 [data-theme="dark"] .fin-overview-column,
 body.dark-theme .fin-overview-column {
   border-right-color: #24324D;
+  border-bottom-color: #24324D;
 }
 
 [data-theme="dark"] .fin-overview-top-label,
@@ -1043,6 +1090,16 @@ body.dark-theme .section-eyebrow-heading {
 [data-theme="dark"] .fin-overview-value,
 body.dark-theme .fin-overview-value {
   color: #F8FAFC;
+}
+
+[data-theme="dark"] .fin-overview-value.highlight-green,
+body.dark-theme .fin-overview-value.highlight-green {
+  color: #34D399;
+}
+
+[data-theme="dark"] .fin-overview-subtext,
+body.dark-theme .fin-overview-subtext {
+  color: #94A3B8;
 }
 
 [data-theme="dark"] .super-admin-operation-card,
@@ -1059,6 +1116,11 @@ body.dark-theme .super-admin-operation-card:hover {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
+[data-theme="dark"] .card-category-heading,
+body.dark-theme .card-category-heading {
+  color: #94A3B8;
+}
+
 [data-theme="dark"] .card-large-title,
 body.dark-theme .card-large-title {
   color: #F8FAFC;
@@ -1069,6 +1131,94 @@ body.dark-theme .card-description-text {
   color: #94A3B8;
 }
 
+[data-theme="dark"] .card-bottom-row,
+body.dark-theme .card-bottom-row {
+  border-top-color: #1E293B;
+}
+
+[data-theme="dark"] .card-action-link,
+body.dark-theme .card-action-link {
+  color: #38BDF8;
+}
+
+[data-theme="dark"] .super-admin-operation-card:hover .card-action-link,
+body.dark-theme .super-admin-operation-card:hover .card-action-link {
+  color: #34D399;
+}
+
+/* Feature & Process Sections */
+[data-theme="dark"] .super-admin-section-container,
+body.dark-theme .super-admin-section-container {
+  background: #131C31;
+  border-color: #24324D;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .section-container-header,
+body.dark-theme .section-container-header {
+  border-bottom-color: #1E293B;
+}
+
+[data-theme="dark"] .section-container-title,
+body.dark-theme .section-container-title {
+  color: #34D399;
+}
+
+[data-theme="dark"] .fund-flow-circle,
+body.dark-theme .fund-flow-circle {
+  background-color: #1A243B;
+  border-color: #10B981;
+  color: #34D399;
+}
+
+[data-theme="dark"] .fund-flow-node:hover .fund-flow-circle,
+body.dark-theme .fund-flow-node:hover .fund-flow-circle {
+  background-color: #10B981;
+  color: #0B1120;
+}
+
+[data-theme="dark"] .fund-flow-node-title,
+body.dark-theme .fund-flow-node-title {
+  color: #F8FAFC;
+}
+
+[data-theme="dark"] .fund-flow-node-desc,
+body.dark-theme .fund-flow-node-desc {
+  color: #94A3B8;
+}
+
+[data-theme="dark"] .fund-flow-connector,
+body.dark-theme .fund-flow-connector {
+  background-color: #10B981;
+}
+
+[data-theme="dark"] .fund-flow-connector::after,
+body.dark-theme .fund-flow-connector::after {
+  color: #10B981;
+}
+
+[data-theme="dark"] .activity-timeline-item,
+body.dark-theme .activity-timeline-item {
+  border-bottom-color: #1E293B;
+}
+
+[data-theme="dark"] .activity-time-pill,
+body.dark-theme .activity-time-pill {
+  background-color: #1A243B;
+  color: #94A3B8;
+}
+
+[data-theme="dark"] .activity-title-text,
+body.dark-theme .activity-title-text {
+  color: #F8FAFC;
+}
+
+[data-theme="dark"] .activity-detail-text,
+body.dark-theme .activity-detail-text {
+  color: #94A3B8;
+}
+
+/* Icon Box Tint Overrides */
 [data-theme="dark"] .icon-box-navy,
 body.dark-theme .icon-box-navy {
   background-color: #1E293B;
@@ -1099,6 +1249,25 @@ body.dark-theme .icon-box-teal {
   color: #2DD4BF;
 }
 
+[data-theme="dark"] .icon-box-purple,
+body.dark-theme .icon-box-purple {
+  background-color: rgba(124, 58, 237, 0.15);
+  color: #A78BFA;
+}
+
+[data-theme="dark"] .icon-box-red,
+body.dark-theme .icon-box-red {
+  background-color: rgba(220, 38, 38, 0.15);
+  color: #F87171;
+}
+
+[data-theme="dark"] .icon-box-orange,
+body.dark-theme .icon-box-orange {
+  background-color: rgba(234, 88, 12, 0.15);
+  color: #FB923C;
+}
+
+/* Sub-Module Navigation & Workflow Steps */
 [data-theme="dark"] .super-admin-module-bar,
 body.dark-theme .super-admin-module-bar {
   background-color: #131C31;
@@ -1107,21 +1276,56 @@ body.dark-theme .super-admin-module-bar {
 
 [data-theme="dark"] .super-admin-back-btn,
 body.dark-theme .super-admin-back-btn {
-  background-color: #1E293B;
+  background-color: #1A243B;
   border-color: #334155;
   color: #F8FAFC;
 }
 
+[data-theme="dark"] .super-admin-back-btn:hover,
+body.dark-theme .super-admin-back-btn:hover {
+  background-color: #24324D;
+  border-color: #3B4D71;
+  color: #34D399;
+}
+
+[data-theme="dark"] .super-admin-module-crumb,
+body.dark-theme .super-admin-module-crumb {
+  color: #94A3B8;
+}
+
 [data-theme="dark"] .super-admin-module-name-tag,
 body.dark-theme .super-admin-module-name-tag {
+  background-color: #1A243B;
+  color: #F8FAFC;
+}
+
+[data-theme="dark"] .gov-workflow-card,
+body.dark-theme .gov-workflow-card {
+  background: #131C31;
+  border-color: #24324D;
+}
+
+[data-theme="dark"] .gov-workflow-header,
+body.dark-theme .gov-workflow-header {
+  border-bottom-color: #1E293B;
+}
+
+[data-theme="dark"] .gov-workflow-title,
+body.dark-theme .gov-workflow-title {
   color: #F8FAFC;
 }
 
 [data-theme="dark"] .gov-workflow-step,
 body.dark-theme .gov-workflow-step {
-  background: #131C31;
+  background: #1A243B;
   border-color: #24324D;
   color: #F8FAFC;
+}
+
+[data-theme="dark"] .gov-workflow-step-num,
+body.dark-theme .gov-workflow-step-num {
+  background: #24324D;
+  color: #CBD5E1;
 }
 
 [data-theme="dark"] .gov-workflow-step.active,
@@ -1130,3 +1334,47 @@ body.dark-theme .gov-workflow-step.active {
   border-color: rgba(16, 185, 129, 0.4);
   color: #34D399;
 }
+
+[data-theme="dark"] .gov-workflow-step.active .gov-workflow-step-num,
+body.dark-theme .gov-workflow-step.active .gov-workflow-step-num {
+  background: #10B981;
+  color: #0B1120;
+}
+
+[data-theme="dark"] .dominant-progress-track,
+body.dark-theme .dominant-progress-track {
+  background-color: #1E293B;
+}
+
+[data-theme="dark"] .dominant-progress-meta,
+body.dark-theme .dominant-progress-meta {
+  color: #94A3B8;
+}
+
+[data-theme="dark"] .card-feature-pill,
+body.dark-theme .card-feature-pill {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #34D399;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+[data-theme="dark"] .card-gold-badge,
+body.dark-theme .card-gold-badge {
+  background-color: rgba(217, 154, 0, 0.15);
+  color: #FBBF24;
+  border-color: rgba(217, 154, 0, 0.35);
+}
+
+/* Sub-Module Content Card & Inputs Fallback */
+[data-theme="dark"] .super-admin-module-content .card,
+[data-theme="dark"] .super-admin-submodule-wrapper .card {
+  background-color: #131C31 !important;
+  border-color: #24324D !important;
+  color: #F8FAFC !important;
+}
+
+[data-theme="dark"] .super-admin-module-content .card-title,
+[data-theme="dark"] .super-admin-submodule-wrapper .card-title {
+  color: #F8FAFC !important;
+}
+

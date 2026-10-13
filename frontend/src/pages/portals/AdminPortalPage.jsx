@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import PortalNavHeader from '../../components/PortalNavHeader';
+import ThemeToggle from '../../components/ThemeToggle';
 
 const ADMIN_ROLES = [
   {
@@ -102,6 +103,11 @@ const AdminPortalPage = () => {
 
   return (
     <div style={{ maxWidth: '800px', margin: '30px auto', padding: '0 20px' }}>
+      {/* Top Header with Theme Switcher */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '14px' }}>
+        <ThemeToggle showLabel={true} />
+      </div>
+
       {/* Portal Header */}
       <div style={{ textAlign: 'center', marginBottom: '24px' }}>
         <div style={{
@@ -144,7 +150,7 @@ const AdminPortalPage = () => {
                 borderRadius: 'var(--radius-md)',
                 border: isSelected ? `2px solid ${r.accentColor}` : '1px solid var(--border-color)',
                 borderTop: `4px solid ${r.accentColor}`,
-                background: isSelected ? r.lightBg : '#FFFFFF',
+                background: isSelected ? r.lightBg : 'var(--bg-surface)',
                 boxShadow: isSelected ? 'var(--shadow-sm)' : 'var(--shadow-xs)',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
@@ -159,7 +165,7 @@ const AdminPortalPage = () => {
                     width: '36px',
                     height: '36px',
                     borderRadius: 'var(--radius-xs)',
-                    backgroundColor: isSelected ? r.accentColor : '#F1F5F9',
+                    backgroundColor: isSelected ? r.accentColor : 'var(--bg-subtle)',
                     color: isSelected ? '#FFFFFF' : r.accentColor,
                     display: 'flex',
                     alignItems: 'center',
@@ -171,7 +177,7 @@ const AdminPortalPage = () => {
                     fontSize: '10px',
                     fontWeight: '700',
                     color: r.accentColor,
-                    backgroundColor: '#FFFFFF',
+                    backgroundColor: 'var(--bg-surface)',
                     padding: '2px 6px',
                     borderRadius: '4px',
                     border: '1px solid var(--border-color)'
@@ -230,7 +236,7 @@ const AdminPortalPage = () => {
           borderRadius: 'var(--radius-md)',
           borderTop: `4px solid ${activeRole.accentColor}`,
           boxShadow: 'var(--shadow-md)',
-          backgroundColor: '#FFFFFF'
+          backgroundColor: 'var(--bg-surface)'
         }}
       >
         <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

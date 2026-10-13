@@ -32,6 +32,7 @@ import { getAllStates, getDistrictsByState } from '../../config/statesDistrictsD
 import PublicProjects from '../public/PublicProjects';
 import PublicExplorer from '../public/PublicExplorer';
 import GrievancePortal from '../public/GrievancePortal';
+import ThemeToggle from '../../components/ThemeToggle';
 import '../admin/SuperAdminHub.css';
 
 /**
@@ -228,10 +229,13 @@ const PublicPortalPage = () => {
                 <span>← Back to Public Portal</span>
               </button>
 
-              <div className="super-admin-module-title-box">
-                <span className="super-admin-module-crumb">Public Portal</span>
-                <span style={{ color: '#CBD5E1' }}>/</span>
-                <span className="super-admin-module-name-tag">{getModuleTitle(activeTab)}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <ThemeToggle />
+                <div className="super-admin-module-title-box">
+                  <span className="super-admin-module-crumb">Public Portal</span>
+                  <span style={{ color: '#CBD5E1' }}>/</span>
+                  <span className="super-admin-module-name-tag">{getModuleTitle(activeTab)}</span>
+                </div>
               </div>
             </div>
 
@@ -418,6 +422,7 @@ const PublicPortalPage = () => {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <ThemeToggle />
                 <button
                   type="button"
                   onClick={() => setShowQrModal(true)}

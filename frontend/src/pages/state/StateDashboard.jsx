@@ -41,6 +41,7 @@ import StateHistory from './StateHistory';
 import BlockchainExplorer from '../../components/BlockchainExplorer';
 import NotificationsPage from '../common/NotificationsPage';
 import StateContractorVerification from './StateContractorVerification';
+import ThemeToggle from '../../components/ThemeToggle';
 
 /**
  * Animated Number Counter Hook & Component
@@ -196,10 +197,13 @@ const StateDashboard = () => {
                 <span>← Back to State Hub</span>
               </button>
 
-              <div className="super-admin-module-title-box">
-                <span className="super-admin-module-crumb">State Hub</span>
-                <span style={{ color: '#CBD5E1' }}>/</span>
-                <span className="super-admin-module-name-tag">{getModuleTitle(activeTab)}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <ThemeToggle />
+                <div className="super-admin-module-title-box">
+                  <span className="super-admin-module-crumb">State Hub</span>
+                  <span style={{ color: '#CBD5E1' }}>/</span>
+                  <span className="super-admin-module-name-tag">{getModuleTitle(activeTab)}</span>
+                </div>
               </div>
             </div>
 
@@ -403,6 +407,8 @@ const StateDashboard = () => {
                     STATE GOVERNMENT
                   </span>
                 </div>
+
+                <ThemeToggle />
 
                 <div className="super-admin-user-pill">
                   <span className="super-admin-user-name">

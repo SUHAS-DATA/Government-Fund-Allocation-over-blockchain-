@@ -19,6 +19,7 @@ import {
 import API from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import PortalNavHeader from '../../components/PortalNavHeader';
+import ThemeToggle from '../../components/ThemeToggle';
 
 const INDIAN_STATES = [
   { code: 'KA', name: 'Karnataka' },
@@ -181,6 +182,11 @@ const ContractorPortalPage = () => {
 
   return (
     <div style={{ maxWidth: '800px', margin: '30px auto', padding: '0 20px' }}>
+      {/* Top Header with Theme Switcher */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '14px' }}>
+        <ThemeToggle showLabel={true} />
+      </div>
+
       {/* Portal Header */}
       <div style={{ textAlign: 'center', marginBottom: '24px' }}>
         <div style={{
@@ -215,7 +221,7 @@ const ContractorPortalPage = () => {
         borderRadius: 'var(--radius-md)',
         border: '1px solid var(--border-color)',
         borderTop: '4px solid #EA580C',
-        background: '#FFFFFF',
+        background: 'var(--bg-surface)',
         boxShadow: 'var(--shadow-xs)',
         marginBottom: '20px',
         display: 'flex',
@@ -280,7 +286,7 @@ const ContractorPortalPage = () => {
         style={{
           borderRadius: 'var(--radius-md)',
           boxShadow: 'var(--shadow-md)',
-          backgroundColor: '#FFFFFF',
+          backgroundColor: 'var(--bg-surface)',
           overflow: 'hidden'
         }}
       >
@@ -289,7 +295,7 @@ const ContractorPortalPage = () => {
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
           borderBottom: '1px solid var(--border-color)',
-          background: '#F8FAFC'
+          background: 'var(--bg-subtle)'
         }}>
           <button
             type="button"
@@ -298,7 +304,7 @@ const ContractorPortalPage = () => {
               padding: '14px 20px',
               border: 'none',
               borderBottom: activeTab === 'login' ? '3px solid #EA580C' : '3px solid transparent',
-              background: activeTab === 'login' ? '#FFFFFF' : 'transparent',
+              background: activeTab === 'login' ? 'var(--bg-surface)' : 'transparent',
               color: activeTab === 'login' ? '#EA580C' : 'var(--text-secondary)',
               fontWeight: activeTab === 'login' ? '800' : '600',
               fontSize: '13px',
@@ -321,7 +327,7 @@ const ContractorPortalPage = () => {
               padding: '14px 20px',
               border: 'none',
               borderBottom: activeTab === 'register' ? '3px solid #EA580C' : '3px solid transparent',
-              background: activeTab === 'register' ? '#FFFFFF' : 'transparent',
+              background: activeTab === 'register' ? 'var(--bg-surface)' : 'transparent',
               color: activeTab === 'register' ? '#EA580C' : 'var(--text-secondary)',
               fontWeight: activeTab === 'register' ? '800' : '600',
               fontSize: '13px',

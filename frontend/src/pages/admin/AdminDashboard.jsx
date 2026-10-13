@@ -38,6 +38,7 @@ import StatesDistricts from './StatesDistricts';
 import BlockchainExplorer from '../../components/BlockchainExplorer';
 import ProjectsManagement from '../district/ProjectsManagement';
 import NotificationsPage from '../common/NotificationsPage';
+import ThemeToggle from '../../components/ThemeToggle';
 
 /**
  * Animated Number Counter Hook & Component
@@ -259,10 +260,13 @@ const AdminDashboard = () => {
                 <span>← Back to Super Admin</span>
               </button>
 
-              <div className="super-admin-module-title-box">
-                <span className="super-admin-module-crumb">Super Admin</span>
-                <span style={{ color: '#CBD5E1' }}>/</span>
-                <span className="super-admin-module-name-tag">{getModuleTitle(activeTab)}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <ThemeToggle />
+                <div className="super-admin-module-title-box">
+                  <span className="super-admin-module-crumb">Super Admin</span>
+                  <span style={{ color: '#CBD5E1' }}>/</span>
+                  <span className="super-admin-module-name-tag">{getModuleTitle(activeTab)}</span>
+                </div>
               </div>
             </div>
 
@@ -286,9 +290,12 @@ const AdminDashboard = () => {
           <>
             {/* Top Meta Bar: Operational Status & Officer Session */}
             <div className="super-admin-top-meta">
-              <div className="super-admin-status-pill">
-                <span className="live-pulse-dot" />
-                <span>System Operational</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <div className="super-admin-status-pill">
+                  <span className="live-pulse-dot" />
+                  <span>System Operational</span>
+                </div>
+                <ThemeToggle />
               </div>
 
               <div className="super-admin-user-pill">

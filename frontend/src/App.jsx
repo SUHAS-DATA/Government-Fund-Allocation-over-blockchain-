@@ -13,6 +13,7 @@ import PortalConfigError from './components/PortalConfigError';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import Footer from './components/Footer';
+import { FloatingThemeToggle } from './components/ThemeToggle';
 
 // Lightweight fallback spinner for route transitions
 const PageFallback = () => (
@@ -132,6 +133,7 @@ const PortalLayout = ({ children }) => {
   return (
     <div className="super-admin-portal-wrapper">
       {children}
+      <FloatingThemeToggle />
     </div>
   );
 };

@@ -40,6 +40,7 @@ import '../admin/SuperAdminHub.css';
 import ProjectsManagement from './ProjectsManagement';
 import ContractorKYCReview from './ContractorKYCReview';
 import GrievanceInbox from './GrievanceInbox';
+import ThemeToggle from '../../components/ThemeToggle';
 
 /**
  * Animated Number Counter Hook & Component
@@ -260,10 +261,13 @@ const DistrictDashboard = () => {
                 <span>← Back to District Hub</span>
               </button>
 
-              <div className="super-admin-module-title-box">
-                <span className="super-admin-module-crumb">District Hub</span>
-                <span style={{ color: '#CBD5E1' }}>/</span>
-                <span className="super-admin-module-name-tag">{getModuleTitle(activeTab)}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <ThemeToggle />
+                <div className="super-admin-module-title-box">
+                  <span className="super-admin-module-crumb">District Hub</span>
+                  <span style={{ color: '#CBD5E1' }}>/</span>
+                  <span className="super-admin-module-name-tag">{getModuleTitle(activeTab)}</span>
+                </div>
               </div>
             </div>
 
@@ -550,6 +554,8 @@ const DistrictDashboard = () => {
                     </span>
                   </div>
                 )}
+
+                <ThemeToggle />
 
                 <div className="super-admin-user-pill">
                   <span className="super-admin-user-name">
