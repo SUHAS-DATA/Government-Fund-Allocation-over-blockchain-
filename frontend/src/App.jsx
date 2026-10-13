@@ -1,5 +1,6 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { RealtimeProvider } from './context/RealtimeContext';
 import { NotificationProvider } from './context/NotificationContext';
@@ -129,11 +130,12 @@ function App() {
   }
 
   return (
-    <AuthProvider>
-      <RealtimeProvider>
-        <NotificationProvider>
-          <BrowserRouter>
-          <PortalLayout>
+    <ThemeProvider>
+      <AuthProvider>
+        <RealtimeProvider>
+          <NotificationProvider>
+            <BrowserRouter>
+            <PortalLayout>
             <Suspense fallback={<PageFallback />}>
               <Routes>
               {/* ========================================================= */}
@@ -289,6 +291,7 @@ function App() {
       </NotificationProvider>
     </RealtimeProvider>
   </AuthProvider>
+</ThemeProvider>
   );
 }
 

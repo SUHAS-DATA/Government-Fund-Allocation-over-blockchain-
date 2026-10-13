@@ -6,6 +6,7 @@ import { useNotifications } from '../context/NotificationContext';
 import API from '../services/api';
 import RoleAccessModal from './RoleAccessModal';
 import ApiConnectionModal, { ApiConnectionPill } from './ApiConnectionModal';
+import ThemeToggle from './ThemeToggle';
 import { getActivePortal, PORTAL_DETAILS } from '../config/portalConfig';
 import { LiveSyncIndicator } from '../context/RealtimeContext';
 
@@ -302,6 +303,8 @@ const Navbar = ({ onToggleSidebar }) => {
 
               <ApiConnectionPill onOpenModal={() => setShowApiModal(true)} />
 
+              <ThemeToggle />
+
               <span className="role-pill">
                 {user.role?.replace(/_/g, ' ')}
               </span>
@@ -329,7 +332,10 @@ const Navbar = ({ onToggleSidebar }) => {
           )}
 
           {!user && (
-            <ApiConnectionPill onOpenModal={() => setShowApiModal(true)} />
+            <>
+              <ApiConnectionPill onOpenModal={() => setShowApiModal(true)} />
+              <ThemeToggle />
+            </>
           )}
 
           {/* Top-Right 3-Line Hamburger Menu Button to Access All Roles in Columns (Only if no specific VITE_PORTAL deployment is active) */}

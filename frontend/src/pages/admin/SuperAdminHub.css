@@ -976,3 +976,157 @@
   font-weight: 800;
   font-size: 14px;
 }
+
+/* ==========================================================================
+   Super Admin & Finance Hub Dark Theme Overrides
+   ========================================================================== */
+[data-theme="dark"] .super-admin-root-layout,
+body.dark-theme .super-admin-root-layout {
+  background-color: #0B1120;
+  color: #F8FAFC;
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(16, 185, 129, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 10% 40%, rgba(37, 99, 235, 0.04) 0%, transparent 45%),
+    radial-gradient(circle at 90% 70%, rgba(217, 154, 0, 0.03) 0%, transparent 45%);
+}
+
+[data-theme="dark"] .super-admin-main-title,
+body.dark-theme .super-admin-main-title {
+  color: #F8FAFC;
+}
+
+[data-theme="dark"] .super-admin-sub-title,
+body.dark-theme .super-admin-sub-title {
+  color: #94A3B8;
+}
+
+[data-theme="dark"] .super-admin-status-pill,
+body.dark-theme .super-admin-status-pill,
+[data-theme="dark"] .super-admin-fy-pill,
+body.dark-theme .super-admin-fy-pill {
+  background-color: #131C31;
+  border-color: #24324D;
+  color: #34D399;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .super-admin-user-pill,
+body.dark-theme .super-admin-user-pill {
+  background-color: #131C31;
+  border-color: #24324D;
+}
+
+[data-theme="dark"] .super-admin-user-name,
+body.dark-theme .super-admin-user-name {
+  color: #F8FAFC;
+}
+
+[data-theme="dark"] .super-admin-financial-overview-panel,
+body.dark-theme .super-admin-financial-overview-panel {
+  background: #131C31;
+  border-color: #24324D;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .fin-overview-column,
+body.dark-theme .fin-overview-column {
+  border-right-color: #24324D;
+}
+
+[data-theme="dark"] .fin-overview-top-label,
+body.dark-theme .fin-overview-top-label,
+[data-theme="dark"] .section-eyebrow-heading,
+body.dark-theme .section-eyebrow-heading {
+  color: #94A3B8;
+}
+
+[data-theme="dark"] .fin-overview-value,
+body.dark-theme .fin-overview-value {
+  color: #F8FAFC;
+}
+
+[data-theme="dark"] .super-admin-operation-card,
+body.dark-theme .super-admin-operation-card {
+  background-color: #131C31;
+  border-color: #24324D;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .super-admin-operation-card:hover,
+body.dark-theme .super-admin-operation-card:hover {
+  background-color: #17243E;
+  border-color: #3B4D71;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .card-large-title,
+body.dark-theme .card-large-title {
+  color: #F8FAFC;
+}
+
+[data-theme="dark"] .card-description-text,
+body.dark-theme .card-description-text {
+  color: #94A3B8;
+}
+
+[data-theme="dark"] .icon-box-navy,
+body.dark-theme .icon-box-navy {
+  background-color: #1E293B;
+  color: #93C5FD;
+}
+
+[data-theme="dark"] .icon-box-green,
+body.dark-theme .icon-box-green {
+  background-color: rgba(16, 185, 129, 0.15);
+  color: #34D399;
+}
+
+[data-theme="dark"] .icon-box-blue,
+body.dark-theme .icon-box-blue {
+  background-color: rgba(37, 99, 235, 0.15);
+  color: #60A5FA;
+}
+
+[data-theme="dark"] .icon-box-gold,
+body.dark-theme .icon-box-gold {
+  background-color: rgba(217, 154, 0, 0.15);
+  color: #FBBF24;
+}
+
+[data-theme="dark"] .icon-box-teal,
+body.dark-theme .icon-box-teal {
+  background-color: rgba(13, 148, 136, 0.15);
+  color: #2DD4BF;
+}
+
+[data-theme="dark"] .super-admin-module-bar,
+body.dark-theme .super-admin-module-bar {
+  background-color: #131C31;
+  border-color: #24324D;
+}
+
+[data-theme="dark"] .super-admin-back-btn,
+body.dark-theme .super-admin-back-btn {
+  background-color: #1E293B;
+  border-color: #334155;
+  color: #F8FAFC;
+}
+
+[data-theme="dark"] .super-admin-module-name-tag,
+body.dark-theme .super-admin-module-name-tag {
+  color: #F8FAFC;
+}
+
+[data-theme="dark"] .gov-workflow-step,
+body.dark-theme .gov-workflow-step {
+  background: #131C31;
+  border-color: #24324D;
+  color: #F8FAFC;
+}
+
+[data-theme="dark"] .gov-workflow-step.active,
+body.dark-theme .gov-workflow-step.active {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #34D399;
+}

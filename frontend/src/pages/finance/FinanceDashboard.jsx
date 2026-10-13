@@ -39,6 +39,7 @@ import BlockchainExplorer from '../../components/BlockchainExplorer';
 import NotificationsPage from '../common/NotificationsPage';
 import ProfilePage from '../common/ProfilePage';
 import ApiConnectionModal, { ApiConnectionPill } from '../../components/ApiConnectionModal';
+import ThemeToggle from '../../components/ThemeToggle';
 
 /**
  * Animated Number Counter Hook & Component
@@ -370,6 +371,7 @@ const FinanceDashboard = () => {
                   <span>Finance System Online • Payment Operations</span>
                 </div>
                 <ApiConnectionPill onOpenModal={() => setShowApiModal(true)} />
+                <ThemeToggle />
               </div>
 
               <div className="super-admin-user-pill">
