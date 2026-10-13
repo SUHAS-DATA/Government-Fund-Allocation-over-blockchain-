@@ -37,43 +37,59 @@ const PageFallback = () => (
   </div>
 );
 
+// Safe lazy-loading with automatic retry for deployment asset version updates
+const lazyWithRetry = (componentImport) =>
+  lazy(async () => {
+    try {
+      return await componentImport();
+    } catch (error) {
+      const reloadKey = 'chunk_reloaded_' + window.location.pathname;
+      if (!sessionStorage.getItem(reloadKey)) {
+        sessionStorage.setItem(reloadKey, 'true');
+        window.location.reload();
+        return new Promise(() => {});
+      }
+      throw error;
+    }
+  });
+
 // 4 Dedicated Frontend Portal Entry Pages (Lazy Loaded)
-const AdminPortalPage = lazy(() => import('./pages/portals/AdminPortalPage'));
-const FieldPortalPage = lazy(() => import('./pages/portals/FieldPortalPage'));
-const ContractorPortalPage = lazy(() => import('./pages/portals/ContractorPortalPage'));
-const PublicPortalPage = lazy(() => import('./pages/portals/PublicPortalPage'));
+const AdminPortalPage = lazyWithRetry(() => import('./pages/portals/AdminPortalPage'));
+const FieldPortalPage = lazyWithRetry(() => import('./pages/portals/FieldPortalPage'));
+const ContractorPortalPage = lazyWithRetry(() => import('./pages/portals/ContractorPortalPage'));
+const PublicPortalPage = lazyWithRetry(() => import('./pages/portals/PublicPortalPage'));
 
 // Public Pages (Lazy Loaded)
-const PublicProjects = lazy(() => import('./pages/public/PublicProjects'));
-const PublicProjectDetail = lazy(() => import('./pages/public/PublicProjectDetail'));
-const PublicVerificationPage = lazy(() => import('./pages/public/PublicVerificationPage'));
-const PublicExplorer = lazy(() => import('./pages/public/PublicExplorer'));
-const GrievancePortal = lazy(() => import('./pages/public/GrievancePortal'));
-const GrievanceTrack = lazy(() => import('./pages/public/GrievanceTrack'));
-const HowItWorks = lazy(() => import('./pages/public/HowItWorks'));
+const PublicProjects = lazyWithRetry(() => import('./pages/public/PublicProjects'));
+const PublicProjectDetail = lazyWithRetry(() => import('./pages/public/PublicProjectDetail'));
+const PublicVerificationPage = lazyWithRetry(() => import('./pages/public/PublicVerificationPage'));
+const PublicExplorer = lazyWithRetry(() => import('./pages/public/PublicExplorer'));
+const GrievancePortal = lazyWithRetry(() => import('./pages/public/GrievancePortal'));
+const GrievanceTrack = lazyWithRetry(() => import('./pages/public/GrievanceTrack'));
+const HowItWorks = lazyWithRetry(() => import('./pages/public/HowItWorks'));
 
 // Admin Pages (Lazy Loaded)
-const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const AdminDashboard = lazyWithRetry(() => import('./pages/admin/AdminDashboard'));
 
 // Finance Pages (Lazy Loaded)
-const FinanceDashboard = lazy(() => import('./pages/finance/FinanceDashboard'));
+const FinanceDashboard = lazyWithRetry(() => import('./pages/finance/FinanceDashboard'));
 
 // State Pages (Lazy Loaded)
-const StateDashboard = lazy(() => import('./pages/state/StateDashboard'));
+const StateDashboard = lazyWithRetry(() => import('./pages/state/StateDashboard'));
 
 // Department / District Pages (Lazy Loaded)
-const DistrictDashboard = lazy(() => import('./pages/district/DistrictDashboard'));
-const DepartmentDashboard = lazy(() => import('./pages/department/DepartmentDashboard'));
+const DistrictDashboard = lazyWithRetry(() => import('./pages/district/DistrictDashboard'));
+const DepartmentDashboard = lazyWithRetry(() => import('./pages/department/DepartmentDashboard'));
 
 // Contractor Pages (Lazy Loaded)
-const ContractorDashboard = lazy(() => import('./pages/contractor/ContractorDashboard'));
-const ContractorKYC = lazy(() => import('./pages/contractor/ContractorKYC'));
-const MyProjects = lazy(() => import('./pages/contractor/MyProjects'));
-const MilestonePayments = lazy(() => import('./pages/contractor/MilestonePayments'));
+const ContractorDashboard = lazyWithRetry(() => import('./pages/contractor/ContractorDashboard'));
+const ContractorKYC = lazyWithRetry(() => import('./pages/contractor/ContractorKYC'));
+const MyProjects = lazyWithRetry(() => import('./pages/contractor/MyProjects'));
+const MilestonePayments = lazyWithRetry(() => import('./pages/contractor/MilestonePayments'));
 
 // Common Pages (Lazy Loaded)
-const ProfilePage = lazy(() => import('./pages/common/ProfilePage'));
-const NotificationsPage = lazy(() => import('./pages/common/NotificationsPage'));
+const ProfilePage = lazyWithRetry(() => import('./pages/common/ProfilePage'));
+const NotificationsPage = lazyWithRetry(() => import('./pages/common/NotificationsPage'));
 
 // Role Home Helper based on Active Portal
 const getRoleHome = (role, activePortal) => {
