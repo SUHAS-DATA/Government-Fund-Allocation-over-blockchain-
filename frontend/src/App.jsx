@@ -1,5 +1,5 @@
-import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import React, { Suspense, lazy } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { RealtimeProvider } from './context/RealtimeContext';
@@ -10,9 +10,6 @@ import { getActivePortal, PORTAL_TYPES } from './config/portalConfig';
 import PortalConfigError from './components/PortalConfigError';
 
 // Shared Components
-import Navbar from './components/Navbar';
-import Sidebar from './components/Sidebar';
-import Footer from './components/Footer';
 import { FloatingThemeToggle } from './components/ThemeToggle';
 
 // Lightweight fallback spinner for route transitions
@@ -117,19 +114,8 @@ const ProtectedRoute = ({ allowedRoles, activePortal, children }) => {
   return children;
 };
 
-// Portal Layout Wrapper with Responsive Drawer & Finance Theme Support
+// Portal Layout Wrapper with Centered Control Hub & Floating Theme Toggle
 const PortalLayout = ({ children }) => {
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
-  const { user } = useAuth();
-  const location = useLocation();
-
-  // Automatically dismiss mobile drawer upon navigation
-  useEffect(() => {
-    setMobileSidebarOpen(false);
-  }, [location.pathname]);
-
-  // All portals use the centered control hub layout: NO permanent sidebar, NO unnecessary top navigation
   return (
     <div className="super-admin-portal-wrapper">
       {children}
