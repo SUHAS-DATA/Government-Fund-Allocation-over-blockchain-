@@ -4,10 +4,11 @@ import random
 import string
 from datetime import datetime, timezone
 from typing import Optional
+from pymongo import ReturnDocument
 from fastapi import APIRouter, Request, Depends, status, Query
 from fastapi.responses import JSONResponse
 from bson import ObjectId
-from database import db, serialize_doc, compute_project_progress
+from database import db, serialize_doc, compute_project_progress, get_active_financial_year
 from auth_middleware import require_roles
 import blockchain_service as bcs
 import qr_service
@@ -53,15 +54,35 @@ def check_district_access(target_district, current_user):
 @router.get("/dashboard")
 async def dashboard(
     district: Optional[str] = Query(None),
+    fy: Optional[str] = Query(None),
     current_user: dict = Depends(require_roles(["DISTRICT"]))
 ):
     selected_dist = district
     user_role = current_user.get("role")
     user_dist = current_user.get("district_name")
-    user_state = current_user.get("state_code", "KA")
-    user_state_name = current_user.get("state_name", "Karnataka")
+    user_state = current_user.get("state_code")
+    user_state_name = current_user.get("state_name")
+
+    if not user_state and user_dist:
+        dist_record = db.districts.find_one({
+            "$or": [{"name": user_dist}, {"name": {"$regex": f"^{re.escape(user_dist)}$", "$options": "i"}}]
+        })
+        if dist_record:
+            user_state = dist_record.get("state_code", "KA")
+            user_state_name = dist_record.get("state_name", "Karnataka")
+        else:
+            user_state = "KA"
+            user_state_name = "Karnataka"
+    elif not user_state:
+        user_state = "KA"
+        user_state_name = "Karnataka"
 
     if user_role == "DISTRICT":
+        if not user_dist:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"success": False, "message": "Access Denied: No district assigned to officer profile."}
+            )
         if selected_dist and selected_dist.strip().lower() != user_dist.strip().lower():
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -74,30 +95,37 @@ async def dashboard(
     else:
         district_name = selected_dist or user_dist or "Belagavi"
 
-    state_districts = list(db.districts.find({"state_code": user_state}).sort("name", 1))
-    if not state_districts:
-        state_districts = list(db.districts.find().sort("name", 1))
+    target_fy = fy if (fy and fy != "ALL") else None
 
-    received_allocs = list(db.district_allocations.find({
+    # Strictly fetch districts of user's state
+    state_districts = list(db.districts.find({"state_code": user_state}).sort("name", 1))
+
+    da_query = {
         "$or": [
             {"district_name": district_name},
-            {"district_name": {"$regex": f"^{district_name}$", "$options": "i"}}
+            {"district_name": {"$regex": f"^{re.escape(district_name)}$", "$options": "i"}}
         ]
-    }).sort("created_at", -1))
+    }
+    if target_fy:
+        da_query["financial_year"] = target_fy
+    received_allocs = list(db.district_allocations.find(da_query).sort("created_at", -1))
     
     total_received = sum(a.get("amount", 0) for a in received_allocs)
 
-    projects = list(db.projects.find({
+    p_query = {
         "$or": [
             {"district_name": district_name},
-            {"district_name": {"$regex": f"^{district_name}$", "$options": "i"}}
+            {"district_name": {"$regex": f"^{re.escape(district_name)}$", "$options": "i"}}
         ]
-    }).sort("created_at", -1))
+    }
+    if target_fy:
+        p_query["financial_year"] = target_fy
+    projects = list(db.projects.find(p_query).sort("created_at", -1))
     
     total_released = sum(p.get("released_amount", 0) for p in projects)
-    pending_kyc = db.contractor_kyc.count_documents({"kyc_status": "UNDER_REVIEW"})
+    pending_kyc = db.contractor_kyc.count_documents({"state_code": user_state, "kyc_status": "UNDER_REVIEW"})
     open_grievances = db.complaints.count_documents({
-        "district_name": {"$regex": f"^{district_name}$", "$options": "i"},
+        "district_name": {"$regex": f"^{re.escape(district_name)}$", "$options": "i"},
         "status": {"$ne": "RESOLVED"}
     })
 
@@ -110,7 +138,9 @@ async def dashboard(
         "officer_name": current_user.get("name"),
         "is_locked_district": (user_role == "DISTRICT"),
         "available_districts": serialize_doc(state_districts),
+        "selected_financial_year": target_fy,
         "metrics": {
+            "selected_financial_year": target_fy,
             "total_funds_received": total_received,
             "total_projects_count": len(projects),
             "active_projects_count": len([p for p in projects if p.get("status") in ["IN_PROGRESS", "ASSIGNED", "ESCROW_FUNDED"]]),
@@ -125,15 +155,19 @@ async def dashboard(
 # --- Scheme Management (Step 1: Create & View Schemes) ---
 @router.get("/schemes")
 async def get_schemes(
-    current_user: dict = Depends(require_roles(["DISTRICT"]))
+    fy: Optional[str] = Query(None),
+    current_user: dict = Depends(require_roles(["DISTRICT", "SUPER_ADMIN"]))
 ):
-    sc_list = list(db.schemes.find().sort("name", 1))
+    sc_query = {}
+    if fy and fy != "ALL":
+        sc_query["financial_year"] = fy
+    sc_list = list(db.schemes.find(sc_query).sort("name", 1))
     return {"success": True, "schemes": serialize_doc(sc_list)}
 
 @router.post("/schemes", status_code=status.HTTP_201_CREATED)
 async def create_scheme(
     request: Request,
-    current_user: dict = Depends(require_roles(["DISTRICT"]))
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN"]))
 ):
     try:
         data = await request.json()
@@ -142,6 +176,7 @@ async def create_scheme(
 
     code = str(data.get("code", "")).strip().upper()
     name = str(data.get("name", "")).strip()
+    fy = str(data.get("financial_year", "")).strip()
     department = str(data.get("department", "Infrastructure & Public Works")).strip()
     allocated_budget = float(data.get("allocated_budget", 500000000.0))
     description = str(data.get("description", "")).strip()
@@ -152,9 +187,23 @@ async def create_scheme(
             content={"success": False, "message": "Scheme code and name are required"}
         )
 
+    if not fy:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Financial year association is required"}
+        )
+
+    fy_doc = db.financial_years.find_one({"year": fy})
+    if not fy_doc:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": f"Invalid financial year '{fy}'. Year not recognized."}
+        )
+
     scheme_doc = {
         "code": code,
         "name": name,
+        "financial_year": fy,
         "department": department,
         "allocated_budget": allocated_budget,
         "description": description or f"District development scheme {name}",
@@ -163,7 +212,7 @@ async def create_scheme(
         "created_at": datetime.now(timezone.utc)
     }
 
-    db.schemes.update_one({"code": code}, {"$set": scheme_doc}, upsert=True)
+    db.schemes.update_one({"code": code, "financial_year": fy}, {"$set": scheme_doc}, upsert=True)
 
     return {
         "success": True,
@@ -180,7 +229,8 @@ async def get_contractors(
     user_state_name = current_user.get("state_name") or ""
     is_admin = current_user.get("role") == "SUPER_ADMIN"
 
-    contractors = list(db.contractor_kyc.find().sort("created_at", -1))
+    kyc_filter = {} if is_admin else {"state_code": user_state}
+    contractors = list(db.contractor_kyc.find(kyc_filter).sort("created_at", -1))
     result = []
 
     for c in contractors:
@@ -213,7 +263,7 @@ async def get_contractors(
         c["kyc_documents"] = serialize_doc(docs)
 
         # STRICT STATE ISOLATION: Only include contractors matching the District Officer's state!
-        if is_admin or not user_state or c_state_code == user_state:
+        if is_admin or (user_state and c_state_code == user_state):
             result.append(c)
 
     return {
@@ -237,8 +287,32 @@ async def review_contractor_kyc(
     action = data.get("action", "APPROVED").upper()
     remarks = data.get("remarks", "All statutory credentials verified by District Development Officer.")
 
+    user_state = (current_user.get("state_code") or "").strip().upper()
+
+    # Find the contractor KYC record
+    query = {"$or": [{"user_id": str(user_id)}, {"contractor_id": str(user_id)}, {"email": str(user_id).lower()}]}
+    if ObjectId.is_valid(str(user_id)):
+        query["$or"].append({"_id": ObjectId(user_id)})
+    kyc = db.contractor_kyc.find_one(query)
+
+    if not kyc:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"success": False, "message": "Contractor KYC record not found"}
+        )
+
+    con_state = (kyc.get("state_code") or "").strip().upper()
+    if con_state and user_state and con_state != user_state and current_user.get("role") != "SUPER_ADMIN":
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={
+                "success": False,
+                "message": f"Unauthorized: Contractor belongs to state '{con_state}', outside your district jurisdiction state '{user_state}'."
+            }
+        )
+
     db.contractor_kyc.update_one(
-        {"user_id": user_id},
+        query,
         {"$set": {
             "kyc_status": action,
             "verification_remarks": remarks,
@@ -262,15 +336,35 @@ async def review_contractor_kyc(
 @router.get("/projects")
 async def get_projects(
     district: Optional[str] = Query(None),
+    fy: Optional[str] = Query(None),
     current_user: dict = Depends(require_roles(["DISTRICT"]))
 ):
     selected_dist = district
     user_role = current_user.get("role")
     user_dist = current_user.get("district_name")
-    user_state = current_user.get("state_code", "KA")
-    user_state_name = current_user.get("state_name", "Karnataka")
+    user_state = current_user.get("state_code")
+    user_state_name = current_user.get("state_name")
+
+    if not user_state and user_dist:
+        dist_record = db.districts.find_one({
+            "$or": [{"name": user_dist}, {"name": {"$regex": f"^{re.escape(user_dist)}$", "$options": "i"}}]
+        })
+        if dist_record:
+            user_state = dist_record.get("state_code", "KA")
+            user_state_name = dist_record.get("state_name", "Karnataka")
+        else:
+            user_state = "KA"
+            user_state_name = "Karnataka"
+    elif not user_state:
+        user_state = "KA"
+        user_state_name = "Karnataka"
 
     if user_role == "DISTRICT":
+        if not user_dist:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"success": False, "message": "Access Denied: No district assigned to officer profile."}
+            )
         if selected_dist and selected_dist.strip().lower() != user_dist.strip().lower():
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -286,21 +380,29 @@ async def get_projects(
     norm_dist = normalize_str(district_name)
     dist_regex = re.compile(r"^" + r"\s+".join(re.escape(w) for w in norm_dist.split()) + r"$", re.IGNORECASE) if norm_dist else re.compile(f"^{re.escape(district_name)}$", re.IGNORECASE)
 
-    # 1. All Projects in this District
-    proj_list = list(db.projects.find({
-        "$or": [
-            {"district_name": district_name},
-            {"district_name": {"$regex": dist_regex}}
-        ]
-    }).sort("created_at", -1))
+    target_fy = fy if (fy and fy != "ALL") else None
 
-    # 2. All Fund Allocations received by this District from State Treasury
-    received_allocs = list(db.district_allocations.find({
+    # 1. All Projects in this District isolated to financial year
+    p_filter = {
         "$or": [
             {"district_name": district_name},
             {"district_name": {"$regex": dist_regex}}
         ]
-    }).sort("created_at", -1))
+    }
+    if target_fy:
+        p_filter["financial_year"] = target_fy
+    proj_list = list(db.projects.find(p_filter).sort("created_at", -1))
+
+    # 2. All Fund Allocations received by this District from State Treasury in financial year
+    da_filter = {
+        "$or": [
+            {"district_name": district_name},
+            {"district_name": {"$regex": dist_regex}}
+        ]
+    }
+    if target_fy:
+        da_filter["financial_year"] = target_fy
+    received_allocs = list(db.district_allocations.find(da_filter).sort("created_at", -1))
 
     # 3. Calculate Scheme-Level Fund Balances & Availability
     schemes_dict = {}
@@ -399,6 +501,11 @@ async def create_project(
 
     req_district = data.get("district_name")
     if user_role == "DISTRICT":
+        if not user_dist:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"success": False, "message": "Access Denied: No district assigned to officer profile."}
+            )
         if req_district and req_district.strip().lower() != user_dist.strip().lower():
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -437,6 +544,17 @@ async def create_project(
             content={"success": False, "message": "Project total budget must be greater than 0"}
         )
 
+    fy = data.get("financial_year") or data.get("fy")
+    if fy:
+        valid_fy = db.financial_years.find_one({"year": fy})
+        if not valid_fy:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"success": False, "message": f"Invalid financial year: '{fy}'. Must be a registered financial year."}
+            )
+    else:
+        fy = get_active_financial_year()
+
     # Compile regexes with whitespace tolerance
     norm_dist = normalize_str(target_district)
     dist_regex = re.compile(r"^" + r"\s+".join(re.escape(w) for w in norm_dist.split()) + r"$", re.IGNORECASE) if norm_dist else re.compile(f"^{re.escape(target_district)}$", re.IGNORECASE)
@@ -444,7 +562,7 @@ async def create_project(
     norm_scheme = normalize_str(raw_scheme_name)
     scheme_regex = re.compile(r"^" + r"\s+".join(re.escape(w) for w in norm_scheme.split()) + r"$", re.IGNORECASE) if norm_scheme else re.compile(f"^{re.escape(raw_scheme_name)}$", re.IGNORECASE)
 
-    # 1. Check District Allocations received from State Treasury for this Scheme
+    # 1. Check District Allocations received from State Treasury for this Scheme in this Financial Year
     scheme_allocs = list(db.district_allocations.find({
         "$and": [
             {
@@ -458,12 +576,13 @@ async def create_project(
                     {"scheme_name": raw_scheme_name},
                     {"scheme_name": {"$regex": scheme_regex}}
                 ]
-            }
+            },
+            {"financial_year": fy}
         ]
     }))
     total_scheme_received = sum(float(a.get("amount", 0.0)) for a in scheme_allocs)
 
-    # 2. Check Existing Project Budgets for this District & Scheme
+    # 2. Check Existing Project Budgets for this District & Scheme in this Financial Year
     existing_projects = list(db.projects.find({
         "$and": [
             {
@@ -478,7 +597,8 @@ async def create_project(
                     {"scheme_name": {"$regex": scheme_regex}}
                 ]
             },
-            {"status": {"$nin": ["CANCELLED", "REJECTED"]}}
+            {"status": {"$nin": ["CANCELLED", "REJECTED"]}},
+            {"financial_year": fy}
         ]
     }))
     already_committed = sum(float(p.get("total_budget", 0.0)) for p in existing_projects)
@@ -492,7 +612,7 @@ async def create_project(
                 "success": False,
                 "message": (
                     f"Fund Allocation Error: No funds have been allocated by the State Treasury to {target_district} "
-                    f"district for scheme '{raw_scheme_name}'. Total received: ₹0. "
+                    f"district for scheme '{raw_scheme_name}' in FY {fy}. Total received: ₹0. "
                     f"Please allocate funds from State Treasury before creating projects under this scheme."
                 )
             }
@@ -505,7 +625,7 @@ async def create_project(
                 "success": False,
                 "message": (
                     f"Budget Exceeded: Requested contract budget ₹{total_budget:,.2f} exceeds available district fund "
-                    f"balance of ₹{available_scheme_balance:,.2f} for scheme '{raw_scheme_name}' in {target_district} "
+                    f"balance of ₹{available_scheme_balance:,.2f} for scheme '{raw_scheme_name}' in {target_district} for FY {fy} "
                     f"(Total Received: ₹{total_scheme_received:,.2f}, Already Committed: ₹{already_committed:,.2f})."
                 )
             }
@@ -531,6 +651,7 @@ async def create_project(
         "state_code": data.get("state_code", user_state),
         "state_name": user_state_name,
         "district_name": target_district,
+        "financial_year": fy,
         "total_budget": total_budget,
         "released_amount": 0.0,
         "progress_percentage": 0,
@@ -550,7 +671,7 @@ async def create_project(
 
     return {
         "success": True,
-        "message": f"Project {project_id} created successfully for {target_district} under '{raw_scheme_name}'",
+        "message": f"Project {project_id} created successfully for {target_district} under '{raw_scheme_name}' ({fy})",
         "project": serialize_doc(doc),
         "available_balance": available_scheme_balance - total_budget
     }
@@ -827,13 +948,49 @@ async def set_milestones(
             content={"success": False, "message": "At least one milestone is required"}
         )
 
+    # Safety: Cannot alter milestone schedule if funds have already been requested or disbursed
+    if float(proj.get("released_amount", 0.0)) > 0:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Cannot modify milestones: Funds have already been disbursed for this project."}
+        )
+
+    existing_funded = db.milestones.find_one({
+        "project_id": project_id,
+        "status": {"$in": ["FUNDS_TRANSFERRED", "COMPLETED", "FUND_REQUESTED"]}
+    })
+    if existing_funded:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Cannot modify milestones: One or more milestones are already in progress, requested, or funded."}
+        )
+
+    for idx, m in enumerate(milestones_data):
+        m_amt = float(m.get("amount", 0))
+        if m_amt <= 0:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"success": False, "message": f"Milestone #{idx + 1} amount must be greater than zero."}
+            )
+
     total_milestones_sum = sum(float(m.get("amount", 0)) for m in milestones_data)
-    if total_milestones_sum > proj.get("total_budget", 0):
+    total_proj_budget = float(proj.get("total_budget", 0))
+    if total_milestones_sum > total_proj_budget:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
             content={
                 "success": False,
-                "message": f"Sum of milestones (INR {total_milestones_sum:,.2f}) exceeds project budget ceiling (INR {proj.get('total_budget'):,.2f})"
+                "message": f"Sum of milestones (INR {total_milestones_sum:,.2f}) exceeds project budget ceiling (INR {total_proj_budget:,.2f})"
+            }
+        )
+
+    total_percentages = sum(float(m.get("progress_percentage", 0)) for m in milestones_data)
+    if total_percentages > 100:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "success": False,
+                "message": f"Sum of milestone progress percentages ({total_percentages:.1f}%) exceeds 100%."
             }
         )
 
@@ -935,8 +1092,58 @@ async def verify_phase_fund_request(
             "fund_rejection_reason": remarks
         }
 
+    # Duplicate Protection: Cannot approve if already transferred or completed
+    if phase.get("status") in ["FUNDS_TRANSFERRED", "COMPLETED"] or phase.get("phase_status") in ["FUNDS_TRANSFERRED", "COMPLETED"]:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": f"Funds have already been transferred for Phase #{milestone_index + 1}."}
+        )
+
     # Decision Node: APPROVE -> Step 10: Allocate Funds & Step 11: Transfer Funds to Contractor Bank Account
-    allocated_amount = phase.get("amount", 0.0)
+    allocated_amount = float(phase.get("amount", 0.0))
+    if allocated_amount <= 0:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": f"Phase #{milestone_index + 1} allocation amount must be greater than zero."}
+        )
+
+    # Idempotency Protection: Check header or request body
+    idempotency_key = request.headers.get("X-Idempotency-Key") or data.get("idempotency_key")
+    if idempotency_key:
+        existing_tx = db.financial_transactions.find_one({"idempotency_key": idempotency_key})
+        if existing_tx:
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "success": True,
+                    "message": f"Duplicate request acknowledged: Phase #{milestone_index + 1} fund disbursal already processed.",
+                    "transaction": serialize_doc(existing_tx),
+                    "is_duplicate": True
+                }
+            )
+
+    # Atomic Reservation: Conditionally reserve amount only if released_amount + allocated_amount <= total_budget
+    reserved_proj = db.projects.find_one_and_update(
+        {
+            "project_id": project_id,
+            "$expr": {"$lte": [{"$add": [{"$ifNull": ["$released_amount", 0.0]}, allocated_amount]}, "$total_budget"]}
+        },
+        {"$inc": {"released_amount": allocated_amount}},
+        return_document=ReturnDocument.AFTER
+    )
+
+    if not reserved_proj:
+        latest_p = db.projects.find_one({"project_id": project_id})
+        cur_rel = float(latest_p.get("released_amount", 0.0)) if latest_p else 0.0
+        tot_b = float(latest_p.get("total_budget", 0.0)) if latest_p else 0.0
+        rem_b = max(0.0, tot_b - cur_rel)
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "success": False,
+                "message": f"Insufficient available project budget. Phase #{milestone_index + 1} amount (INR {allocated_amount:,.2f}) exceeds remaining budget (INR {rem_b:,.2f})"
+            }
+        )
 
     # Resolve Authoritative Bank Accounts (Entity -> Account Mapping)
     source_account = bas.get_or_create_district_account(proj.get("district_name", "Belagavi"), proj.get("state_code", "KA"))
@@ -957,12 +1164,26 @@ async def verify_phase_fund_request(
 
     try:
         tx_receipt = bcs.release_milestone_payment_onchain(project_id, milestone_index)
-        if tx_receipt:
+        if tx_receipt and tx_receipt.get("tx_hash"):
             tx_hash = tx_receipt["tx_hash"]
             block_num = tx_receipt["block_number"]
             from_dist = tx_receipt.get("from_address", from_dist)
+        else:
+            raise Exception("Blockchain transaction failed to return a valid transaction hash.")
     except Exception as e:
-        print(f"Warning executing bank transfer transaction on blockchain: {e}")
+        print(f"Error executing bank transfer transaction on blockchain: {e}")
+        # Roll back reservation atomically
+        db.projects.update_one(
+            {"project_id": project_id},
+            {"$inc": {"released_amount": -allocated_amount}}
+        )
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "success": False,
+                "message": f"Blockchain Transaction Failed: {str(e)}. Funds were not disbursed."
+            }
+        )
 
     now_utc = datetime.now(timezone.utc)
     db.milestones.update_one(
@@ -1005,34 +1226,56 @@ async def verify_phase_fund_request(
         related_contract_id=proj.get("contract_id"),
         related_milestone_index=milestone_index,
         created_by=current_user["name"],
-        status="COMPLETED"
+        status="COMPLETED",
+        idempotency_key=idempotency_key
     )
 
-    # Record On-Chain Bank Transfer Ledger Entry
-    db.blockchain_transactions.insert_one({
-        "tx_hash": tx_hash or f"0x{os.urandom(32).hex()}",
-        "blockchainTxHash": tx_hash or f"0x{os.urandom(32).hex()}",
-        "block_number": block_num or 1000,
-        "operation_type": "PHASE_FUND_TRANSFER_TO_CONTRACTOR_BANK",
-        "entity_id": project_id,
-        "project_id": project_id,
-        "projectId": project_id,
-        "from_address": from_dist,
-        "senderAddress": from_dist,
-        "to_address": to_contractor,
-        "receiverAddress": to_contractor,
-        "from_entity": f"{proj.get('district_name')} District Development Agency",
-        "to_entity": f"{proj.get('contractor_name')} ({bank_acc.get('bank_name')} A/C: {bank_acc.get('masked_account_number')})",
-        "sender_department": f"{proj.get('district_name')} District Implementing Agency",
-        "senderDepartment": f"{proj.get('district_name')} District Implementing Agency",
-        "receiver_department": f"{proj.get('contractor_name')} (Contractor)",
-        "receiverDepartment": f"{proj.get('contractor_name')} (Contractor)",
-        "transfer_tier": "DISTRICT_ESCROW_TO_CONTRACTOR_BANK",
-        "flow_stage": f"4. Disbursal Phase #{milestone_index + 1}: District -> Contractor Bank Account",
-        "amount": allocated_amount,
-        "details": f"Phase #{milestone_index + 1} Allocated Funds Transferred to {proj.get('contractor_name')} Bank Account ({bank_acc.get('bank_name')} A/C: {bank_acc.get('masked_account_number')}, IFSC: {bank_acc.get('ifsc_code')})",
-        "timestamp": now_utc
-    })
+    try:
+        from audit_service import log_audit_event
+        log_audit_event(
+            event_type="CONTRACTOR_ADVANCE_PAYMENT_RELEASED",
+            actor=current_user,
+            target_id=f"{project_id}-MS-{milestone_index}",
+            target_type="MILESTONE_PAYMENT",
+            amount=allocated_amount,
+            action="RELEASE_PAYMENT",
+            status="SUCCESS",
+            details=f"Released Phase #{milestone_index + 1} advance payment of {allocated_amount} for project {project_id}",
+            blockchain_tx_hash=tx_hash,
+            blockchain_block=block_num,
+            financial_year=proj.get("financial_year"),
+            extra_data={"project_id": project_id, "milestone_index": milestone_index, "contractor_id": proj.get("contractor_id")}
+        )
+    except Exception:
+        pass
+
+    # Record Verified On-Chain Bank Transfer Ledger Entry
+
+    if tx_hash:
+        db.blockchain_transactions.insert_one({
+            "tx_hash": tx_hash,
+            "blockchainTxHash": tx_hash,
+            "block_number": block_num or 1000,
+            "operation_type": "PHASE_FUND_TRANSFER_TO_CONTRACTOR_BANK",
+            "entity_id": project_id,
+            "project_id": project_id,
+            "projectId": project_id,
+            "from_address": from_dist,
+            "senderAddress": from_dist,
+            "to_address": to_contractor,
+            "receiverAddress": to_contractor,
+            "from_entity": f"{proj.get('district_name')} District Development Agency",
+            "to_entity": f"{proj.get('contractor_name')} ({bank_acc.get('bank_name')} A/C: {bank_acc.get('masked_account_number')})",
+            "sender_department": f"{proj.get('district_name')} District Implementing Agency",
+            "senderDepartment": f"{proj.get('district_name')} District Implementing Agency",
+            "receiver_department": f"{proj.get('contractor_name')} (Contractor)",
+            "receiverDepartment": f"{proj.get('contractor_name')} (Contractor)",
+            "transfer_tier": "DISTRICT_ESCROW_TO_CONTRACTOR_BANK",
+            "flow_stage": f"4. Disbursal Phase #{milestone_index + 1}: District -> Contractor Bank Account",
+            "amount": allocated_amount,
+            "details": f"Phase #{milestone_index + 1} Allocated Funds Transferred to {proj.get('contractor_name')} Bank Account ({bank_acc.get('bank_name')} A/C: {bank_acc.get('masked_account_number')}, IFSC: {bank_acc.get('ifsc_code')})",
+            "timestamp": now_utc
+        })
 
     if proj.get("contractor_id"):
         db.notifications.insert_one({
@@ -1099,28 +1342,66 @@ async def transfer_to_contractor(
     if not ok:
         return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"success": False, "message": err})
 
-    # Find project if registered in MongoDB
+    # Find project in MongoDB - must exist
     proj = db.projects.find_one({"project_id": project_id})
-    if proj:
-        tot_budget = float(proj.get("total_budget", 0.0) or proj.get("allocated_budget", 0.0))
-        rel_amt = float(proj.get("released_amount", 0.0))
-        rem_budget = max(0.0, tot_budget - rel_amt)
-        if amount > rem_budget and tot_budget > 0:
+    if not proj:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"success": False, "message": f"Project record '{project_id}' not found"}
+        )
+
+    # Verify that the calling district officer is authorized for the target project's district
+    proj_dist = proj.get("district_name")
+    allowed, err_msg = check_district_access(proj_dist, current_user)
+    if not allowed:
+        return JSONResponse(status_code=status.HTTP_403_FORBIDDEN, content={"success": False, "message": err_msg})
+
+    # Idempotency Protection: Check header or request body
+    idempotency_key = request.headers.get("X-Idempotency-Key") or data.get("idempotency_key")
+    if idempotency_key:
+        existing_trf = db.contractor_transfers.find_one({"idempotency_key": idempotency_key})
+        if existing_trf:
             return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
+                status_code=status.HTTP_200_OK,
                 content={
-                    "success": False,
-                    "message": f"Insufficient available balance. Transfer amount (INR {amount:,.2f}) exceeds remaining project budget (INR {rem_budget:,.2f})"
+                    "success": True,
+                    "message": f"Duplicate request acknowledged: contractor transfer {existing_trf.get('transfer_id')} already processed.",
+                    "transfer": serialize_doc(existing_trf),
+                    "is_duplicate": True
                 }
             )
 
-        if proj.get("contractor_name"):
-            contractor_name = proj.get("contractor_name")
-        if not contractor_wallet:
-            contractor_wallet = proj.get("contractor_wallet")
+    # Atomic Reservation: Conditionally reserve amount only if released_amount + amount <= total_budget
+    reserved_proj = db.projects.find_one_and_update(
+        {
+            "project_id": project_id,
+            "$expr": {"$lte": [{"$add": [{"$ifNull": ["$released_amount", 0.0]}, amount]}, "$total_budget"]}
+        },
+        {"$inc": {"released_amount": amount}},
+        return_document=ReturnDocument.AFTER
+    )
+
+    if not reserved_proj:
+        latest_p = db.projects.find_one({"project_id": project_id})
+        cur_rel = float(latest_p.get("released_amount", 0.0)) if latest_p else 0.0
+        tot_b = float(latest_p.get("total_budget", 0.0)) if latest_p else 0.0
+        rem_budget = max(0.0, tot_b - cur_rel)
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "success": False,
+                "message": f"Insufficient available balance. Transfer amount (INR {amount:,.2f}) exceeds remaining project budget (INR {rem_budget:,.2f})"
+            }
+        )
+
+    if proj.get("contractor_name"):
+        contractor_name = proj.get("contractor_name")
+    if not contractor_wallet:
+        contractor_wallet = proj.get("contractor_wallet")
+    district_name = proj_dist or district_name
 
     # Resolve Authoritative Bank Accounts (Entity -> Account Mapping)
-    source_account = bas.get_or_create_district_account(district_name, proj.get("state_code", "KA") if proj else "KA")
+    source_account = bas.get_or_create_district_account(district_name, proj.get("state_code", "KA"))
     destination_account = bas.get_or_create_contractor_account(proj.get("contractor_id") if proj else contractor_name, contractor_name)
 
     rand_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
@@ -1140,16 +1421,31 @@ async def transfer_to_contractor(
             amount,
             receiver_address=to_contractor
         )
-        if tx_receipt:
+        if tx_receipt and tx_receipt.get("tx_hash"):
             tx_hash = tx_receipt["tx_hash"]
             block_num = tx_receipt["block_number"]
             from_dist = tx_receipt.get("from_address", from_dist)
+        else:
+            raise Exception("Blockchain transaction failed to return a valid transaction hash.")
     except Exception as e:
-        print(f"Warning executing contractor transfer on blockchain: {e}")
+        print(f"Error executing contractor transfer on blockchain: {e}")
+        # Roll back reservation atomically
+        db.projects.update_one(
+            {"project_id": project_id},
+            {"$inc": {"released_amount": -amount}}
+        )
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "success": False,
+                "message": f"Blockchain Transaction Failed: {str(e)}. Funds were not transferred."
+            }
+        )
 
     now_utc = datetime.now(timezone.utc)
     transfer_doc = {
         "transfer_id": transfer_id,
+        "idempotency_key": idempotency_key,
         "project_id": project_id,
         "projectId": project_id,
         "district_name": district_name,
@@ -1193,19 +1489,37 @@ async def transfer_to_contractor(
         related_project_id=project_id,
         related_contract_id=proj.get("contract_id") if proj else None,
         created_by=current_user["name"],
-        status="COMPLETED"
+        status="COMPLETED",
+        idempotency_key=idempotency_key
     )
 
-    if proj:
-        new_released = proj.get("released_amount", 0.0) + amount
-        db.projects.update_one(
-            {"project_id": project_id},
-            {"$set": {
-                "released_amount": new_released,
-                "last_disbursal_at": now_utc,
-                "last_tx_hash": tx_hash
-            }}
+    db.projects.update_one(
+        {"project_id": project_id},
+        {"$set": {
+            "last_disbursal_at": now_utc,
+            "last_tx_hash": tx_hash
+        }}
+    )
+
+    try:
+        from audit_service import log_audit_event
+        log_audit_event(
+            event_type="CONTRACTOR_DIRECT_TRANSFER_COMPLETED",
+            actor=current_user,
+            target_id=project_id,
+            target_type="PROJECT_DISBURSAL",
+            amount=amount,
+            action="TRANSFER_TO_CONTRACTOR",
+            status="SUCCESS",
+            details=f"District disbursed {amount} directly to contractor {contractor_name} for project {project_id}",
+            blockchain_tx_hash=tx_hash,
+            blockchain_block=block_num,
+            financial_year=proj.get("financial_year") if proj else None,
+            extra_data={"project_id": project_id, "contractor_name": contractor_name, "district_name": district_name}
         )
+    except Exception:
+        pass
+
 
     if tx_hash:
         db.blockchain_transactions.insert_one({
@@ -1446,7 +1760,9 @@ async def handle_milestone_verification(project_id: str, milestone_index: int, r
             }}
         )
 
-    new_released_total = proj.get("released_amount", 0.0) + milestone_amount
+    was_already_funded = (milestone.get("status") == "FUNDS_TRANSFERRED" or milestone.get("phase_status") == "FUNDS_TRANSFERRED")
+    cur_released = float(proj.get("released_amount", 0.0))
+    new_released_total = cur_released if was_already_funded else min(float(proj.get("total_budget", 0.0)), cur_released + milestone_amount)
     is_final_phase = (milestone_index >= 2)
     calc_prog = compute_project_progress(proj)
 
@@ -1633,6 +1949,11 @@ async def get_grievances(
     selected_dist = district
 
     if user_role == "DISTRICT":
+        if not user_dist:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"success": False, "message": "Access Denied: No district assigned to officer profile."}
+            )
         if selected_dist and selected_dist.strip().lower() != user_dist.strip().lower():
             return JSONResponse(
                 status_code=status.HTTP_403_FORBIDDEN,

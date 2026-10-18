@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Request, status, Query, Response
 from fastapi.responses import JSONResponse
-from database import db, serialize_doc, compute_project_progress
+from database import db, serialize_doc, compute_project_progress, get_active_financial_year
 import qr_service
 
 router = APIRouter()
@@ -16,20 +16,23 @@ def generate_complaint_id():
     return f"GRV-2026-{rand_suffix}"
 
 @router.get("/stats")
-async def get_public_stats():
+async def get_public_stats(fy: Optional[str] = Query(None)):
+    target_fy = fy or get_active_financial_year()
     budget_stats = list(db.budget_allocations.aggregate([
+        {"$match": {"financial_year": target_fy}},
         {"$group": {"_id": None, "total": {"$sum": "$amount"}, "disbursed": {"$sum": "$disbursed_amount"}}}
     ]))
     total_allocated = budget_stats[0]["total"] if budget_stats else 0.0
     total_disbursed = budget_stats[0]["disbursed"] if budget_stats else 0.0
 
-    projects_count = db.projects.count_documents({})
+    projects_count = db.projects.count_documents({"financial_year": target_fy})
     states_count = db.states.count_documents({})
-    schemes_count = db.schemes.count_documents({})
+    schemes_count = db.schemes.count_documents({"$or": [{"financial_year": target_fy}, {"financial_year": {"$exists": False}}]})
     tx_count = db.blockchain_transactions.count_documents({})
 
     return {
         "success": True,
+        "financial_year": target_fy,
         "stats": {
             "total_allocated_budget": total_allocated,
             "total_disbursed_funds": total_disbursed,
@@ -72,9 +75,10 @@ async def get_hierarchy():
     }
 
 @router.get("/schemes")
-async def get_public_schemes():
+async def get_public_schemes(fy: Optional[str] = Query(None)):
     try:
-        sc_list = list(db.schemes.find().sort("name", 1))
+        target_fy = fy or get_active_financial_year()
+        sc_list = list(db.schemes.find({"$or": [{"financial_year": target_fy}, {"financial_year": {"$exists": False}}]}).sort("name", 1))
 
         # If no schemes exist in database, return standard national flagship schemes fallback
         if not sc_list:
@@ -169,9 +173,14 @@ async def get_public_schemes():
             allocations = []
             if scheme_name:
                 allocations = list(db.budget_allocations.find({
-                    "$or": [
-                        {"scheme_name": scheme_name},
-                        {"scheme_name": {"$regex": f"^{re.escape(scheme_name.strip())}$", "$options": "i"}}
+                    "$and": [
+                        {
+                            "$or": [
+                                {"scheme_name": scheme_name},
+                                {"scheme_name": {"$regex": f"^{re.escape(scheme_name.strip())}$", "$options": "i"}}
+                            ]
+                        },
+                        {"financial_year": target_fy}
                     ]
                 }))
 
@@ -200,49 +209,94 @@ async def get_public_schemes():
 
 @router.get("/projects")
 async def get_public_projects(
+    fy: Optional[str] = Query(None),
     state: Optional[str] = Query(None),
     district: Optional[str] = Query(None),
     department: Optional[str] = Query(None),
     scheme: Optional[str] = Query(None),
     search: Optional[str] = Query(None)
 ):
-    query = {}
-    if district and district.strip():
+    and_clauses = []
+    if fy and fy.strip() and fy.strip() != "ALL":
+        and_clauses.append({"financial_year": fy.strip()})
+
+    has_state = bool(state and state.strip())
+    has_district = bool(district and district.strip())
+
+    if has_state and has_district:
+        s_val = state.strip()
+        st_upper = s_val.upper()
         d_name = district.strip()
-        query["$or"] = [
-            {"district_name": d_name},
-            {"district_name": {"$regex": f"^{d_name}$", "$options": "i"}}
-        ]
-    elif state and state.strip():
+        # Verify district belongs to state in registered districts
+        dist_match = db.districts.find_one({
+            "$and": [
+                {"$or": [{"state_code": st_upper}, {"state_name": s_val}, {"state_code": s_val}]},
+                {"$or": [{"name": d_name}, {"name": {"$regex": f"^{re.escape(d_name)}$", "$options": "i"}}]}
+            ]
+        })
+        if not dist_match:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"success": False, "message": f"Invalid hierarchy: District '{d_name}' does not belong to State '{s_val}'."}
+            )
+        and_clauses.append({
+            "$or": [
+                {"district_name": d_name},
+                {"district_name": {"$regex": f"^{re.escape(d_name)}$", "$options": "i"}}
+            ]
+        })
+    elif has_district:
+        d_name = district.strip()
+        and_clauses.append({
+            "$or": [
+                {"district_name": d_name},
+                {"district_name": {"$regex": f"^{re.escape(d_name)}$", "$options": "i"}}
+            ]
+        })
+    elif has_state:
         s_val = state.strip()
         st_upper = s_val.upper()
         st_districts = [d["name"] for d in db.districts.find({"$or": [{"state_code": st_upper}, {"state_name": s_val}]})]
-        query["$or"] = [
-            {"state_code": st_upper},
-            {"state_name": s_val},
-            {"district_name": {"$in": st_districts}}
-        ]
+        and_clauses.append({
+            "$or": [
+                {"state_code": st_upper},
+                {"state_name": s_val},
+                {"district_name": {"$in": st_districts}}
+            ]
+        })
 
     if department and department.strip():
-        query["department"] = department.strip()
+        and_clauses.append({"department": department.strip()})
     if scheme and scheme.strip():
-        query["scheme_name"] = scheme.strip()
+        and_clauses.append({"scheme_name": scheme.strip()})
     if search and search.strip():
         s_text = search.strip()
-        query["$or"] = [
-            {"name": {"$regex": s_text, "$options": "i"}},
-            {"project_id": {"$regex": s_text, "$options": "i"}},
-            {"description": {"$regex": s_text, "$options": "i"}}
-        ]
+        and_clauses.append({
+            "$or": [
+                {"name": {"$regex": s_text, "$options": "i"}},
+                {"project_id": {"$regex": s_text, "$options": "i"}},
+                {"description": {"$regex": s_text, "$options": "i"}}
+            ]
+        })
 
+    query = {"$and": and_clauses} if and_clauses else {}
     projects = list(db.projects.find(query).sort("created_at", -1))
+    sanitized_projects = []
     for p in projects:
         calc_prog = compute_project_progress(p)
         if p.get("progress_percentage") != calc_prog:
             p["progress_percentage"] = calc_prog
             db.projects.update_one({"project_id": p["project_id"]}, {"$set": {"progress_percentage": calc_prog}})
+        sanitized = dict(p)
+        for sensitive_field in [
+            "contractor_bank_account", "contractor_account_number", "contractor_ifsc",
+            "contractor_pan", "contractor_phone", "contractor_aadhaar",
+            "contractor_bank_name"
+        ]:
+            sanitized.pop(sensitive_field, None)
+        sanitized_projects.append(sanitized)
 
-    return {"success": True, "projects": serialize_doc(projects)}
+    return {"success": True, "projects": serialize_doc(sanitized_projects)}
 
 @router.get("/projects/{project_id}")
 async def get_public_project_detail(project_id: str):
@@ -266,9 +320,14 @@ async def get_public_project_detail(project_id: str):
     # Fetch QR code if exists
     qr_doc = db.qr_codes.find_one({"project_id": project_id})
 
-    # Sanitize sensitive data (ZERO leaks: no bank account, no IFSC)
+    # Sanitize sensitive data (ZERO leaks: no bank account, no IFSC, no PII)
     sanitized_proj = dict(proj)
-    sanitized_proj.pop("contractor_bank_account", None)
+    for sensitive_field in [
+        "contractor_bank_account", "contractor_account_number", "contractor_ifsc",
+        "contractor_pan", "contractor_phone", "contractor_aadhaar",
+        "contractor_bank_name"
+    ]:
+        sanitized_proj.pop(sensitive_field, None)
 
     return {
         "success": True,

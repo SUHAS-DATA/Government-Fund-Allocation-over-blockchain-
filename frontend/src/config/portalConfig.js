@@ -8,7 +8,8 @@ export const PORTAL_TYPES = {
   ADMIN: 'ADMIN',
   FIELD: 'FIELD',
   CONTRACTOR: 'CONTRACTOR',
-  PUBLIC: 'PUBLIC'
+  PUBLIC: 'PUBLIC',
+  AUDITOR: 'AUDITOR'
 };
 
 export const VALID_PORTALS = Object.values(PORTAL_TYPES);
@@ -38,6 +39,9 @@ export const getActivePortal = () => {
     }
     if (path.startsWith('/public') || path.startsWith('/how-it-works') || path.startsWith('/verify')) {
       return PORTAL_TYPES.PUBLIC;
+    }
+    if (path.startsWith('/auditor')) {
+      return PORTAL_TYPES.AUDITOR;
     }
     if (path.startsWith('/admin') || path.startsWith('/finance')) {
       return PORTAL_TYPES.ADMIN;
@@ -97,5 +101,14 @@ export const PORTAL_DETAILS = {
     allowedRoles: [],
     homePath: () => '/public',
     loginPath: '/public'
+  },
+  AUDITOR: {
+    id: 'AUDITOR',
+    title: 'CAG Auditor Portal',
+    badge: 'Auditor & Oversight',
+    description: 'Independent audit trail inspection, transaction verification, and fund reconciliation.',
+    allowedRoles: ['AUDITOR', 'SUPER_ADMIN'],
+    homePath: () => '/admin?tab=monitoring',
+    loginPath: '/'
   }
 };

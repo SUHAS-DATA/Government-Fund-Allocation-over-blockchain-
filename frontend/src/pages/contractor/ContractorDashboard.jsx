@@ -37,6 +37,8 @@ import { formatCurrency } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
 import { useAuth } from '../../context/AuthContext';
 import { useRealtimeSync } from '../../context/RealtimeContext';
+import { useFinancialYear } from '../../context/FinancialYearContext';
+import FinancialYearSelector from '../../components/FinancialYearSelector';
 import '../admin/SuperAdminHub.css';
 
 // Subcomponents for contractor operations
@@ -117,9 +119,12 @@ const ContractorDashboard = () => {
   });
   const [bidSubmitting, setBidSubmitting] = useState(false);
 
+  const { selectedFY } = useFinancialYear();
+
   const loadDashboard = (isSilent = false) => {
     if (!isSilent) setLoading(true);
-    API.get('/contractor/dashboard')
+    const fyParam = selectedFY ? `?fy=${selectedFY}` : '';
+    API.get(`/contractor/dashboard${fyParam}`)
       .then((res) => {
         if (res.success) {
           setData(res);
@@ -136,7 +141,7 @@ const ContractorDashboard = () => {
 
   useEffect(() => {
     loadDashboard(false);
-  }, []);
+  }, [selectedFY]);
 
   useRealtimeSync(loadDashboard, { interval: 20000 });
 
@@ -166,11 +171,11 @@ const ContractorDashboard = () => {
   const recentPayments = data?.recent_payments || [];
 
   // Financial calculations
-  const totalValue = metrics?.total_assigned_budget || 850000000; // ₹85 Cr
-  const totalDisbursed = metrics?.disbursed_to_contractor || 480000000; // ₹48 Cr
-  const pendingMilestones = metrics?.pending_payments || 370000000; // ₹37 Cr
-  const disbursedPct = totalValue > 0 ? Math.min(100, Math.round((totalDisbursed / totalValue) * 100)) : 56;
-  const activeProjectsCount = metrics?.active_projects_count || assignedProjects.length || 6;
+  const totalValue = metrics?.total_assigned_budget ?? 0;
+  const totalDisbursed = metrics?.disbursed_to_contractor ?? 0;
+  const pendingMilestones = metrics?.pending_payments ?? 0;
+  const disbursedPct = totalValue > 0 ? Math.min(100, Math.round((totalDisbursed / totalValue) * 100)) : 0;
+  const activeProjectsCount = metrics?.active_projects_count ?? assignedProjects.length;
 
   // 8 Dashboard Stats as per requirements:
   // - Available Projects
@@ -181,12 +186,12 @@ const ContractorDashboard = () => {
   // - Pending Milestones
   // - Payment Requests
   // - Payments Received
-  const availableProjectsCount = metrics?.available_projects_count || 8;
-  const submittedBidsCount = metrics?.submitted_bids_count || 4;
-  const activeContractsCount = metrics?.active_contracts_count || 3;
-  const avgProjectProgress = metrics?.avg_progress || 68;
-  const pendingMilestonesCount = metrics?.pending_milestones_count || 5;
-  const pendingPaymentRequestsCount = metrics?.pending_payment_requests || 2;
+  const availableProjectsCount = metrics?.available_projects_count ?? 0;
+  const submittedBidsCount = metrics?.submitted_bids_count ?? 0;
+  const activeContractsCount = metrics?.active_contracts_count ?? assignedProjects.length;
+  const avgProjectProgress = metrics?.avg_progress ?? 0;
+  const pendingMilestonesCount = metrics?.pending_milestones_count ?? 0;
+  const pendingPaymentRequestsCount = metrics?.pending_payment_requests ?? 0;
 
   // Submodule title resolver
   const getModuleTitle = (tab) => {
@@ -691,6 +696,7 @@ const ContractorDashboard = () => {
                   <span className="live-pulse-dot" />
                   <span>Contractor Portal Online • Payments Verified</span>
                 </div>
+                <FinancialYearSelector />
                 <ThemeToggle />
               </div>
 
@@ -732,7 +738,7 @@ const ContractorDashboard = () => {
 
               <div className="super-admin-fy-pill">
                 <Building2 size={13} color="#006B4F" />
-                <span>Authorized Public Works Concessionaire • FY 2026–27</span>
+                <span>Authorized Public Works Concessionaire • FY {selectedFY}</span>
               </div>
             </div>
 

@@ -4,10 +4,19 @@ pragma solidity ^0.8.20;
 /**
  * @title GovernmentFundTracking
  * @dev Multi-tier Government Fund Allocation, Smart Contract Escrow, Milestone Disbursals,
- * Off-chain Document Hash Anchoring, and Forensic Audit/Fund Freeze Registry.
+ * Off-chain Document Hash Anchoring, and Forensic Audit/Fund Freeze Registry with
+ * Role-Based Access Control (RBAC).
  */
 contract GovernmentFundTracking {
     address public superAdmin;
+
+    // --- Role Identifiers ---
+    bytes32 public constant SUPER_ADMIN_ROLE = keccak256("SUPER_ADMIN_ROLE");
+    bytes32 public constant FINANCE_ROLE     = keccak256("FINANCE_ROLE");
+    bytes32 public constant STATE_ROLE       = keccak256("STATE_ROLE");
+    bytes32 public constant DISTRICT_ROLE    = keccak256("DISTRICT_ROLE");
+    bytes32 public constant CONTRACTOR_ROLE  = keccak256("CONTRACTOR_ROLE");
+    bytes32 public constant AUDITOR_ROLE     = keccak256("AUDITOR_ROLE");
 
     // --- Structures ---
     struct BudgetAllocation {
@@ -94,6 +103,7 @@ contract GovernmentFundTracking {
     }
 
     // --- State Storage ---
+    mapping(bytes32 => mapping(address => bool)) public hasRole;
     mapping(string => BudgetAllocation) public budgetAllocations;
     mapping(string => StateTransfer) public stateTransfers;
     mapping(string => DistrictAllocation) public districtAllocations;
@@ -104,6 +114,8 @@ contract GovernmentFundTracking {
     mapping(string => FundTransferRecord) public fundTransferRecords;
 
     // --- Events ---
+    event RoleGranted(bytes32 indexed role, address indexed account, address indexed sender);
+    event RoleRevoked(bytes32 indexed role, address indexed account, address indexed sender);
     event CentralBudgetAllocated(string indexed allocationId, string schemeName, string departmentName, uint256 amount, uint256 timestamp);
     event FundsTransferredToState(string indexed transferId, string indexed allocationId, string stateName, uint256 amount, uint256 timestamp);
     event FundsAllocatedToDistrict(string indexed distAllocId, string indexed transferId, string districtName, uint256 amount, uint256 timestamp);
@@ -126,8 +138,85 @@ contract GovernmentFundTracking {
         uint256 timestamp
     );
 
+    // --- Modifiers ---
+    modifier onlyRole(bytes32 role) {
+        require(
+            msg.sender == superAdmin ||
+            hasRole[role][msg.sender] ||
+            hasRole[SUPER_ADMIN_ROLE][msg.sender],
+            "AccessControl: caller is not authorized for this role"
+        );
+        _;
+    }
+
+    modifier onlySuperAdmin() {
+        require(
+            msg.sender == superAdmin || hasRole[SUPER_ADMIN_ROLE][msg.sender],
+            "AccessControl: caller is not superAdmin"
+        );
+        _;
+    }
+
     constructor() {
         superAdmin = msg.sender;
+        hasRole[SUPER_ADMIN_ROLE][msg.sender] = true;
+        hasRole[FINANCE_ROLE][msg.sender]     = true;
+        hasRole[STATE_ROLE][msg.sender]       = true;
+        hasRole[DISTRICT_ROLE][msg.sender]    = true;
+        hasRole[CONTRACTOR_ROLE][msg.sender]  = true;
+        hasRole[AUDITOR_ROLE][msg.sender]     = true;
+        emit RoleGranted(SUPER_ADMIN_ROLE, msg.sender, msg.sender);
+    }
+
+    // --- Role Management ---
+    function grantRole(bytes32 role, address account) external onlySuperAdmin {
+        require(account != address(0), "Zero address");
+        hasRole[role][account] = true;
+        emit RoleGranted(role, account, msg.sender);
+    }
+
+    function revokeRole(bytes32 role, address account) external onlySuperAdmin {
+        require(account != superAdmin, "Cannot revoke superAdmin");
+        hasRole[role][account] = false;
+        emit RoleRevoked(role, account, msg.sender);
+    }
+
+    function batchGrantRoles(bytes32[] calldata roles, address[] calldata accounts) external onlySuperAdmin {
+        require(roles.length == accounts.length, "Mismatched arrays");
+        for (uint256 i = 0; i < roles.length; i++) {
+            require(accounts[i] != address(0), "Zero address");
+            hasRole[roles[i]][accounts[i]] = true;
+            emit RoleGranted(roles[i], accounts[i], msg.sender);
+        }
+    }
+
+    function initializeDefaultRoles(
+        address finance,
+        address state,
+        address district,
+        address contractor,
+        address auditor
+    ) external onlySuperAdmin {
+        if (finance != address(0)) {
+            hasRole[FINANCE_ROLE][finance] = true;
+            emit RoleGranted(FINANCE_ROLE, finance, msg.sender);
+        }
+        if (state != address(0)) {
+            hasRole[STATE_ROLE][state] = true;
+            emit RoleGranted(STATE_ROLE, state, msg.sender);
+        }
+        if (district != address(0)) {
+            hasRole[DISTRICT_ROLE][district] = true;
+            emit RoleGranted(DISTRICT_ROLE, district, msg.sender);
+        }
+        if (contractor != address(0)) {
+            hasRole[CONTRACTOR_ROLE][contractor] = true;
+            emit RoleGranted(CONTRACTOR_ROLE, contractor, msg.sender);
+        }
+        if (auditor != address(0)) {
+            hasRole[AUDITOR_ROLE][auditor] = true;
+            emit RoleGranted(AUDITOR_ROLE, auditor, msg.sender);
+        }
     }
 
     // --- 1. Central Budget Allocation ---
@@ -136,9 +225,9 @@ contract GovernmentFundTracking {
         string calldata scheme,
         string calldata dept,
         uint256 amount
-    ) external {
-        require(!budgetAllocations[allocId].exists, "Allocation ID already registered on blockchain");
-        require(amount > 0, "Allocation amount must be greater than zero");
+    ) external onlyRole(FINANCE_ROLE) {
+        require(!budgetAllocations[allocId].exists, "Allocation exists");
+        require(amount > 0, "Amount must be > 0");
 
         budgetAllocations[allocId] = BudgetAllocation({
             allocationId: allocId,
@@ -159,7 +248,7 @@ contract GovernmentFundTracking {
         string calldata allocId,
         string calldata state,
         uint256 amount
-    ) external {
+    ) external onlyRole(FINANCE_ROLE) {
         _executeTransferToState(trfId, allocId, state, amount, address(0));
     }
 
@@ -169,7 +258,7 @@ contract GovernmentFundTracking {
         string calldata state,
         uint256 amount,
         address receiverWallet
-    ) external {
+    ) external onlyRole(FINANCE_ROLE) {
         _executeTransferToState(trfId, allocId, state, amount, receiverWallet);
     }
 
@@ -180,11 +269,11 @@ contract GovernmentFundTracking {
         uint256 amount,
         address receiverWallet
     ) internal {
-        require(budgetAllocations[allocId].exists, "Central allocation does not exist");
-        require(!stateTransfers[trfId].exists, "Transfer ID already registered on blockchain");
+        require(budgetAllocations[allocId].exists, "Allocation not found");
+        require(!stateTransfers[trfId].exists, "Transfer exists");
         require(
             budgetAllocations[allocId].disbursedToStates + amount <= budgetAllocations[allocId].totalSanctioned,
-            "State transfer exceeds sanctioned allocation ceiling"
+            "Exceeds allocation"
         );
 
         budgetAllocations[allocId].disbursedToStates += amount;
@@ -220,7 +309,7 @@ contract GovernmentFundTracking {
         string calldata trfId,
         string calldata district,
         uint256 amount
-    ) external {
+    ) external onlyRole(STATE_ROLE) {
         _executeAllocateToDistrict(distAllocId, trfId, district, amount, address(0));
     }
 
@@ -230,7 +319,7 @@ contract GovernmentFundTracking {
         string calldata district,
         uint256 amount,
         address receiverWallet
-    ) external {
+    ) external onlyRole(STATE_ROLE) {
         _executeAllocateToDistrict(distAllocId, trfId, district, amount, receiverWallet);
     }
 
@@ -241,11 +330,11 @@ contract GovernmentFundTracking {
         uint256 amount,
         address receiverWallet
     ) internal {
-        require(stateTransfers[trfId].exists, "State transfer record does not exist");
-        require(!districtAllocations[distAllocId].exists, "District allocation ID already registered");
+        require(stateTransfers[trfId].exists, "Transfer not found");
+        require(!districtAllocations[distAllocId].exists, "District alloc exists");
         require(
             stateTransfers[trfId].allocatedToDistricts + amount <= stateTransfers[trfId].amount,
-            "District allocation exceeds state treasury transfer balance"
+            "Exceeds transfer balance"
         );
 
         stateTransfers[trfId].allocatedToDistricts += amount;
@@ -281,9 +370,9 @@ contract GovernmentFundTracking {
         string calldata name,
         address contractor,
         uint256 totalBudget
-    ) external {
-        require(!projectEscrows[projectId].exists, "Project Escrow already exists");
-        require(totalBudget > 0, "Project budget must be greater than zero");
+    ) external onlyRole(DISTRICT_ROLE) {
+        require(!projectEscrows[projectId].exists, "Escrow exists");
+        require(totalBudget > 0, "Budget must be > 0");
 
         projectEscrows[projectId] = ProjectEscrow({
             projectId: projectId,
@@ -305,9 +394,9 @@ contract GovernmentFundTracking {
     function setMilestones(
         string calldata projectId,
         uint256[] calldata milestoneAmounts
-    ) external {
-        require(projectEscrows[projectId].exists, "Project Escrow does not exist");
-        require(!projectEscrows[projectId].isFrozen, "Project is frozen by CAG forensic audit");
+    ) external onlyRole(DISTRICT_ROLE) {
+        require(projectEscrows[projectId].exists, "Escrow not found");
+        require(!projectEscrows[projectId].isFrozen, "Project frozen");
 
         uint256 totalSum = 0;
         for (uint256 i = 0; i < milestoneAmounts.length; i++) {
@@ -322,7 +411,7 @@ contract GovernmentFundTracking {
             });
         }
 
-        require(totalSum <= projectEscrows[projectId].totalBudget, "Total milestones exceed project budget");
+        require(totalSum <= projectEscrows[projectId].totalBudget, "Exceeds project budget");
         projectEscrows[projectId].milestoneCount = milestoneAmounts.length;
     }
 
@@ -332,9 +421,16 @@ contract GovernmentFundTracking {
         string calldata progressProofHash,
         uint256 progressPercentage
     ) external {
-        require(projectEscrows[projectId].exists, "Project Escrow does not exist");
-        require(!projectEscrows[projectId].isFrozen, "Project is frozen by audit hold");
-        require(milestoneIndex < projectEscrows[projectId].milestoneCount, "Invalid milestone index");
+        require(projectEscrows[projectId].exists, "Escrow not found");
+        require(
+            msg.sender == projectEscrows[projectId].contractor ||
+            hasRole[CONTRACTOR_ROLE][msg.sender] ||
+            hasRole[SUPER_ADMIN_ROLE][msg.sender] ||
+            msg.sender == superAdmin,
+            "AccessControl: only assigned contractor or authorized contractor role can submit progress"
+        );
+        require(!projectEscrows[projectId].isFrozen, "Project frozen");
+        require(milestoneIndex < projectEscrows[projectId].milestoneCount, "Invalid milestone");
 
         Milestone storage m = projectMilestones[projectId][milestoneIndex];
         m.progressProofHash = progressProofHash;
@@ -346,16 +442,16 @@ contract GovernmentFundTracking {
     function releaseMilestonePayment(
         string calldata projectId,
         uint256 milestoneIndex
-    ) external {
-        require(projectEscrows[projectId].exists, "Project Escrow does not exist");
-        require(!projectEscrows[projectId].isFrozen, "Project funds are frozen by forensic auditor");
-        require(milestoneIndex < projectEscrows[projectId].milestoneCount, "Invalid milestone index");
+    ) external onlyRole(DISTRICT_ROLE) {
+        require(projectEscrows[projectId].exists, "Escrow not found");
+        require(!projectEscrows[projectId].isFrozen, "Project frozen");
+        require(milestoneIndex < projectEscrows[projectId].milestoneCount, "Invalid milestone");
 
         Milestone storage m = projectMilestones[projectId][milestoneIndex];
-        require(!m.isReleased, "Milestone payment already released on blockchain");
+        require(!m.isReleased, "Payment already released");
         require(
             projectEscrows[projectId].releasedAmount + m.amount <= projectEscrows[projectId].totalBudget,
-            "Total release exceeds escrow budget ceiling"
+            "Exceeds escrow budget"
         );
 
         m.isReleased = true;
@@ -402,6 +498,15 @@ contract GovernmentFundTracking {
         string calldata projectId,
         uint256 amount
     ) external {
+        require(
+            hasRole[DISTRICT_ROLE][msg.sender] ||
+            hasRole[STATE_ROLE][msg.sender] ||
+            hasRole[FINANCE_ROLE][msg.sender] ||
+            hasRole[SUPER_ADMIN_ROLE][msg.sender] ||
+            msg.sender == superAdmin,
+            "AccessControl: caller is not authorized to log fund transfers"
+        );
+
         fundTransferRecords[transferKey] = FundTransferRecord({
             sender: msg.sender,
             receiver: receiver,
@@ -424,9 +529,9 @@ contract GovernmentFundTracking {
         string calldata districtName,
         string calldata contractorName,
         uint256 amount
-    ) external {
-        require(contractorWallet != address(0), "Invalid contractor wallet address");
-        require(amount > 0, "Transfer amount must be greater than zero");
+    ) external onlyRole(DISTRICT_ROLE) {
+        require(contractorWallet != address(0), "Invalid contractor wallet");
+        require(amount > 0, "Amount must be > 0");
 
         fundTransferRecords[transferId] = FundTransferRecord({
             sender: msg.sender,
@@ -442,22 +547,14 @@ contract GovernmentFundTracking {
         emit FundTransferred(msg.sender, contractorWallet, districtName, contractorName, projectId, amount, block.timestamp);
     }
 
-    function _uint2str(uint256 _i) internal pure returns (string memory str) {
+    function _uint2str(uint256 _i) internal pure returns (string memory) {
         if (_i == 0) return "0";
         uint256 j = _i;
-        uint256 length;
-        while (j != 0) {
-            length++;
-            j /= 10;
-        }
-        bytes memory bstr = new bytes(length);
-        uint256 k = length;
-        j = _i;
-        while (j != 0) {
-            bstr[--k] = bytes1(uint8(48 + j % 10));
-            j /= 10;
-        }
-        str = string(bstr);
+        uint256 len;
+        while (j != 0) { len++; j /= 10; }
+        bytes memory b = new bytes(len);
+        while (_i != 0) { b[--len] = bytes1(uint8(48 + (_i % 10))); _i /= 10; }
+        return string(b);
     }
 
     // --- 6. Document Hash Anchoring & Real-time Verification ---
@@ -467,8 +564,18 @@ contract GovernmentFundTracking {
         string calldata docType,
         string calldata entityId
     ) external {
-        require(!documentHashRecords[docId].exists, "Document ID already anchored on-chain");
-        require(bytes(docHash).length == 64, "Invalid SHA-256 hash length");
+        require(
+            hasRole[DISTRICT_ROLE][msg.sender] ||
+            hasRole[STATE_ROLE][msg.sender] ||
+            hasRole[FINANCE_ROLE][msg.sender] ||
+            hasRole[CONTRACTOR_ROLE][msg.sender] ||
+            hasRole[AUDITOR_ROLE][msg.sender] ||
+            hasRole[SUPER_ADMIN_ROLE][msg.sender] ||
+            msg.sender == superAdmin,
+            "AccessControl: caller is not authorized to anchor documents"
+        );
+        require(!documentHashRecords[docId].exists, "Doc ID exists");
+        require(bytes(docHash).length == 64, "Invalid hash length");
 
         documentHashRecords[docId] = DocumentHashRecord({
             documentId: docId,
@@ -499,8 +606,8 @@ contract GovernmentFundTracking {
     function freezeProject(
         string calldata projectId,
         string calldata reason
-    ) external {
-        require(projectEscrows[projectId].exists, "Project Escrow does not exist");
+    ) external onlyRole(AUDITOR_ROLE) {
+        require(projectEscrows[projectId].exists, "Escrow not found");
         projectEscrows[projectId].isFrozen = true;
         projectEscrows[projectId].freezeReason = reason;
 
@@ -509,8 +616,8 @@ contract GovernmentFundTracking {
 
     function unfreezeProject(
         string calldata projectId
-    ) external {
-        require(projectEscrows[projectId].exists, "Project Escrow does not exist");
+    ) external onlyRole(AUDITOR_ROLE) {
+        require(projectEscrows[projectId].exists, "Escrow not found");
         projectEscrows[projectId].isFrozen = false;
         projectEscrows[projectId].freezeReason = "";
 
@@ -524,9 +631,9 @@ contract GovernmentFundTracking {
         string calldata auditorName,
         uint256 complianceScore,
         string calldata verdict
-    ) external {
-        require(!auditReports[auditId].exists, "Audit Report ID already exists on blockchain");
-        require(complianceScore <= 100, "Compliance score cannot exceed 100");
+    ) external onlyRole(AUDITOR_ROLE) {
+        require(!auditReports[auditId].exists, "Audit ID exists");
+        require(complianceScore <= 100, "Score > 100");
 
         auditReports[auditId] = AuditReportRecord({
             auditId: auditId,
@@ -551,7 +658,7 @@ contract GovernmentFundTracking {
         bool isFrozen,
         string memory freezeReason
     ) {
-        require(projectEscrows[projectId].exists, "Project does not exist");
+        require(projectEscrows[projectId].exists, "Escrow not found");
         ProjectEscrow memory p = projectEscrows[projectId];
         return (p.name, p.contractor, p.totalBudget, p.releasedAmount, p.milestoneCount, p.isFrozen, p.freezeReason);
     }

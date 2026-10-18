@@ -36,10 +36,12 @@ import FundAmountInput from '../../components/FundAmountInput';
 import { useAuth } from '../../context/AuthContext';
 import { useRealtimeSync } from '../../context/RealtimeContext';
 import StateDistrictSelector from '../../components/StateDistrictSelector';
+import { useFinancialYear } from '../../context/FinancialYearContext';
 import { getAllStates, getDistrictsByState, getStateForDistrict, getState } from '../../config/statesDistrictsData';
 
 const ProjectsManagement = () => {
   const { user } = useAuth();
+  const { selectedFY } = useFinancialYear();
   const [searchParams] = useSearchParams();
   const initialDistrict = searchParams.get('district') || user?.district_name || 'Belagavi';
   const initialDistrictState = getStateForDistrict(initialDistrict)?.code || user?.state_code || 'KA';
@@ -62,6 +64,9 @@ const ProjectsManagement = () => {
 
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createModalError, setCreateModalError] = useState('');
+  const [assignModalError, setAssignModalError] = useState('');
+  const [submittingAssign, setSubmittingAssign] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
   const [modalMode, setModalMode] = useState(''); // 'ASSIGN', 'DETAILS'
   const [showQrModal, setShowQrModal] = useState(false);
@@ -93,7 +98,10 @@ const ProjectsManagement = () => {
   const loadData = (district = selectedDistrict, showSpinner = false) => {
     if (showSpinner) setLoading(true);
     const targetDist = isDistrictOfficer ? assignedDistrict : district;
-    const query = targetDist ? `?district=${encodeURIComponent(targetDist)}` : '';
+    const params = new URLSearchParams();
+    if (targetDist) params.append('district', targetDist);
+    if (selectedFY) params.append('fy', selectedFY);
+    const query = params.toString() ? `?${params.toString()}` : '';
 
     API.get(`/district/projects${query}`).then((res) => {
       if (res.success) {
@@ -123,12 +131,13 @@ const ProjectsManagement = () => {
       }
     });
 
-    API.get('/admin/schemes').then((res) => {
+    const fyParam = selectedFY ? `?fy=${selectedFY}` : '';
+    API.get(`/admin/schemes${fyParam}`).then((res) => {
       if (res.success && res.schemes) {
         setSchemes(res.schemes);
       }
     }).catch(() => {
-      API.get('/district/schemes').then((res) => {
+      API.get(`/district/schemes${fyParam}`).then((res) => {
         if (res.success && res.schemes) setSchemes(res.schemes);
       });
     });
@@ -137,7 +146,7 @@ const ProjectsManagement = () => {
   useEffect(() => {
     loadData(selectedDistrict, true);
     setFormData((prev) => ({ ...prev, district_name: selectedDistrict }));
-  }, [selectedDistrict]);
+  }, [selectedDistrict, selectedFY]);
 
   useRealtimeSync(() => {
     loadData(selectedDistrict, false);
@@ -204,30 +213,52 @@ const ProjectsManagement = () => {
       description: `Public works and community development implementation under ${sName} in ${targetDist} district.`,
       timeline_months: 12
     });
+    setCreateModalError('');
     setShowCreateModal(true);
   };
 
   // Create Project under Scheme with strict balance validation
   const handleCreateProject = async (e) => {
     e.preventDefault();
+    setCreateModalError('');
+    if (!createForm.name || !createForm.name.trim()) {
+      setCreateModalError('Project Name is required.');
+      return;
+    }
+    if (!createForm.total_budget || createForm.total_budget <= 0) {
+      setCreateModalError('Project budget must be greater than zero.');
+      return;
+    }
     if (currentSchemeData.available_balance <= 0) {
-      alert(`Cannot create project: No funds available for scheme '${createForm.scheme_name}' in ${isDistrictOfficer ? assignedDistrict : selectedDistrict}. Please request State Government fund allocation first.`);
+      setCreateModalError(`Cannot create project: No funds available for scheme '${createForm.scheme_name}' in ${isDistrictOfficer ? assignedDistrict : selectedDistrict}. Please request State Government fund allocation first.`);
       return;
     }
     if (createForm.total_budget > currentSchemeData.available_balance) {
-      alert(`Project budget of ${formatCurrency(createForm.total_budget)} exceeds available district budget of ${formatCurrency(currentSchemeData.available_balance)} for '${createForm.scheme_name}'.`);
+      setCreateModalError(`Project budget of ${formatCurrency(createForm.total_budget)} exceeds available district budget of ${formatCurrency(currentSchemeData.available_balance)} for '${createForm.scheme_name}'.`);
       return;
     }
+    if (createForm.timeline_months < 1 || createForm.timeline_months > 120) {
+      setCreateModalError('Timeline must be between 1 and 120 months.');
+      return;
+    }
+
     setSubmittingProject(true);
+    const idempotencyKey = `IDEM-PRJ-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     try {
-      const res = await API.post('/district/projects', createForm);
+      const res = await API.post('/district/projects', {
+        ...createForm,
+        financial_year: selectedFY,
+        idempotency_key: idempotencyKey
+      });
       if (res.success) {
         setShowCreateModal(false);
-        setActionSuccess(`Project '${createForm.name}' created successfully under scheme ${createForm.scheme_name}!`);
+        setActionSuccess(`Project '${createForm.name}' created successfully under scheme ${createForm.scheme_name} (${selectedFY})!`);
         loadData();
+      } else {
+        setCreateModalError(res.message || 'Error creating project');
       }
     } catch (err) {
-      alert(err.message || 'Error creating project');
+      setCreateModalError(err.message || 'Error creating project');
     } finally {
       setSubmittingProject(false);
     }
@@ -236,6 +267,8 @@ const ProjectsManagement = () => {
   // Assign Contractor
   const handleAssignContractor = async () => {
     if (!selectedProject || !assignContractorId) return;
+    setSubmittingAssign(true);
+    setAssignModalError('');
     try {
       const res = await API.post(`/district/projects/${selectedProject.project_id}/assign-contractor`, {
         contractor_id: assignContractorId
@@ -244,9 +277,13 @@ const ProjectsManagement = () => {
         setActionSuccess(res.message + " (Notification Sent to Contractor)");
         setModalMode('');
         loadData();
+      } else {
+        setAssignModalError(res.message || 'Failed to assign contractor');
       }
     } catch (e) {
-      alert(e.message);
+      setAssignModalError(e.message || 'Failed to assign contractor');
+    } finally {
+      setSubmittingAssign(false);
     }
   };
 
@@ -604,6 +641,24 @@ const ProjectsManagement = () => {
       {/* MODAL: Create Project under Scheme */}
       <Modal title={`Create Project in ${isDistrictOfficer ? assignedDistrict : selectedDistrict}`} isOpen={showCreateModal} onClose={() => setShowCreateModal(false)}>
         <form onSubmit={handleCreateProject}>
+          {createModalError && (
+            <div style={{
+              background: 'var(--color-danger-bg)',
+              border: '1px solid var(--color-danger-border)',
+              borderRadius: 'var(--radius-sm)',
+              padding: '10px 14px',
+              color: 'var(--color-danger)',
+              marginBottom: '16px',
+              fontSize: '12px',
+              fontWeight: '600',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <AlertCircle size={16} />
+              <span>{createModalError}</span>
+            </div>
+          )}
           <div className="form-group">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
               <label className="form-label" style={{ margin: 0 }}>Select Government Scheme</label>
@@ -737,7 +792,25 @@ const ProjectsManagement = () => {
       </Modal>
 
       {/* MODAL 3: Assign Contractor */}
-      <Modal title={`Select & Assign Contractor to ${selectedProject?.project_id}`} isOpen={modalMode === 'ASSIGN' && !!selectedProject} onClose={() => setModalMode('')}>
+      <Modal title={`Select & Assign Contractor to ${selectedProject?.project_id}`} isOpen={modalMode === 'ASSIGN' && !!selectedProject} onClose={() => { setModalMode(''); setAssignModalError(''); }}>
+        {assignModalError && (
+          <div style={{
+            background: 'var(--color-danger-bg)',
+            border: '1px solid var(--color-danger-border)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '10px 14px',
+            color: 'var(--color-danger)',
+            marginBottom: '16px',
+            fontSize: '12px',
+            fontWeight: '600',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <AlertCircle size={16} />
+            <span>{assignModalError}</span>
+          </div>
+        )}
         <div className="form-group">
           <label className="form-label" style={{ fontWeight: '700' }}>
             Select State-Verified Contractor ({user?.state_name || selectedProject?.state_name || user?.state_code || 'State'})
@@ -921,6 +994,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
   const [evidenceRejectReason, setEvidenceRejectReason] = useState('');
   const [previewEvidence, setPreviewEvidence] = useState(null);
   const [actionMsg, setActionMsg] = useState('');
+  const [actionError, setActionError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
   const loadDetails = () => {
@@ -939,17 +1013,22 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
   const handleApproveFundRequest = async (milestoneIndex) => {
     setSubmitting(true);
     setActionMsg('');
+    setActionError('');
+    const idempotencyKey = `IDEM-PHASE-FUND-${project.project_id}-${milestoneIndex}-${Date.now()}`;
     try {
       const res = await API.post(`/district/projects/${project.project_id}/phases/${milestoneIndex}/verify-fund-request`, {
-        action: 'APPROVE'
+        action: 'APPROVE',
+        idempotency_key: idempotencyKey
       });
       if (res.success) {
         setActionMsg(res.message);
         loadDetails();
         onRefresh();
+      } else {
+        setActionError(res.message || 'Fund verification failed');
       }
     } catch (e) {
-      alert(e.message);
+      setActionError(e.message || 'Fund verification failed');
     } finally {
       setSubmitting(false);
     }
@@ -959,6 +1038,8 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
   const handleRejectFundRequest = async () => {
     if (fundRejectModalPhase === null) return;
     setSubmitting(true);
+    setActionMsg('');
+    setActionError('');
     try {
       const res = await API.post(`/district/projects/${project.project_id}/phases/${fundRejectModalPhase}/verify-fund-request`, {
         action: 'REJECT',
@@ -970,9 +1051,11 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
         setFundRejectReason('');
         loadDetails();
         onRefresh();
+      } else {
+        setActionError(res.message || 'Rejection failed');
       }
     } catch (e) {
-      alert(e.message);
+      setActionError(e.message || 'Rejection failed');
     } finally {
       setSubmitting(false);
     }
@@ -982,6 +1065,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
   const handleApproveProofSubmission = async (milestoneIndex) => {
     setSubmitting(true);
     setActionMsg('');
+    setActionError('');
     try {
       const res = await API.post(`/district/projects/${project.project_id}/phases/${milestoneIndex}/verify`, {
         action: 'APPROVE'
@@ -990,9 +1074,11 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
         setActionMsg(res.message);
         loadDetails();
         onRefresh();
+      } else {
+        setActionError(res.message || 'Proof verification failed');
       }
     } catch (e) {
-      alert(e.message);
+      setActionError(e.message || 'Proof verification failed');
     } finally {
       setSubmitting(false);
     }
@@ -1002,6 +1088,8 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
   const handleRejectProofSubmission = async () => {
     if (proofRejectModalPhase === null) return;
     setSubmitting(true);
+    setActionMsg('');
+    setActionError('');
     try {
       const res = await API.post(`/district/projects/${project.project_id}/phases/${proofRejectModalPhase}/verify`, {
         action: 'REJECT',
@@ -1013,9 +1101,11 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
         setProofRejectReason('');
         loadDetails();
         onRefresh();
+      } else {
+        setActionError(res.message || 'Proof rejection failed');
       }
     } catch (e) {
-      alert(e.message);
+      setActionError(e.message || 'Proof rejection failed');
     } finally {
       setSubmitting(false);
     }
@@ -1256,6 +1346,25 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
           fontWeight: '600'
         }}>
           {actionMsg}
+        </div>
+      )}
+
+      {actionError && (
+        <div style={{
+          background: 'var(--color-danger-bg)',
+          border: '1px solid var(--color-danger-border)',
+          borderRadius: 'var(--radius-sm)',
+          padding: '10px 14px',
+          color: 'var(--color-danger)',
+          marginBottom: '16px',
+          fontSize: '12px',
+          fontWeight: '600',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          <AlertCircle size={16} />
+          <span>{actionError}</span>
         </div>
       )}
 

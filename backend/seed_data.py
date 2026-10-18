@@ -1,4 +1,3 @@
-import os
 from datetime import datetime, timezone
 from database import db
 from auth_middleware import hash_password

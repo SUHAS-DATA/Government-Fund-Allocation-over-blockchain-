@@ -51,25 +51,25 @@ def init_indexes():
 
     # 3. Departments collection
     try:
-        db.departments.create_index([("code", ASCENDING)], unique=True, sparse=True)
+        db.departments.create_index([("code", ASCENDING)], unique=True)
     except Exception as e:
         print(f"Warning initializing departments index: {e}")
 
     # 4. States collection
     try:
-        db.states.create_index([("code", ASCENDING)], unique=True, sparse=True)
+        db.states.create_index([("code", ASCENDING)], unique=True)
     except Exception as e:
         print(f"Warning initializing states index: {e}")
 
     # 5. Schemes collection
     try:
-        db.schemes.create_index([("code", ASCENDING)], unique=True, sparse=True)
+        db.schemes.create_index([("code", ASCENDING)], unique=True)
     except Exception as e:
         print(f"Warning initializing schemes index: {e}")
 
     # 6. Budget Allocations collection
     try:
-        db.budget_allocations.create_index([("allocation_id", ASCENDING)], unique=True, sparse=True)
+        db.budget_allocations.create_index([("allocation_id", ASCENDING)], unique=True)
         db.budget_allocations.create_index([("financial_year", ASCENDING), ("status", ASCENDING)])
         db.budget_allocations.create_index([("state_code", ASCENDING)])
     except Exception as e:
@@ -77,7 +77,8 @@ def init_indexes():
 
     # 7. State Transfers collection
     try:
-        db.state_transfers.create_index([("transfer_id", ASCENDING)], unique=True, sparse=True)
+        db.state_transfers.create_index([("transfer_id", ASCENDING)], unique=True)
+        db.state_transfers.create_index([("financial_year", ASCENDING), ("state_code", ASCENDING)])
         db.state_transfers.create_index([("state_code", ASCENDING), ("status", ASCENDING)])
         db.state_transfers.create_index([("created_at", DESCENDING)])
     except Exception as e:
@@ -85,7 +86,8 @@ def init_indexes():
 
     # 8. District Allocations collection
     try:
-        db.district_allocations.create_index([("district_alloc_id", ASCENDING)], unique=True, sparse=True)
+        db.district_allocations.create_index([("district_alloc_id", ASCENDING)], unique=True)
+        db.district_allocations.create_index([("financial_year", ASCENDING), ("state_code", ASCENDING), ("district_name", ASCENDING)])
         db.district_allocations.create_index([("district_name", ASCENDING), ("status", ASCENDING)])
         db.district_allocations.create_index([("state_code", ASCENDING)])
     except Exception as e:
@@ -93,7 +95,8 @@ def init_indexes():
 
     # 9. Projects collection
     try:
-        db.projects.create_index([("project_id", ASCENDING)], unique=True, sparse=True)
+        db.projects.create_index([("project_id", ASCENDING)], unique=True)
+        db.projects.create_index([("financial_year", ASCENDING), ("district_name", ASCENDING)])
         db.projects.create_index([("district_name", ASCENDING), ("status", ASCENDING)])
         db.projects.create_index([("state_code", ASCENDING), ("status", ASCENDING)])
         db.projects.create_index([("contractor_id", ASCENDING), ("status", ASCENDING)])
@@ -124,7 +127,7 @@ def init_indexes():
 
     # 10. Documents collection
     try:
-        db.documents.create_index([("document_id", ASCENDING)], unique=True, sparse=True)
+        db.documents.create_index([("document_id", ASCENDING)], unique=True)
         db.documents.create_index([("sha256_hash", ASCENDING)])
     except Exception as e:
         print(f"Warning initializing documents index: {e}")
@@ -272,5 +275,81 @@ def compute_project_progress(proj, milestones=None):
         
     return min(100, max(0, int(round(total_weighted_progress))))
 
-# Initialize indexes when imported
+def get_active_financial_year() -> str:
+    """
+    Returns the currently active financial year from MongoDB, falling back to '2026-27'.
+    """
+    try:
+        active_doc = db.financial_years.find_one({"status": "ACTIVE"})
+        if active_doc and active_doc.get("year"):
+            return str(active_doc["year"]).strip()
+        latest = db.financial_years.find_one({}, sort=[("year", -1)])
+        if latest and latest.get("year"):
+            return str(latest["year"]).strip()
+    except Exception:
+        pass
+    return "2026-27"
+
+def ensure_financial_year_associations():
+    """
+    Non-destructively links existing historical records to appropriate financial years.
+    Guarantees that historical records preserve original associations while preventing
+    orphaned records across financial year filtering.
+    """
+    try:
+        active_fy = get_active_financial_year()
+
+        # 1. Backfill state_transfers
+        transfers_without_fy = list(db.state_transfers.find({"$or": [{"financial_year": None}, {"financial_year": {"$exists": False}}]}))
+        for st in transfers_without_fy:
+            alloc_id = st.get("allocation_id")
+            fy = None
+            if alloc_id:
+                alloc = db.budget_allocations.find_one({"allocation_id": alloc_id})
+                if alloc and alloc.get("financial_year"):
+                    fy = alloc["financial_year"]
+            if not fy:
+                fy = active_fy
+            db.state_transfers.update_one({"_id": st["_id"]}, {"$set": {"financial_year": fy}})
+
+        # 2. Backfill district_allocations
+        dist_without_fy = list(db.district_allocations.find({"$or": [{"financial_year": None}, {"financial_year": {"$exists": False}}]}))
+        for da in dist_without_fy:
+            trf_id = da.get("transfer_id")
+            fy = None
+            if trf_id:
+                st = db.state_transfers.find_one({"transfer_id": trf_id})
+                if st and st.get("financial_year"):
+                    fy = st["financial_year"]
+            if not fy:
+                fy = active_fy
+            db.district_allocations.update_one({"_id": da["_id"]}, {"$set": {"financial_year": fy}})
+
+        # 3. Backfill projects
+        proj_without_fy = list(db.projects.find({"$or": [{"financial_year": None}, {"financial_year": {"$exists": False}}]}))
+        for p in proj_without_fy:
+            db.projects.update_one({"_id": p["_id"]}, {"$set": {"financial_year": active_fy}})
+
+        # 4. Backfill schemes
+        schemes_without_fy = list(db.schemes.find({"$or": [{"financial_year": None}, {"financial_year": {"$exists": False}}]}))
+        for s in schemes_without_fy:
+            db.schemes.update_one({"_id": s["_id"]}, {"$set": {"financial_year": active_fy}})
+
+        # 5. Backfill financial_transactions
+        tx_without_fy = list(db.financial_transactions.find({"$or": [{"financial_year": None}, {"financial_year": {"$exists": False}}]}))
+        for tx in tx_without_fy:
+            alloc_id = tx.get("related_allocation_id")
+            fy = None
+            if alloc_id:
+                alloc = db.budget_allocations.find_one({"allocation_id": alloc_id})
+                if alloc and alloc.get("financial_year"):
+                    fy = alloc["financial_year"]
+            if not fy:
+                fy = active_fy
+            db.financial_transactions.update_one({"_id": tx["_id"]}, {"$set": {"financial_year": fy}})
+    except Exception as e:
+        print(f"Notice: Non-destructive financial year backfill check: {e}")
+
+# Initialize indexes and associations when imported
 init_indexes()
+ensure_financial_year_associations()

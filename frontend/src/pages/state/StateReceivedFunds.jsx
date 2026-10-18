@@ -5,16 +5,20 @@ import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
 import DataTable from '../../components/DataTable';
+import { useFinancialYear } from '../../context/FinancialYearContext';
 
 const StateReceivedFunds = () => {
+  const { selectedFY } = useFinancialYear();
   const [funds, setFunds] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    API.get('/state/received-funds').then((res) => {
+    setLoading(true);
+    const fyParam = selectedFY ? `?fy=${selectedFY}` : '';
+    API.get(`/state/received-funds${fyParam}`).then((res) => {
       if (res.success) setFunds(res.received_funds || []);
     }).finally(() => setLoading(false));
-  }, []);
+  }, [selectedFY]);
 
   const columns = [
     {

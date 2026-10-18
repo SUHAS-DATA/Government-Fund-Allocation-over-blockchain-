@@ -25,8 +25,10 @@ import BlockchainBadge from '../../components/BlockchainBadge';
 import FundAmountInput from '../../components/FundAmountInput';
 import TransactionDetailsModal from '../../components/TransactionDetailsModal';
 import { useRealtimeSync } from '../../context/RealtimeContext';
+import { useFinancialYear } from '../../context/FinancialYearContext';
 
 const TransferToState = () => {
+  const { selectedFY } = useFinancialYear();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -60,7 +62,8 @@ const TransferToState = () => {
   const [error, setError] = useState('');
 
   const loadBudgets = () => {
-    API.get('/finance/received-budgets').then((res) => {
+    const fyParam = selectedFY && selectedFY !== 'ALL' ? `?fy=${selectedFY}` : '';
+    API.get(`/finance/received-budgets${fyParam}`).then((res) => {
       if (res.success) {
         setBudgets(res.budgets || []);
         if (res.budgets?.length > 0) {
@@ -73,6 +76,8 @@ const TransferToState = () => {
               setAmount(Math.min(avail, 10000000));
             }
           }
+        } else {
+          setSelectedAllocId('');
         }
       }
     });
@@ -80,7 +85,9 @@ const TransferToState = () => {
 
   useEffect(() => {
     loadBudgets();
+  }, [selectedFY]);
 
+  useEffect(() => {
     API.get('/bank-accounts/central').then((res) => {
       if (res.success) setCentralAccount(res.account);
     });
@@ -145,17 +152,22 @@ const TransferToState = () => {
 
     setSubmitting(true);
     setError('');
+    const idempotencyKey = `IDEM-FIN-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     try {
       const res = await API.post('/finance/approve-and-transfer', {
         allocation_id: selectedAllocId,
         state_code: selectedStateCode,
         state_name: st?.name || 'Maharashtra',
         amount: Number(amount),
-        sign_off_note: signOffNote
+        sign_off_note: signOffNote,
+        financial_year: selectedFY,
+        idempotency_key: idempotencyKey
       });
 
       if (res.success) {
         setSuccessResult(res);
+      } else {
+        setError(res.message || 'Transfer failed');
       }
     } catch (err) {
       setError(err.message || 'Transfer failed');
@@ -292,22 +304,42 @@ const TransferToState = () => {
             </div>
           )}
 
-          <form onSubmit={handleTransfer}>
-            <div className="form-group">
-              <label className="form-label">Select Approved Budget</label>
-              <select
-                className="form-control form-select"
-                value={selectedAllocId}
-                onChange={(e) => setSelectedAllocId(e.target.value)}
-                required
+          {budgets.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '36px 20px', color: 'var(--text-muted)' }}>
+              <AlertCircle size={40} style={{ margin: '0 auto 12px auto', color: 'var(--color-warning)' }} />
+              <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px', color: 'var(--text-main)' }}>
+                No Approved Budgets for FY {selectedFY}
+              </h3>
+              <p style={{ fontSize: '13px', maxWidth: '440px', margin: '0 auto 16px auto', color: 'var(--text-secondary)' }}>
+                No forwarded central allocations were found for Financial Year {selectedFY}. Please switch financial years or allocate funds from the Super Admin hub.
+              </p>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={loadBudgets}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
               >
-                {budgets.map((b) => (
-                  <option key={b.allocation_id} value={b.allocation_id}>
-                    {b.allocation_id} - {b.scheme_name} (Avail: {formatCurrency(b.amount - (b.disbursed_amount || 0))})
-                  </option>
-                ))}
-              </select>
+                <RefreshCw size={14} />
+                <span>Refresh Budgets</span>
+              </button>
             </div>
+          ) : (
+            <form onSubmit={handleTransfer}>
+              <div className="form-group">
+                <label className="form-label">Select Approved Budget</label>
+                <select
+                  className="form-control form-select"
+                  value={selectedAllocId}
+                  onChange={(e) => setSelectedAllocId(e.target.value)}
+                  required
+                >
+                  {budgets.map((b) => (
+                    <option key={b.allocation_id} value={b.allocation_id}>
+                      {b.allocation_id} - {b.scheme_name} (Avail: {formatCurrency(b.amount - (b.disbursed_amount || 0))})
+                    </option>
+                  ))}
+                </select>
+              </div>
 
             {activeBudget && (
               <div style={{ background: 'var(--bg-subtle)', padding: '14px', borderRadius: 'var(--radius-sm)', marginBottom: '18px', display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
@@ -430,8 +462,9 @@ const TransferToState = () => {
               <span>{submitting ? 'Sending Funds...' : 'Confirm & Send Funds'}</span>
             </button>
           </form>
-        </div>
-      )}
+        )}
+      </div>
+    )}
 
       {/* Transaction Details & Blockchain Verification Modal */}
       <TransactionDetailsModal

@@ -2,7 +2,6 @@ import os
 import sys
 import time
 import json
-from decimal import Decimal
 from web3 import Web3
 from dotenv import load_dotenv
 

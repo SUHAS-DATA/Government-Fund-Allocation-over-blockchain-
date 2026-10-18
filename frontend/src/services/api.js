@@ -1,41 +1,95 @@
 import axios from 'axios';
 
 export const DEFAULT_LOCAL_BACKEND = 'http://127.0.0.1:5000';
-export const DEFAULT_CLOUD_BACKEND = import.meta.env.VITE_API_URL
-  ? import.meta.env.VITE_API_URL.replace(/\/api\/?$/, '')
-  : 'https://government-fund-allocation-over.onrender.com';
+export const DEFAULT_CLOUD_BACKEND = (
+  (import.meta.env.VITE_API_URL && import.meta.env.VITE_API_URL.trim())
+    ? import.meta.env.VITE_API_URL.trim().replace(/\/api\/?$/, '').replace(/\/+$/, '')
+    : 'https://government-fund-allocation-over.onrender.com'
+);
+
+export const isLocalHostname = (hostname) => {
+  if (!hostname || typeof hostname !== 'string') return false;
+  const h = hostname.toLowerCase().trim();
+  return (
+    h === 'localhost' ||
+    h === '127.0.0.1' ||
+    h === '[::1]' ||
+    h.endsWith('.local')
+  );
+};
+
+export const isLocalhostUrl = (urlStr) => {
+  if (!urlStr || typeof urlStr !== 'string') return false;
+  const u = urlStr.toLowerCase();
+  return (
+    u.includes('127.0.0.1') ||
+    u.includes('localhost') ||
+    u.includes('0.0.0.0') ||
+    u.includes('[::1]')
+  );
+};
+
+export const normalizeApiUrl = (url) => {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim().replace(/\/+$/, '');
+  return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+};
 
 /**
  * Intelligent Dynamic API URL resolver
  * Automatically supports:
- * - Production cloud / Vercel default with VITE_API_URL
- * - Localhost single laptop default
- * - Custom overrides via localStorage ('govtfund_api_host')
+ * 1. Intentional user override saved in localStorage ('govtfund_api_host')
+ *    - On localhost: respects any saved override (local or cloud).
+ *    - On remote/deployed domains (e.g. Vercel): respects remote overrides, but automatically
+ *      purges and ignores stale localhost/127.0.0.1 overrides that would silently break the app.
+ * 2. Local development on localhost/loopback targeting local FastAPI backend (127.0.0.1:5000)
+ * 3. Deployed cloud environments (e.g. Vercel) targeting configured VITE_API_URL or hosted cloud backend
  */
 export const getApiBaseUrl = () => {
+  const isLocalHost = typeof window !== 'undefined' && isLocalHostname(window.location.hostname);
+
+  // 1. User / session override from localStorage ('govtfund_api_host')
   if (typeof window !== 'undefined') {
     const saved = localStorage.getItem('govtfund_api_host');
     if (saved && saved.trim()) {
-      const clean = saved.trim().replace(/\/+$/, '');
-      return clean.endsWith('/api') ? clean : `${clean}/api`;
+      const clean = saved.trim();
+
+      // Guard: On a deployed remote environment (e.g. *.vercel.app),
+      // a stale localhost override cannot function over HTTPS due to browser PNA / Mixed Content
+      // and silently breaks the application. Automatically sanitize it.
+      if (!isLocalHost && isLocalhostUrl(clean)) {
+        const isExplicitSession = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('govtfund_explicit_local_override') === 'true';
+        if (!isExplicitSession) {
+          try {
+            localStorage.removeItem('govtfund_api_host');
+          } catch (e) {}
+        } else {
+          return normalizeApiUrl(clean);
+        }
+      } else {
+        return normalizeApiUrl(clean);
+      }
     }
   }
 
-  // Fixed single backend across all environments (including deployed Vercel link):
-  // Directly targets local FastAPI backend connected to local Ganache (Chain ID 1337)
-  // so every transaction executes on Ganache without having to choose or switch.
-  return 'http://127.0.0.1:5000/api';
+  // 2. Local development on localhost/loopback
+  if (isLocalHost) {
+    return normalizeApiUrl(DEFAULT_LOCAL_BACKEND);
+  }
+
+  // 3. Deployed / remote environments: use configured VITE_API_URL or hosted cloud backend
+  return normalizeApiUrl(DEFAULT_CLOUD_BACKEND);
 };
 
 export const getApiConnectionDetails = () => {
   const currentBase = getApiBaseUrl();
+  const isLocalHost = typeof window !== 'undefined' && isLocalHostname(window.location.hostname);
   const saved = typeof window !== 'undefined' ? localStorage.getItem('govtfund_api_host') : null;
-  const isLocalHost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
   let mode = 'CLOUD';
   if (saved && saved.trim()) {
-    if (saved.includes('127.0.0.1:5000') || saved.includes('localhost:5000')) {
-      mode = 'LOCAL';
+    if (isLocalhostUrl(saved)) {
+      mode = isLocalHost ? 'LOCAL' : 'CLOUD';
     } else if (saved.includes('onrender.com')) {
       mode = 'CLOUD';
     } else {
@@ -49,8 +103,8 @@ export const getApiConnectionDetails = () => {
     currentBaseUrl: currentBase,
     currentHost: currentBase.replace(/\/api\/?$/, ''),
     mode,
-    isLocalTarget: currentBase.includes('127.0.0.1') || currentBase.includes('localhost'),
-    hasCustomOverride: Boolean(saved && saved.trim()),
+    isLocalTarget: isLocalhostUrl(currentBase),
+    hasCustomOverride: Boolean(saved && saved.trim() && (isLocalHost || !isLocalhostUrl(saved))),
     defaultCloudUrl: DEFAULT_CLOUD_BACKEND,
     defaultLocalUrl: DEFAULT_LOCAL_BACKEND,
   };
@@ -60,15 +114,22 @@ export const setApiHost = (host) => {
   if (typeof window === 'undefined') return;
   if (!host || !host.trim()) {
     localStorage.removeItem('govtfund_api_host');
+    try { sessionStorage.removeItem('govtfund_explicit_local_override'); } catch (e) {}
   } else {
     const clean = host.trim().replace(/\/+$/, '');
     localStorage.setItem('govtfund_api_host', clean);
+    if (isLocalhostUrl(clean) && !isLocalHostname(window.location.hostname)) {
+      try { sessionStorage.setItem('govtfund_explicit_local_override', 'true'); } catch (e) {}
+    }
   }
   window.dispatchEvent(new CustomEvent('govtfund_api_host_changed', { detail: { host } }));
 };
 
 export const resetApiHost = () => {
   setApiHost(null);
+  if (typeof sessionStorage !== 'undefined') {
+    try { sessionStorage.removeItem('govtfund_explicit_local_override'); } catch (e) {}
+  }
 };
 
 export const testBackendHealth = async (targetHost = null) => {
@@ -132,15 +193,20 @@ export const getWsUrl = () => {
   try {
     const url = new URL(apiBase);
     const wsProto = url.protocol === 'https:' ? 'wss:' : 'ws:';
-    // If apiBase was http://ip:5000/api, ws URL is ws://ip:5000/ws
+    // If apiBase was https://domain/api, ws URL is wss://domain/ws
     return `${wsProto}//${url.host}/ws`;
   } catch (e) {
     if (typeof window !== 'undefined' && window.location.hostname) {
-      const wsProto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const host = window.location.hostname || '127.0.0.1';
-      return `${wsProto}//${host}:5000/ws`;
+      if (isLocalHostname(window.location.hostname)) {
+        return 'ws://127.0.0.1:5000/ws';
+      }
+      try {
+        const cloudUrl = new URL(DEFAULT_CLOUD_BACKEND);
+        const wsProto = cloudUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+        return `${wsProto}//${cloudUrl.host}/ws`;
+      } catch (err) {}
     }
-    return 'ws://127.0.0.1:5000/ws';
+    return 'wss://government-fund-allocation-over.onrender.com/ws';
   }
 };
 

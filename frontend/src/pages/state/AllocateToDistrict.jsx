@@ -9,8 +9,10 @@ import TransactionDetailsModal from '../../components/TransactionDetailsModal';
 
 import { getDistrictsByState, getState } from '../../config/statesDistrictsData';
 import { useRealtimeSync } from '../../context/RealtimeContext';
+import { useFinancialYear } from '../../context/FinancialYearContext';
 
 const AllocateToDistrict = () => {
+  const { selectedFY } = useFinancialYear();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -28,19 +30,22 @@ const AllocateToDistrict = () => {
   const [error, setError] = useState('');
 
   const loadReceivedFunds = () => {
-    API.get('/state/received-funds').then((res) => {
+    const fyParam = selectedFY ? `?fy=${selectedFY}` : '';
+    API.get(`/state/received-funds${fyParam}`).then((res) => {
       if (res.success && res.received_funds?.length > 0) {
         setReceivedFunds(res.received_funds);
         if (!selectedTransferId) {
           setSelectedTransferId(res.received_funds[0].transfer_id);
         }
+      } else {
+        setReceivedFunds([]);
       }
     });
   };
 
   useEffect(() => {
     loadReceivedFunds();
-  }, []);
+  }, [selectedFY]);
 
   useRealtimeSync(loadReceivedFunds, { interval: 6000 });
 
@@ -96,15 +101,20 @@ const AllocateToDistrict = () => {
 
     setSubmitting(true);
     setError('');
+    const idempotencyKey = `IDEM-DIST-ALLOC-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     try {
       const res = await API.post('/state/allocate-to-district', {
         transfer_id: selectedTransferId,
         district_name: districtName,
-        amount: Number(amount)
+        amount: Number(amount),
+        financial_year: selectedFY,
+        idempotency_key: idempotencyKey
       });
 
       if (res.success) {
         setSuccessResult(res);
+      } else {
+        setError(res.message || 'District allocation failed');
       }
     } catch (err) {
       setError(err.message || 'District allocation failed');
@@ -210,22 +220,33 @@ const AllocateToDistrict = () => {
             </div>
           )}
 
-          <form onSubmit={handleAllocate}>
-            <div className="form-group">
-              <label className="form-label">Select State Fund Source</label>
-              <select
-                className="form-control form-select"
-                value={selectedTransferId}
-                onChange={(e) => setSelectedTransferId(e.target.value)}
-                required
-              >
-                {receivedFunds.map((f) => (
-                  <option key={f.transfer_id} value={f.transfer_id}>
-                    {f.transfer_id} - {f.scheme_name} ({formatCurrency(f.amount)})
-                  </option>
-                ))}
-              </select>
+          {receivedFunds.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '36px 20px', color: 'var(--text-muted)' }}>
+              <AlertCircle size={40} style={{ margin: '0 auto 12px auto', color: 'var(--color-warning)' }} />
+              <h3 style={{ fontSize: '16px', fontWeight: '700', marginBottom: '6px', color: 'var(--text-main)' }}>
+                No State Funds Received for FY {selectedFY}
+              </h3>
+              <p style={{ fontSize: '13px', maxWidth: '440px', margin: '0 auto', color: 'var(--text-secondary)' }}>
+                Your state treasury has not received any central fund transfers for Financial Year {selectedFY}. Please switch to an active financial year or wait for Finance Ministry fund release.
+              </p>
             </div>
+          ) : (
+            <form onSubmit={handleAllocate}>
+              <div className="form-group">
+                <label className="form-label">Select State Fund Source</label>
+                <select
+                  className="form-control form-select"
+                  value={selectedTransferId}
+                  onChange={(e) => setSelectedTransferId(e.target.value)}
+                  required
+                >
+                  {receivedFunds.map((f) => (
+                    <option key={f.transfer_id} value={f.transfer_id}>
+                      {f.transfer_id} - {f.scheme_name} ({formatCurrency(f.amount)})
+                    </option>
+                  ))}
+                </select>
+              </div>
 
             {activeTransfer && (
               <div style={{ background: 'var(--bg-subtle)', padding: '14px', borderRadius: 'var(--radius-sm)', marginBottom: '18px', display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
@@ -337,8 +358,9 @@ const AllocateToDistrict = () => {
               <span>{submitting ? 'Sending Funds...' : 'Confirm & Send Funds'}</span>
             </button>
           </form>
-        </div>
-      )}
+        )}
+      </div>
+    )}
 
       {/* Transaction Details Modal */}
       {showDetailsModal && successResult?.transaction && (

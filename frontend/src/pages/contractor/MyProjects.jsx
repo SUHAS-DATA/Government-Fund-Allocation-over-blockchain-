@@ -34,8 +34,10 @@ import DocumentHashViewer from '../../components/DocumentHashViewer';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import { useRealtimeSync } from '../../context/RealtimeContext';
+import { useFinancialYear } from '../../context/FinancialYearContext';
 
 const MyProjects = () => {
+  const { selectedFY } = useFinancialYear();
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
   const [projectDetails, setProjectDetails] = useState(null);
@@ -72,7 +74,8 @@ const MyProjects = () => {
 
   const loadProjects = (showSpinner = false) => {
     if (showSpinner) setLoading(true);
-    API.get('/contractor/projects')
+    const fyParam = selectedFY ? `?fy=${selectedFY}` : '';
+    API.get(`/contractor/projects${fyParam}`)
       .then((res) => {
         if (res.success) {
           setActionError('');
@@ -93,7 +96,7 @@ const MyProjects = () => {
 
   useEffect(() => {
     loadProjects(true);
-  }, []);
+  }, [selectedFY]);
 
   useRealtimeSync(() => loadProjects(false), { interval: 6000 });
 

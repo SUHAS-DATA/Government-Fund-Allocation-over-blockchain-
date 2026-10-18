@@ -1,10 +1,11 @@
 import random
 import string
-from datetime import datetime, timezone
-from fastapi import APIRouter, Request, Depends, status
+from datetime import datetime, timezone, timedelta
+from typing import Optional
+from pymongo import ReturnDocument
+from fastapi import APIRouter, Request, Depends, status, Query
 from fastapi.responses import JSONResponse
-from bson import ObjectId
-from database import db, serialize_doc
+from database import db, serialize_doc, get_active_financial_year
 from auth_middleware import require_roles
 import blockchain_service as bcs
 from realtime_manager import realtime_manager
@@ -40,16 +41,24 @@ def format_denomination(amount):
 
 @router.get("/dashboard")
 async def dashboard(
+    fy: Optional[str] = Query(None),
     current_user: dict = Depends(require_roles(["FINANCE"]))
 ):
-    pending_budgets = list(db.budget_allocations.find({
+    target_fy = fy if (fy and fy != "ALL") else None
+    
+    pending_query = {
         "$or": [
             {"status": "SENT_TO_FINANCE"},
             {"$expr": {"$lt": ["$disbursed_amount", "$amount"]}}
         ]
-    }))
+    }
+    if target_fy:
+        pending_query["financial_year"] = target_fy
+    pending_budgets = list(db.budget_allocations.find(pending_query))
 
+    disbursed_match = {"financial_year": target_fy} if target_fy else {}
     disbursed_pipeline = [
+        {"$match": disbursed_match} if disbursed_match else {"$match": {}},
         {"$group": {"_id": None, "total": {"$sum": "$amount"}, "count": {"$sum": 1}}}
     ]
     disbursed_stats = list(db.state_transfers.aggregate(disbursed_pipeline))
@@ -57,6 +66,7 @@ async def dashboard(
     transfers_count = disbursed_stats[0]["count"] if disbursed_stats else 0
 
     state_pipeline = [
+        {"$match": disbursed_match} if disbursed_match else {"$match": {}},
         {"$group": {"_id": "$state_name", "total_amount": {"$sum": "$amount"}, "transfer_count": {"$sum": 1}}},
         {"$sort": {"total_amount": -1}}
     ]
@@ -64,7 +74,9 @@ async def dashboard(
 
     return {
         "success": True,
+        "selected_financial_year": target_fy,
         "metrics": {
+            "selected_financial_year": target_fy,
             "pending_budgets_count": len(pending_budgets),
             "total_disbursed": total_disbursed,
             "transfers_count": transfers_count,
@@ -76,9 +88,13 @@ async def dashboard(
 
 @router.get("/received-budgets")
 async def received_budgets(
+    fy: Optional[str] = Query(None),
     current_user: dict = Depends(require_roles(["FINANCE"]))
 ):
-    budgets = list(db.budget_allocations.find().sort("created_at", -1))
+    query = {}
+    if fy and fy != "ALL":
+        query["financial_year"] = fy
+    budgets = list(db.budget_allocations.find(query).sort("created_at", -1))
     return {"success": True, "budgets": serialize_doc(budgets)}
 
 @router.get("/states")
@@ -121,7 +137,7 @@ async def approve_and_transfer(
         data = {}
 
     alloc_id = data.get("allocation_id")
-    state_code = data.get("state_code", "MH").upper()
+    raw_state_code = str(data.get("state_code", "")).strip().upper()
     state_name = data.get("state_name", "Maharashtra")
     amount = float(data.get("amount", 0))
     sign_off_note = data.get("sign_off_note", "Sanctioned and disbursed by Central Finance Authority.")
@@ -132,6 +148,22 @@ async def approve_and_transfer(
             content={"success": False, "message": "Allocation ID and valid positive amount are required"}
         )
 
+    if not raw_state_code:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "State code is required for treasury transfer"}
+        )
+
+    state_doc = db.states.find_one({"code": raw_state_code})
+    if not state_doc:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": f"Invalid state code '{raw_state_code}'. State does not exist in national registry."}
+        )
+
+    state_code = state_doc["code"]
+    state_name = state_doc.get("name", state_name)
+
     alloc = db.budget_allocations.find_one({"allocation_id": alloc_id})
     if not alloc:
         return JSONResponse(
@@ -139,17 +171,41 @@ async def approve_and_transfer(
             content={"success": False, "message": "Budget allocation not found"}
         )
 
-    # Available Balance Check
-    already_disbursed = alloc.get("disbursed_amount", 0.0)
-    total_sanctioned = alloc.get("amount", 0.0)
-    available_balance = total_sanctioned - already_disbursed
+    # Idempotency Protection: Check header or request body
+    idempotency_key = request.headers.get("X-Idempotency-Key") or data.get("idempotency_key")
+    if idempotency_key:
+        existing_trf = db.state_transfers.find_one({"idempotency_key": idempotency_key})
+        if existing_trf:
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "success": True,
+                    "message": f"Duplicate request acknowledged: state transfer {existing_trf.get('transfer_id')} already processed.",
+                    "transfer": serialize_doc(existing_trf),
+                    "is_duplicate": True
+                }
+            )
 
-    if amount > available_balance:
+    # Atomic Reservation: Conditionally reserve amount only if disbursed_amount + amount <= total amount
+    reserved_alloc = db.budget_allocations.find_one_and_update(
+        {
+            "allocation_id": alloc_id,
+            "$expr": {"$lte": [{"$add": [{"$ifNull": ["$disbursed_amount", 0.0]}, amount]}, "$amount"]}
+        },
+        {"$inc": {"disbursed_amount": amount}},
+        return_document=ReturnDocument.AFTER
+    )
+
+    if not reserved_alloc:
+        latest = db.budget_allocations.find_one({"allocation_id": alloc_id})
+        current_disbursed = latest.get("disbursed_amount", 0.0) if latest else 0.0
+        tot_sanctioned = latest.get("amount", 0.0) if latest else 0.0
+        rem_balance = max(0.0, tot_sanctioned - current_disbursed)
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
             content={
                 "success": False,
-                "message": f"Insufficient available balance. Transfer amount (INR {amount:,.2f}) exceeds available sanctioned balance (INR {available_balance:,.2f})"
+                "message": f"Insufficient available balance. Transfer amount (INR {amount:,.2f}) exceeds available sanctioned balance (INR {rem_balance:,.2f})"
             }
         )
 
@@ -216,6 +272,11 @@ async def approve_and_transfer(
             raise Exception("Blockchain transaction failed to return a valid transaction hash.")
     except Exception as e:
         print(f"Error executing state transfer on blockchain: {e}")
+        # Roll back reservation atomically
+        db.budget_allocations.update_one(
+            {"allocation_id": alloc_id},
+            {"$inc": {"disbursed_amount": -amount}}
+        )
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
@@ -226,9 +287,12 @@ async def approve_and_transfer(
 
     # 2. Record Transfer in MongoDB
     now_utc = datetime.now(timezone.utc)
+    fy = alloc.get("financial_year") or get_active_financial_year()
     transfer_doc = {
         "transfer_id": trf_id,
+        "idempotency_key": idempotency_key,
         "allocation_id": alloc_id,
+        "financial_year": fy,
         "project_id": alloc_id,
         "projectId": alloc_id,
         "scheme_name": alloc.get("scheme_name"),
@@ -270,26 +334,48 @@ async def approve_and_transfer(
         destination_account=destination_account,
         amount=amount,
         purpose=sign_off_note,
+        financial_year=fy,
         blockchain_tx_hash=tx_hash,
         blockchain_block=block_num,
         related_scheme_id=alloc.get("scheme_code"),
         related_scheme_name=alloc.get("scheme_name"),
         related_allocation_id=alloc_id,
         created_by=current_user["name"],
-        status="COMPLETED"
+        status="COMPLETED",
+        idempotency_key=idempotency_key
     )
 
-    # 4. Update Budget Allocation Disbursed Amount & Status
-    new_disbursed = already_disbursed + amount
+    # 4. Finalize Budget Allocation Status
+    new_disbursed = reserved_alloc.get("disbursed_amount", amount)
+    total_sanctioned = reserved_alloc.get("amount", 0.0)
     status_val = "FULLY_DISBURSED" if new_disbursed >= total_sanctioned else "PARTIALLY_DISBURSED"
     db.budget_allocations.update_one(
         {"allocation_id": alloc_id},
         {"$set": {
-            "disbursed_amount": new_disbursed,
             "status": status_val,
             "last_transfer_at": now_utc
         }}
     )
+
+    try:
+        from audit_service import log_audit_event
+        log_audit_event(
+            event_type="FINANCE_STATE_TRANSFER_APPROVED",
+            actor=current_user,
+            target_id=trf_id,
+            target_type="STATE_TRANSFER",
+            amount=amount,
+            action="APPROVE_AND_TRANSFER",
+            status="SUCCESS",
+            details=f"Transferred {amount} to {state_name} State Treasury under {alloc.get('scheme_name')}",
+            blockchain_tx_hash=tx_hash,
+            blockchain_block=block_num,
+            financial_year=fy,
+            extra_data={"allocation_id": alloc_id, "state_code": state_code}
+        )
+    except Exception:
+        pass
+
 
     # 5. Log to Global Blockchain Transactions Collection
     if tx_hash:

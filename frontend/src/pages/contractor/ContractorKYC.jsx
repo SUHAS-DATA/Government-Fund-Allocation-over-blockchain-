@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileCheck, ShieldCheck, Upload, CheckCircle2, AlertCircle } from 'lucide-react';
+import { FileCheck, ShieldCheck, Upload, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
 import API from '../../services/api';
 import DocumentHashViewer from '../../components/DocumentHashViewer';
 
@@ -18,6 +18,7 @@ const ContractorKYC = () => {
   const [docType, setDocType] = useState('PWD_CLASS1_LICENSE');
   const [submitting, setSubmitting] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
 
   const loadKyc = () => {
     API.get('/contractor/kyc-status').then((res) => {
@@ -41,13 +42,35 @@ const ContractorKYC = () => {
 
   const handleUpdateKyc = async (e) => {
     e.preventDefault();
-    setSubmitting(true);
+    setErrorMsg('');
     setSuccessMsg('');
+
+    const gstClean = (formData.gst_number || '').trim().toUpperCase();
+    const panClean = (formData.pan_number || '').trim().toUpperCase();
+    const gstRegex = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/;
+    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+
+    if (!gstRegex.test(gstClean)) {
+      setErrorMsg('Invalid GSTIN format. Expected 15-character statutory GSTIN (e.g. 29AABCU9603R1ZM).');
+      return;
+    }
+
+    if (!panRegex.test(panClean)) {
+      setErrorMsg('Invalid PAN format. Expected 10-character statutory PAN (e.g. AABCU9603R).');
+      return;
+    }
+
+    if (Number(formData.experience_years) < 0 || isNaN(Number(formData.experience_years))) {
+      setErrorMsg('Years of infrastructure experience must be a non-negative number.');
+      return;
+    }
+
+    setSubmitting(true);
 
     const data = new FormData();
     data.append('company_name', formData.company_name);
-    data.append('gst_number', formData.gst_number);
-    data.append('pan_number', formData.pan_number);
+    data.append('gst_number', gstClean);
+    data.append('pan_number', panClean);
     data.append('license_number', formData.license_number);
     data.append('experience_years', formData.experience_years);
     data.append('doc_type', docType);
@@ -62,9 +85,11 @@ const ContractorKYC = () => {
       if (res.success) {
         setSuccessMsg('KYC credentials and cryptographic SHA-256 digest submitted successfully.');
         loadKyc();
+      } else {
+        setErrorMsg(res.message || 'KYC submission was not accepted.');
       }
     } catch (err) {
-      alert(err.message || 'KYC submission error');
+      setErrorMsg(err.message || 'KYC submission error occurred.');
     } finally {
       setSubmitting(false);
     }
@@ -125,6 +150,25 @@ const ContractorKYC = () => {
           </div>
         </div>
       </div>
+
+      {errorMsg && (
+        <div style={{
+          background: '#FEE2E2',
+          border: '1px solid #FECACA',
+          borderRadius: 'var(--radius-sm)',
+          padding: '12px 16px',
+          color: '#DC2626',
+          marginBottom: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          fontWeight: '600',
+          fontSize: '13px'
+        }}>
+          <AlertCircle size={18} />
+          <span>{errorMsg}</span>
+        </div>
+      )}
 
       {successMsg && (
         <div style={{

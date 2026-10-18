@@ -1,10 +1,9 @@
-import os
 import hashlib
 import random
 import string
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any, Tuple
-from database import db
+from typing import Optional, Dict, Any
+from database import db, get_active_financial_year
 
 def mask_account_number(account_number: Optional[str]) -> str:
     """
@@ -419,6 +418,7 @@ def record_financial_transaction(
     destination_account: Dict[str, Any],
     amount: float,
     purpose: str,
+    financial_year: Optional[str] = None,
     blockchain_tx_hash: Optional[str] = None,
     blockchain_block: Optional[int] = None,
     related_scheme_id: Optional[str] = None,
@@ -428,15 +428,35 @@ def record_financial_transaction(
     related_contract_id: Optional[str] = None,
     related_milestone_index: Optional[int] = None,
     created_by: Optional[str] = None,
-    status: str = "COMPLETED"
+    status: str = "COMPLETED",
+    idempotency_key: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Record an authoritative, non-repudiable financial transaction in db.financial_transactions.
     Links Source Account, Destination Account, Blockchain Record, and Project context.
+    Safely deduplicates if idempotency_key is provided.
     """
+    if idempotency_key:
+        existing = db.financial_transactions.find_one({"idempotency_key": idempotency_key})
+        if existing:
+            return existing
+
     now = datetime.now(timezone.utc)
     amt = float(amount)
     
+    # Resolve financial year if omitted
+    fy = financial_year
+    if not fy and related_allocation_id:
+        alloc = db.budget_allocations.find_one({"allocation_id": related_allocation_id})
+        if alloc and alloc.get("financial_year"):
+            fy = alloc["financial_year"]
+    if not fy and related_project_id:
+        proj = db.projects.find_one({"project_id": related_project_id})
+        if proj and proj.get("financial_year"):
+            fy = proj["financial_year"]
+    if not fy:
+        fy = get_active_financial_year()
+
     # Resolve source/dest codes for TX ID
     s_code = source_account.get("state_code") or source_account.get("district_name") or "CENTRAL"
     d_code = destination_account.get("state_code") or destination_account.get("district_name") or "DEST"
@@ -449,7 +469,9 @@ def record_financial_transaction(
     tx_doc = {
         "transaction_id": tx_id,
         "transactionId": tx_id,
+        "idempotency_key": idempotency_key,
         "transaction_type": transaction_type,
+        "financial_year": fy,
         "source_entity_id": source_account.get("entity_id"),
         "source_entity_type": source_account.get("entity_type"),
         "source_entity_name": source_account.get("account_holder_name"),
@@ -487,16 +509,36 @@ def record_financial_transaction(
     db.financial_transactions.insert_one(tx_doc)
 
     try:
-        db.audit_logs.insert_one({
-            "event_type": "FINANCIAL_TRANSACTION_RECORDED",
-            "transaction_id": tx_id,
-            "transaction_type": transaction_type,
-            "amount": amt,
-            "source_account_id": source_account.get("account_id"),
-            "destination_account_id": destination_account.get("account_id"),
-            "timestamp": now
-        })
+        from audit_service import log_audit_event
+        log_audit_event(
+            event_type="FINANCIAL_TRANSACTION_RECORDED",
+            actor={
+                "name": created_by or "System Disbursal Authority",
+                "role": "SYSTEM",
+                "user_id": str(created_by or "SYSTEM")
+            },
+            target_id=tx_id,
+            target_type="FINANCIAL_TRANSACTION",
+            amount=amt,
+            action=transaction_type,
+            status=status,
+            details=purpose,
+            blockchain_tx_hash=blockchain_tx_hash,
+            blockchain_block=blockchain_block,
+            financial_year=active_fy,
+            extra_data={
+                "source_account_id": source_account.get("account_id"),
+                "destination_account_id": destination_account.get("account_id"),
+                "source_entity_name": source_account.get("account_holder_name"),
+                "destination_entity_name": destination_account.get("account_holder_name"),
+                "related_scheme_name": related_scheme_name,
+                "related_allocation_id": related_allocation_id,
+                "related_project_id": related_project_id,
+                "idempotency_key": idempotency_key
+            }
+        )
     except Exception:
         pass
 
     return tx_doc
+

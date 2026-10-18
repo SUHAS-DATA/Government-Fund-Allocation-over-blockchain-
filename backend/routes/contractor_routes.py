@@ -1,4 +1,5 @@
 import os
+import re
 import random
 import string
 import uuid
@@ -6,10 +7,9 @@ import hashlib
 import mimetypes
 from datetime import datetime, timezone
 from typing import Optional
-from fastapi import APIRouter, Request, Depends, status
+from fastapi import APIRouter, Request, Depends, status, Query
 from fastapi.responses import JSONResponse
-from bson import ObjectId
-from database import db, serialize_doc, compute_project_progress
+from database import db, serialize_doc, compute_project_progress, get_active_financial_year
 from auth_middleware import require_roles
 import blockchain_service as bcs
 from realtime_manager import realtime_manager
@@ -33,10 +33,10 @@ def generate_doc_id(doc_type):
     return f"DOC-{doc_type}-{rand_suffix}"
 
 def get_contractor_identifiers(current_user: dict):
-    """Extract all matching IDs for the logged-in contractor"""
-    user_id = str(current_user.get("user_id", ""))
-    email = str(current_user.get("email", "")).lower()
-    officer_id = str(current_user.get("officer_id") or current_user.get("contractor_id") or "")
+    """Extract all non-empty matching IDs for the logged-in contractor"""
+    user_id = str(current_user.get("user_id") or "").strip()
+    email = str(current_user.get("email") or "").strip().lower()
+    officer_id = str(current_user.get("officer_id") or current_user.get("contractor_id") or "").strip()
     return user_id, email, officer_id
 
 def verify_contractor_project_ownership(proj, current_user: dict):
@@ -44,28 +44,32 @@ def verify_contractor_project_ownership(proj, current_user: dict):
     if not proj:
         return False
     user_id, email, officer_id = get_contractor_identifiers(current_user)
-    proj_cid = str(proj.get("contractor_id", ""))
-    
-    if proj_cid in [user_id, email, officer_id]:
+    valid_ids = [i for i in [user_id, email, officer_id] if i]
+    if not valid_ids:
+        return False
+
+    proj_cid = str(proj.get("contractor_id") or "").strip()
+    proj_email = str(proj.get("contractor_email") or "").strip().lower()
+
+    if proj_cid and proj_cid in valid_ids:
         return True
-    if proj.get("contractor_email") and str(proj.get("contractor_email")).lower() == email:
+    if proj_email and email and proj_email == email:
         return True
     return False
 
 def build_contractor_project_query(current_user: dict):
     user_id, email, officer_id = get_contractor_identifiers(current_user)
-    cids = [user_id, email]
-    if officer_id:
-        cids.append(officer_id)
-    return {
-        "$or": [
-            {"contractor_id": {"$in": cids}},
-            {"contractor_email": email}
-        ]
-    }
+    cids = [i for i in [user_id, email, officer_id] if i]
+    if not cids:
+        return {"_id": None}  # match nothing if unauthenticated/invalid contractor profile
+    or_clauses = [{"contractor_id": {"$in": cids}}]
+    if email:
+        or_clauses.append({"contractor_email": email})
+    return {"$or": or_clauses}
 
 @router.get("/dashboard")
 async def dashboard(
+    fy: Optional[str] = Query(None),
     current_user: dict = Depends(require_roles(["CONTRACTOR"]))
 ):
     user_id, email, officer_id = get_contractor_identifiers(current_user)
@@ -82,7 +86,10 @@ async def dashboard(
             }
         )
     
-    projects = list(db.projects.find(build_contractor_project_query(current_user)).sort("created_at", -1))
+    target_fy = fy or get_active_financial_year()
+    base_query = build_contractor_project_query(current_user)
+    fy_query = {"$and": [base_query, {"financial_year": target_fy}]}
+    projects = list(db.projects.find(fy_query).sort("created_at", -1))
 
     total_value = sum(p.get("total_budget", 0) for p in projects if p.get("status") not in ["REJECTED_BY_CONTRACTOR"])
     total_received = sum(p.get("released_amount", 0) for p in projects)
@@ -91,12 +98,21 @@ async def dashboard(
         if (p.get("status") in ["ASSIGNED", "PENDING_ACCEPTANCE"] or p.get("assignment_status") != "ACCEPTED" or not p.get("phases_configured")) and p.get("status") not in ["COMPLETED", "REJECTED_BY_CONTRACTOR"]
     ]
 
-    recent_payments = list(db.blockchain_transactions.find({
-        "operation_type": "MILESTONE_PAYMENT_RELEASE"
-    }).sort("timestamp", -1).limit(5))
+    proj_ids = [str(p.get("project_id")) for p in projects if p.get("project_id")]
+    pay_query = {
+        "operation_type": "MILESTONE_PAYMENT_RELEASE",
+        "$or": [
+            {"project_id": {"$in": proj_ids}},
+            {"projectId": {"$in": proj_ids}},
+            {"to_entity": {"$regex": re.escape(current_user.get("name", "###")), "$options": "i"}},
+            {"receiver_department": {"$regex": re.escape(current_user.get("name", "###")), "$options": "i"}}
+        ]
+    } if proj_ids else {"_id": None}
+    recent_payments = list(db.blockchain_transactions.find(pay_query).sort("timestamp", -1).limit(5))
 
     return {
         "success": True,
+        "financial_year": target_fy,
         "contractor_profile": serialize_doc(kyc),
         "contractor_id": officer_id or user_id,
         "contractor_name": current_user.get("name"),
@@ -212,16 +228,19 @@ async def kyc_submit(
 # --- Project Directory & Accept / Reject Workflow ---
 @router.get("/projects")
 async def get_my_projects(
+    fy: Optional[str] = Query(None),
     current_user: dict = Depends(require_roles(["CONTRACTOR"]))
 ):
-    projects = list(db.projects.find(build_contractor_project_query(current_user)).sort("created_at", -1))
+    target_fy = fy or get_active_financial_year()
+    query = {"$and": [build_contractor_project_query(current_user), {"financial_year": target_fy}]}
+    projects = list(db.projects.find(query).sort("created_at", -1))
     
     for p in projects:
         p_id = p.get("project_id")
         phases = list(db.milestones.find({"project_id": p_id}).sort("milestone_index", 1))
         p["phases"] = serialize_doc(phases)
 
-    return {"success": True, "projects": serialize_doc(projects)}
+    return {"success": True, "financial_year": target_fy, "projects": serialize_doc(projects)}
 
 @router.get("/projects/{project_id}")
 async def get_contractor_project_details(
@@ -906,26 +925,54 @@ async def legacy_request_payment(
 async def get_payments(
     current_user: dict = Depends(require_roles(["CONTRACTOR"]))
 ):
-    cid = current_user.get("contractor_id") or current_user.get("user_id")
-    cname = current_user.get("name", "")
-    
-    # Query unified financial transactions with masked account details
-    txs = list(db.financial_transactions.find({
-        "$or": [
+    cid = str(current_user.get("contractor_id") or current_user.get("user_id") or "").strip()
+    cname = (current_user.get("name") or "").strip()
+    cemail = (current_user.get("email") or "").strip().lower()
+    cwallet = (current_user.get("wallet_address") or "").strip().lower()
+
+    # Find project IDs assigned to this contractor
+    proj_query = build_contractor_project_query(current_user)
+    owned_projects = list(db.projects.find(proj_query, {"project_id": 1}))
+    owned_project_ids = [p["project_id"] for p in owned_projects if p.get("project_id")]
+
+    # Match financial transactions strictly belonging to this contractor or their assigned projects
+    contractor_matchers = []
+    if cid:
+        contractor_matchers.extend([
             {"destination_entity_id": cid},
-            {"destination_entity_name": {"$regex": cname, "$options": "i"}},
-            {"transaction_type": "DISTRICT_TO_CONTRACTOR"}
-        ]
-    }).sort("created_at", -1))
-    
+            {"destination_account_id": {"$regex": re.escape(cid), "$options": "i"}},
+            {"contractor_id": cid}
+        ])
+    if cname:
+        contractor_matchers.append({"destination_entity_name": {"$regex": f"^{re.escape(cname)}$", "$options": "i"}})
+    if owned_project_ids:
+        contractor_matchers.append({"related_project_id": {"$in": owned_project_ids}})
+
+    if not contractor_matchers:
+        return {"success": True, "payments": []}
+
+    tx_query = {
+        "transaction_type": {"$in": ["DISTRICT_TO_CONTRACTOR", "ESCROW_TO_CONTRACTOR", "CONTRACTOR_PAYMENT"]},
+        "$or": contractor_matchers
+    }
+    txs = list(db.financial_transactions.find(tx_query).sort("created_at", -1))
+
     if not txs:
-        txs = list(db.blockchain_transactions.find({
-            "$or": [
-                {"operation_type": "MILESTONE_PAYMENT_RELEASE"},
-                {"operation_type": "DISTRICT_CONTRACTOR_TRANSFER"},
-                {"operation_type": "PHASE_FUND_TRANSFER_TO_CONTRACTOR_BANK"}
-            ]
-        }).sort("timestamp", -1))
+        bc_matchers = []
+        if cwallet:
+            bc_matchers.extend([
+                {"to_address": {"$regex": f"^{re.escape(cwallet)}$", "$options": "i"}},
+                {"receiverAddress": {"$regex": f"^{re.escape(cwallet)}$", "$options": "i"}}
+            ])
+        if owned_project_ids:
+            bc_matchers.append({"project_id": {"$in": owned_project_ids}})
+            bc_matchers.append({"entity_id": {"$in": owned_project_ids}})
+
+        if bc_matchers:
+            txs = list(db.blockchain_transactions.find({
+                "operation_type": {"$in": ["MILESTONE_PAYMENT_RELEASE", "DISTRICT_CONTRACTOR_TRANSFER", "PHASE_FUND_TRANSFER_TO_CONTRACTOR_BANK"]},
+                "$or": bc_matchers
+            }).sort("timestamp", -1))
 
     return {"success": True, "payments": serialize_doc(txs)}
 

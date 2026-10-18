@@ -1,6 +1,6 @@
 import re
-from datetime import datetime, timezone
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
+from fastapi.responses import JSONResponse
 from bson import ObjectId
 from database import db, serialize_doc
 from auth_middleware import get_current_user
@@ -54,20 +54,72 @@ def transform_notification_message(msg):
     msg = re.sub(r'INR\s+([\d,]+(?:\.\d+)?)', repl_plain, msg)
     return msg
 
+def get_user_notification_query(current_user: dict) -> dict:
+    """
+    Construct scoped MongoDB filter ensuring users only see notifications directed
+    to their identity, role, or matching geographical jurisdiction.
+    """
+    user_id = current_user.get("user_id")
+    role = current_user.get("role")
+    state_code = current_user.get("state_code")
+    district_name = current_user.get("district_name")
+
+    base_or = [
+        {"recipient_user_id": user_id},
+        {"recipient_role": "ALL"}
+    ]
+
+    if role in ["SUPER_ADMIN", "ADMIN", "FINANCE", "AUDITOR"]:
+        base_or.append({"recipient_role": role})
+    elif role == "STATE":
+        state_cond = {"recipient_role": "STATE"}
+        if state_code:
+            sc_clean = state_code.strip().upper()
+            state_cond["$or"] = [
+                {"recipient_state_code": sc_clean},
+                {"recipient_state": sc_clean}
+            ]
+        else:
+            state_cond["$or"] = [
+                {"recipient_state_code": None},
+                {"recipient_state": None},
+                {"recipient_state_code": {"$exists": False}},
+                {"recipient_state": {"$exists": False}}
+            ]
+        base_or.append(state_cond)
+    elif role == "DISTRICT":
+        dist_cond = {"recipient_role": "DISTRICT"}
+        sub = []
+        if district_name:
+            d_clean = district_name.strip()
+            sub.extend([
+                {"recipient_district": d_clean},
+                {"recipient_district_name": d_clean}
+            ])
+        if state_code:
+            sc_clean = state_code.strip().upper()
+            sub.extend([
+                {"recipient_state_code": sc_clean},
+                {"recipient_state": sc_clean}
+            ])
+        if sub:
+            dist_cond["$or"] = sub
+        else:
+            dist_cond["$or"] = [
+                {"recipient_district": None, "recipient_state_code": None},
+                {"recipient_district": {"$exists": False}, "recipient_state_code": {"$exists": False}}
+            ]
+        base_or.append(dist_cond)
+    elif role == "CONTRACTOR":
+        base_or.append({"recipient_role": "CONTRACTOR", "recipient_user_id": user_id})
+
+    return {"$or": base_or}
+
 @router.get("")
 async def get_notifications(
     current_user: dict = Depends(get_current_user)
 ):
-    user_id = current_user.get("user_id")
-    role = current_user.get("role")
-
-    query = {
-        "$or": [
-            {"recipient_user_id": user_id},
-            {"recipient_role": role},
-            {"recipient_role": "ALL"}
-        ]
-    }
+    query = get_user_notification_query(current_user)
 
     notifications = list(db.notifications.find(query).sort("created_at", -1).limit(50))
     for n in notifications:
@@ -89,21 +141,38 @@ async def mark_read(
     notification_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-    db.notifications.update_one(
-        {"_id": ObjectId(notification_id)},
+    try:
+        oid = ObjectId(notification_id)
+    except Exception:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Invalid notification ID"}
+        )
+
+    # Scoped query prevents marking other users' or jurisdictions' notifications
+    query = get_user_notification_query(current_user)
+    query["_id"] = oid
+
+    res = db.notifications.update_one(
+        query,
         {"$set": {"read": True}}
     )
+    if res.matched_count == 0:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"success": False, "message": "Notification not found or access denied"}
+        )
+
     return {"success": True, "message": "Notification marked as read"}
 
 @router.put("/read-all")
 async def mark_all_read(
     current_user: dict = Depends(get_current_user)
 ):
-    user_id = current_user.get("user_id")
-    role = current_user.get("role")
+    query = get_user_notification_query(current_user)
 
     db.notifications.update_many(
-        {"$or": [{"recipient_user_id": user_id}, {"recipient_role": role}]},
+        query,
         {"$set": {"read": True}}
     )
     return {"success": True, "message": "All notifications marked as read"}

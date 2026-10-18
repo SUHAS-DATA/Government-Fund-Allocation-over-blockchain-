@@ -1,8 +1,8 @@
 require("@nomicfoundation/hardhat-toolbox");
 require("dotenv").config();
 
-const RPC_URL = process.env.BLOCKCHAIN_RPC_URL || "http://127.0.0.1:7545";
-const DEFAULT_KEY = process.env.BLOCKCHAIN_PRIVATE_KEY || process.env.FINANCE_PRIVATE_KEY || "0x5c1773faf03c71052871f2ce322dc5b61bedc26b92f9a1943d408b81edb378ba";
+const RPC_URL = process.env.BLOCKCHAIN_RPC_URL || process.env.RPC_URL || "http://127.0.0.1:7545";
+const DEFAULT_KEY = process.env.BLOCKCHAIN_PRIVATE_KEY || process.env.FINANCE_PRIVATE_KEY;
 
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
@@ -20,15 +20,15 @@ module.exports = {
     ganache: {
       url: RPC_URL,
       chainId: 1337,
-      accounts: [DEFAULT_KEY]
+      accounts: DEFAULT_KEY ? [DEFAULT_KEY] : []
     },
     localhost: {
       url: "http://127.0.0.1:8545",
       chainId: 31337
     },
     hardhat: {
-      chainId: 31337
+      chainId: 31337,
+      allowUnlimitedContractSize: true
     }
   }
 };
-

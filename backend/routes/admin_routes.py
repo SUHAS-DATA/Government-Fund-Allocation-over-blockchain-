@@ -1,4 +1,3 @@
-import os
 import random
 import string
 import re
@@ -80,11 +79,9 @@ async def dashboard(
     projects_count = db.projects.count_documents({})
     open_fraud_alerts = db.fraud_reports.count_documents({"status": "OPEN"})
 
-    # Recent transfers and allocations
-    recent_transfers = list(db.state_transfers.find().sort("created_at", -1).limit(5))
+    # Recent transfers and allocations isolated to target financial year
+    recent_transfers = list(db.state_transfers.find({"financial_year": target_fy_year}).sort("created_at", -1).limit(5))
     recent_allocations = list(db.budget_allocations.find({"financial_year": target_fy_year}).sort("created_at", -1).limit(5))
-    if not recent_allocations and not selected_fy:
-        recent_allocations = list(db.budget_allocations.find().sort("created_at", -1).limit(5))
 
     return {
         "success": True,
@@ -311,22 +308,27 @@ async def create_district(
 # --- Schemes ---
 @router.get("/schemes")
 async def get_schemes(
+    fy: Optional[str] = Query(None),
     current_user: dict = Depends(require_roles(["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR"]))
 ):
-    sc_list = list(db.schemes.find().sort("name", 1))
+    sc_query = {}
+    if fy and fy != "ALL":
+        sc_query["financial_year"] = fy
+    sc_list = list(db.schemes.find(sc_query).sort("name", 1))
     for s in sc_list:
         scheme_name = s.get("name", "")
         target_budget = float(s.get("target_budget") or s.get("allocated_budget") or 0.0)
         
-        # Calculate existing allocations made to this scheme
-        allocations = []
-        if scheme_name:
-            allocations = list(db.budget_allocations.find({
-                "$or": [
-                    {"scheme_name": scheme_name},
-                    {"scheme_name": {"$regex": f"^{re.escape(scheme_name.strip())}$", "$options": "i"}}
-                ]
-            }))
+        # Calculate existing allocations made to this scheme in the given FY
+        alloc_query = {
+            "$or": [
+                {"scheme_name": scheme_name},
+                {"scheme_name": {"$regex": f"^{re.escape(scheme_name.strip())}$", "$options": "i"}}
+            ]
+        }
+        if fy and fy != "ALL":
+            alloc_query["financial_year"] = fy
+        allocations = list(db.budget_allocations.find(alloc_query))
         
         total_allocated = sum(float(a.get("amount", 0.0)) for a in allocations)
         total_disbursed = sum(float(a.get("disbursed_amount", 0.0)) for a in allocations)
@@ -350,22 +352,38 @@ async def create_scheme(
 
     code = data.get("code", "").strip().upper()
     name = data.get("name", "").strip()
+    fy = str(data.get("financial_year", "")).strip()
+
     if not code or not name:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
             content={"success": False, "message": "Scheme code and name required"}
         )
 
+    if not fy:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Financial year association is required"}
+        )
+
+    fy_doc = db.financial_years.find_one({"year": fy})
+    if not fy_doc:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": f"Invalid financial year '{fy}'. Year not recognized."}
+        )
+
     doc = {
         "code": code,
         "name": name,
+        "financial_year": fy,
         "department_code": data.get("department_code", "INFRA"),
         "department_name": data.get("department_name", "Road Transport & Infrastructure"),
         "description": data.get("description", ""),
         "target_budget": float(data.get("target_budget", 1000000000.0)),
         "created_at": datetime.now(timezone.utc)
     }
-    db.schemes.update_one({"code": code}, {"$set": doc}, upsert=True)
+    db.schemes.update_one({"code": code, "financial_year": fy}, {"$set": doc}, upsert=True)
     return {"success": True, "message": "Scheme created successfully", "scheme": serialize_doc(doc)}
 
 # --- Central Budget Allocation & Blockchain Dispatch ---
@@ -379,10 +397,23 @@ async def allocate_budget(
     except Exception:
         data = {}
 
-    fy = str(data.get("financial_year", "2026-27")).strip()
+    fy = str(data.get("financial_year", "")).strip()
     department = str(data.get("department", "")).strip()
     scheme_name = str(data.get("scheme_name", "")).strip()
     amount = float(data.get("amount", 0))
+
+    if not fy:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Financial year is required for budget allocation"}
+        )
+
+    fy_doc = db.financial_years.find_one({"year": fy})
+    if not fy_doc:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": f"Invalid financial year '{fy}'. Cycle not recognized."}
+        )
 
     if amount <= 0:
         return JSONResponse(
@@ -395,6 +426,18 @@ async def allocate_budget(
             status_code=status.HTTP_400_BAD_REQUEST,
             content={"success": False, "message": "Scheme name is required for budget allocation"}
         )
+
+    # Idempotency Protection: Check header or request body
+    idempotency_key = request.headers.get("X-Idempotency-Key") or data.get("idempotency_key")
+    if idempotency_key:
+        existing_alloc = db.budget_allocations.find_one({"idempotency_key": idempotency_key})
+        if existing_alloc:
+            return {
+                "success": True,
+                "message": f"Duplicate request acknowledged: budget allocation {existing_alloc.get('allocation_id')} already processed.",
+                "allocation": serialize_doc(existing_alloc),
+                "is_duplicate": True
+            }
 
     # 1. Scheme lookup & validation
     clean_scheme = scheme_name.strip()
@@ -427,8 +470,9 @@ async def allocate_budget(
         else:
             return f"₹{val:,.2f}"
 
-    # 2. Strict Scheme Ceiling Enforcement
+    # 2. Strict Scheme Ceiling Enforcement within this financial year
     existing_scheme_allocs = list(db.budget_allocations.find({
+        "financial_year": fy,
         "$or": [
             {"scheme_name": canonical_scheme_name},
             {"scheme_name": clean_scheme},
@@ -445,25 +489,23 @@ async def allocate_budget(
                 "success": False,
                 "message": (
                     f"Requested allocation of {fmt_inr(amount)} exceeds the remaining sanctioned ceiling "
-                    f"({fmt_inr(max(0.0, remaining_scheme_ceiling))}) for scheme '{canonical_scheme_name}'. "
+                    f"({fmt_inr(max(0.0, remaining_scheme_ceiling))}) for scheme '{canonical_scheme_name}' in FY {fy}. "
                     f"Total scheme target ceiling is {fmt_inr(scheme_target)} with {fmt_inr(already_allocated_to_scheme)} already sanctioned."
                 )
             }
         )
 
     # 3. Financial Year Ceiling Enforcement
-    fy_doc = db.financial_years.find_one({"year": fy})
-    if fy_doc:
-        fy_total = float(fy_doc.get("total_budget", 0.0))
-        if fy_total > 0:
-            fy_allocs = list(db.budget_allocations.find({"financial_year": fy}))
-            fy_already_allocated = sum(float(a.get("amount", 0.0)) for a in fy_allocs)
-            fy_remaining = fy_total - fy_already_allocated
-            if amount > fy_remaining:
-                return JSONResponse(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    content={
-                        "success": False,
+    fy_total = float(fy_doc.get("total_budget", 0.0))
+    if fy_total > 0:
+        fy_allocs = list(db.budget_allocations.find({"financial_year": fy}))
+        fy_already_allocated = sum(float(a.get("amount", 0.0)) for a in fy_allocs)
+        fy_remaining = fy_total - fy_already_allocated
+        if amount > fy_remaining:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "success": False,
                         "message": (
                             f"Requested allocation amount ({fmt_inr(amount)}) exceeds remaining Union Budget for FY {fy} "
                             f"({fmt_inr(max(0.0, fy_remaining))} available out of {fmt_inr(fy_total)} total ceiling)."
@@ -492,6 +534,7 @@ async def allocate_budget(
     # 2. Record in MongoDB
     alloc_doc = {
         "allocation_id": alloc_id,
+        "idempotency_key": idempotency_key,
         "financial_year": fy,
         "department": department,
         "scheme_name": scheme_name,
@@ -504,6 +547,27 @@ async def allocate_budget(
         "created_at": datetime.now(timezone.utc)
     }
     db.budget_allocations.insert_one(alloc_doc)
+
+
+
+    try:
+        from audit_service import log_audit_event
+        log_audit_event(
+            event_type="BUDGET_ALLOCATION_SANCTIONED",
+            actor=current_user,
+            target_id=alloc_id,
+            target_type="BUDGET_ALLOCATION",
+            amount=amount,
+            action="SANCTION_BUDGET",
+            status="SUCCESS",
+            details=f"Sanctioned {amount} for scheme '{scheme_name}' under department '{department}'",
+            blockchain_tx_hash=tx_hash,
+            blockchain_block=block_num,
+            financial_year=fy
+        )
+    except Exception:
+        pass
+
 
     # Log to global blockchain transactions collection
     if tx_hash:

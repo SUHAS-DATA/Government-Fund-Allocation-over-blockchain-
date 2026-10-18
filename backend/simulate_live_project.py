@@ -13,9 +13,7 @@ and executes real-world actions for every role:
 """
 
 import sys
-import time
 import requests
-from datetime import datetime
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')

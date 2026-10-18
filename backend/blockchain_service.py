@@ -15,7 +15,7 @@ else:
 bc_logger = logging.getLogger("blockchain_service")
 
 RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL") or os.getenv("RPC_URL", "http://127.0.0.1:7545")
-PRIVATE_KEY = os.getenv("BLOCKCHAIN_PRIVATE_KEY", "0x5c1773faf03c71052871f2ce322dc5b61bedc26b92f9a1943d408b81edb378ba")
+PRIVATE_KEY = os.getenv("BLOCKCHAIN_PRIVATE_KEY")
 
 # Load Contract Info
 contract_info_path = os.path.join(os.path.dirname(__file__), "config", "contract_info.json")
@@ -568,6 +568,11 @@ def execute_contract_transaction(func_call, role: str = "FINANCE", custom_privat
             f"GasUsed={receipt.gasUsed} | Status={status_str} | TxHash={tx_hash_hex}"
         )
 
+        if receipt.status != 1:
+            err_msg = f"Blockchain transaction reverted on-chain with status 0. TxHash: {tx_hash_hex}"
+            bc_logger.error(f"[BLOCKCHAIN_TX_REVERTED] Op={fn_name} | {err_msg}")
+            raise Exception(err_msg)
+
         return {
             "tx_hash": tx_hash_hex,
             "block_number": receipt.blockNumber,
@@ -822,4 +827,284 @@ def verify_document_hash_onchain(doc_id, computed_hash):
     except Exception as e:
         print(f"Document verification call error: {e}")
         return {"is_match": False, "stored_hash": "", "timestamp": 0}
+
+# =========================================================================
+# ON-CHAIN STATE QUERY & VERIFICATION ENGINE (PHASE 5)
+# =========================================================================
+
+def verify_transaction_onchain(
+    tx_hash: str,
+    expected_sender: str = None,
+    expected_contract: str = None,
+    expected_event: str = None,
+    expected_chain_id: int = None,
+    min_confirmations: int = 0
+) -> dict:
+    """
+    Independently verifies an Ethereum blockchain transaction against the RPC node:
+    - Verifies RPC node connection.
+    - Queries transaction and checks existence, chain ID, sender address, and target contract address.
+    - Queries transaction receipt and checks receipt.status == 1 (not reverted).
+    - Checks block confirmations.
+    - Decodes receipt logs to verify that the specified smart contract event was emitted.
+    - Strictly never reports unverified success if the transaction is pending, reverted, missing, or RPC unreachable.
+    """
+    if not tx_hash or not isinstance(tx_hash, str) or not tx_hash.startswith("0x"):
+        return {
+            "verified": False,
+            "status": "INVALID_TX_HASH",
+            "message": "Invalid transaction hash format. Must be a 0x-prefixed hex string."
+        }
+
+    if not is_blockchain_connected(force_refresh=True):
+        return {
+            "verified": False,
+            "status": "RPC_DISCONNECTED",
+            "message": f"Blockchain RPC node at '{mask_rpc_url(RPC_URL)}' is unreachable. Cannot verify on-chain state."
+        }
+
+    # 1. Query Transaction
+    try:
+        tx = w3.eth.get_transaction(tx_hash)
+    except Exception as e:
+        err_str = str(e).lower()
+        if "not found" in err_str:
+            return {
+                "verified": False,
+                "status": "NOT_FOUND_ON_CHAIN",
+                "message": f"Transaction '{tx_hash}' was not found on the active blockchain ledger."
+            }
+        return {
+            "verified": False,
+            "status": "RPC_QUERY_ERROR",
+            "message": f"Failed querying blockchain transaction: {str(e)}"
+        }
+
+    if not tx:
+        return {
+            "verified": False,
+            "status": "NOT_FOUND_ON_CHAIN",
+            "message": f"Transaction '{tx_hash}' was not found on the active blockchain ledger."
+        }
+
+    # Check if pending in mempool
+    if tx.get("blockNumber") is None:
+        return {
+            "verified": False,
+            "status": "PENDING_IN_MEMPOOL",
+            "message": "Transaction is currently pending in the mempool and has not yet been mined into a block."
+        }
+
+    # Validate Chain ID
+    expected_cid = expected_chain_id or int(os.getenv("CHAIN_ID", 1337))
+    tx_chain_id = tx.get("chainId")
+    if tx_chain_id is not None and tx_chain_id != expected_cid:
+        return {
+            "verified": False,
+            "status": "CHAIN_ID_MISMATCH",
+            "message": f"Transaction chain ID ({tx_chain_id}) does not match expected network chain ID ({expected_cid})."
+        }
+
+    # Validate Contract Address ('to')
+    target_contract = expected_contract or contract_address
+    if target_contract and tx.get("to"):
+        if tx["to"].lower() != target_contract.lower():
+            return {
+                "verified": False,
+                "status": "CONTRACT_ADDRESS_MISMATCH",
+                "message": f"Transaction recipient '{tx['to']}' does not match expected contract address '{target_contract}'."
+            }
+
+    # Validate Sender Address ('from')
+    if expected_sender and tx.get("from"):
+        if tx["from"].lower() != expected_sender.lower():
+            return {
+                "verified": False,
+                "status": "SENDER_ADDRESS_MISMATCH",
+                "message": f"Transaction sender '{tx['from']}' does not match expected authorized address '{expected_sender}'."
+            }
+
+    # 2. Query Transaction Receipt
+    try:
+        receipt = w3.eth.get_transaction_receipt(tx_hash)
+    except Exception as e:
+        return {
+            "verified": False,
+            "status": "RECEIPT_NOT_AVAILABLE",
+            "message": f"Failed querying transaction receipt: {str(e)}"
+        }
+
+    if not receipt:
+        return {
+            "verified": False,
+            "status": "RECEIPT_NOT_FOUND",
+            "message": f"Transaction receipt for '{tx_hash}' is not yet available."
+        }
+
+    # Validate Receipt Status
+    if receipt.status != 1:
+        return {
+            "verified": False,
+            "status": "REVERTED_ON_CHAIN",
+            "message": f"Transaction was mined in block #{receipt.blockNumber} but reverted on-chain (status 0).",
+            "block_number": receipt.blockNumber,
+            "gas_used": receipt.gasUsed
+        }
+
+    # Validate Confirmations
+    try:
+        latest_block = w3.eth.block_number
+        confirmations = max(0, latest_block - receipt.blockNumber + 1)
+    except Exception:
+        confirmations = 1
+
+    if confirmations < min_confirmations:
+        return {
+            "verified": False,
+            "status": "INSUFFICIENT_CONFIRMATIONS",
+            "message": f"Transaction has {confirmations} confirmations; minimum {min_confirmations} required.",
+            "confirmations": confirmations,
+            "block_number": receipt.blockNumber
+        }
+
+    # 3. Decode Emitted Contract Events
+    decoded_events = []
+    contract = get_contract()
+    if contract and hasattr(receipt, "logs") and receipt.logs:
+        if expected_event:
+            event_obj = getattr(contract.events, expected_event, None)
+            if event_obj:
+                try:
+                    processed = event_obj().process_receipt(receipt)
+                    for evt in processed:
+                        decoded_events.append({
+                            "event": evt.event,
+                            "args": dict(evt.args)
+                        })
+                except Exception as log_err:
+                    bc_logger.warning(f"Error parsing receipt log for {expected_event}: {log_err}")
+
+            if not decoded_events:
+                return {
+                    "verified": False,
+                    "status": "EVENT_EMISSION_MISMATCH",
+                    "message": f"Transaction succeeded on-chain, but expected event '{expected_event}' was not emitted in receipt logs.",
+                    "block_number": receipt.blockNumber,
+                    "gas_used": receipt.gasUsed
+                }
+
+    return {
+        "verified": True,
+        "status": "VERIFIED_SUCCESS",
+        "message": f"Transaction successfully verified on-chain in block #{receipt.blockNumber}.",
+        "tx_hash": tx_hash,
+        "block_number": receipt.blockNumber,
+        "gas_used": receipt.gasUsed,
+        "from_address": tx["from"],
+        "to_address": tx["to"],
+        "confirmations": confirmations,
+        "decoded_events": decoded_events
+    }
+
+# --- On-chain State Query Getters ---
+
+def get_onchain_budget_allocation(alloc_id: str):
+    contract = get_contract()
+    if not contract or not hasattr(contract.functions, "budgetAllocations"):
+        return None
+    try:
+        res = contract.functions.budgetAllocations(alloc_id).call()
+        return {
+            "allocation_id": res[0],
+            "scheme_name": res[1],
+            "department_name": res[2],
+            "total_sanctioned": float(res[3]),
+            "disbursed_to_states": float(res[4]),
+            "timestamp": int(res[5]),
+            "exists": bool(res[6])
+        }
+    except Exception as e:
+        bc_logger.warning(f"Error querying on-chain budget allocation {alloc_id}: {e}")
+        return None
+
+def get_onchain_state_transfer(trf_id: str):
+    contract = get_contract()
+    if not contract or not hasattr(contract.functions, "stateTransfers"):
+        return None
+    try:
+        res = contract.functions.stateTransfers(trf_id).call()
+        return {
+            "transfer_id": res[0],
+            "allocation_id": res[1],
+            "state_name": res[2],
+            "amount": float(res[3]),
+            "allocated_to_districts": float(res[4]),
+            "timestamp": int(res[5]),
+            "exists": bool(res[6])
+        }
+    except Exception as e:
+        bc_logger.warning(f"Error querying on-chain state transfer {trf_id}: {e}")
+        return None
+
+def get_onchain_district_allocation(dist_alloc_id: str):
+    contract = get_contract()
+    if not contract or not hasattr(contract.functions, "districtAllocations"):
+        return None
+    try:
+        res = contract.functions.districtAllocations(dist_alloc_id).call()
+        return {
+            "dist_alloc_id": res[0],
+            "transfer_id": res[1],
+            "district_name": res[2],
+            "amount": float(res[3]),
+            "disbursed_to_projects": float(res[4]),
+            "timestamp": int(res[5]),
+            "exists": bool(res[6])
+        }
+    except Exception as e:
+        bc_logger.warning(f"Error querying on-chain district allocation {dist_alloc_id}: {e}")
+        return None
+
+def get_onchain_project_escrow(project_id: str):
+    contract = get_contract()
+    if not contract or not hasattr(contract.functions, "projectEscrows"):
+        return None
+    try:
+        res = contract.functions.projectEscrows(project_id).call()
+        return {
+            "project_id": res[0],
+            "name": res[1],
+            "contractor": res[2],
+            "total_budget": float(res[3]),
+            "released_amount": float(res[4]),
+            "milestone_count": int(res[5]),
+            "is_frozen": bool(res[6]),
+            "freeze_reason": res[7],
+            "exists": bool(res[9]) if len(res) > 9 else bool(res[0])
+        }
+    except Exception as e:
+        bc_logger.warning(f"Error querying on-chain project escrow {project_id}: {e}")
+        return None
+
+def get_onchain_fund_transfer_record(transfer_key: str):
+    contract = get_contract()
+    if not contract or not hasattr(contract.functions, "fundTransferRecords"):
+        return None
+    try:
+        res = contract.functions.fundTransferRecords(transfer_key).call()
+        return {
+            "transfer_key": transfer_key,
+            "sender": res[0],
+            "receiver": res[1],
+            "sender_department": res[2],
+            "receiver_department": res[3],
+            "project_id": res[4],
+            "amount": float(res[5]),
+            "timestamp": int(res[6]),
+            "exists": bool(res[7])
+        }
+    except Exception as e:
+        bc_logger.warning(f"Error querying on-chain fund transfer record {transfer_key}: {e}")
+        return None
+
 

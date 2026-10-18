@@ -29,6 +29,8 @@ import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
 import { useAuth } from '../../context/AuthContext';
 import { useRealtimeSync } from '../../context/RealtimeContext';
+import { useFinancialYear } from '../../context/FinancialYearContext';
+import FinancialYearSelector from '../../components/FinancialYearSelector';
 import '../admin/SuperAdminHub.css';
 
 // Sub-components for finance operations
@@ -95,6 +97,7 @@ const formatIndianDenomination = (amount) => {
 
 const FinanceDashboard = () => {
   const { user, logout } = useAuth();
+  const { selectedFY } = useFinancialYear();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'overview';
 
@@ -110,7 +113,8 @@ const FinanceDashboard = () => {
 
   const loadFinanceData = (showSpinner = false) => {
     if (showSpinner) setLoading(true);
-    API.get('/finance/dashboard')
+    const fyParam = selectedFY ? `?fy=${selectedFY}` : '';
+    API.get(`/finance/dashboard${fyParam}`)
       .then((res) => {
         if (res.success) {
           setData(res);
@@ -123,14 +127,15 @@ const FinanceDashboard = () => {
   };
 
   const loadSchemesList = () => {
-    API.get('/public/schemes')
+    const fyParam = selectedFY ? `?fy=${selectedFY}` : '';
+    API.get(`/public/schemes${fyParam}`)
       .then((res) => {
         if (res.success && res.schemes && res.schemes.length > 0) {
           setSchemesList(res.schemes);
         }
       })
       .catch(() => {
-        API.get('/admin/schemes')
+        API.get(`/admin/schemes${fyParam}`)
           .then((res) => {
             if (res.success && res.schemes && res.schemes.length > 0) {
               setSchemesList(res.schemes);
@@ -143,45 +148,31 @@ const FinanceDashboard = () => {
   useEffect(() => {
     loadFinanceData(true);
     loadSchemesList();
-  }, []);
+  }, [selectedFY]);
 
   useRealtimeSync(() => loadFinanceData(false), { interval: 20000 });
 
   const metrics = data?.metrics || {};
   const pendingBudgets = data?.pending_budgets || [];
   const stateBreakdown = data?.state_breakdown || [];
-  const pendingAmount = pendingBudgets.reduce((acc, b) => acc + ((b.amount || 0) - (b.disbursed_amount || 0)), 0) || 400000000; // ₹40 Cr fallback
-  const totalDisbursed = metrics?.total_disbursed || 800000000; // ₹80 Cr fallback
-  const totalVolume = pendingAmount + totalDisbursed || 1200000000; // ₹120 Cr
-  const disbursedPct = totalVolume > 0 ? Math.min(100, Math.round((totalDisbursed / totalVolume) * 100)) : 67;
-  const pendingCount = metrics?.pending_budgets_count || pendingBudgets.length || 3;
-  const statesCount = metrics?.states_supported || stateBreakdown.length || 28;
-  const transfersCount = metrics?.transfers_count || data?.recent_transfers?.length || 18;
-  const approvedSchemesCount = schemesList.length > 0 ? schemesList.length : 12;
+  const pendingAmount = pendingBudgets.reduce((acc, b) => acc + ((b.amount || 0) - (b.disbursed_amount || 0)), 0);
+  const totalDisbursed = metrics?.total_disbursed ?? 0;
+  const totalVolume = pendingAmount + totalDisbursed;
+  const disbursedPct = totalVolume > 0 ? Math.min(100, Math.round((totalDisbursed / totalVolume) * 100)) : 0;
+  const pendingCount = metrics?.pending_budgets_count ?? pendingBudgets.length;
+  const statesCount = metrics?.states_supported ?? stateBreakdown.length;
+  const transfersCount = metrics?.transfers_count ?? (data?.recent_transfers?.length || 0);
+  const approvedSchemesCount = schemesList.length > 0 ? schemesList.length : (metrics?.schemes_count ?? 0);
 
-  // Recent timeline events
-  const recentActivities = [
-    {
-      time: '11:05',
-      title: 'Funds Sent to State Account',
-      detail: `₹25 Cr sent to Karnataka State Government Account • Ref: PAY-10245`
-    },
-    {
-      time: '09:30',
-      title: 'Budget Allocation Received',
-      detail: `₹50 Cr allocated for National Highways Development Program`
-    },
-    {
-      time: '08:45',
-      title: 'Payment Record Verified',
-      detail: `Record verified across official government system`
-    },
-    {
-      time: '08:15',
-      title: 'State Payment Scheduled',
-      detail: `Maharashtra State Government tranche queued for transfer`
-    }
-  ];
+  // Dynamic recent timeline events from real transfer data
+  const recentTransfers = data?.recent_transfers || [];
+  const recentActivities = recentTransfers.length > 0
+    ? recentTransfers.slice(0, 4).map((t) => ({
+        time: new Date(t.timestamp || t.created_at || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+        title: 'Funds Sent to State Account',
+        detail: `${formatIndianDenomination(t.amount)} sent to ${t.state_name || t.state_code} Account • Ref: ${t.transfer_id || t.transaction_id || 'PAY-REF'}`
+      }))
+    : [];
 
   const getModuleTitle = (tab) => {
     switch (tab) {
@@ -219,10 +210,13 @@ const FinanceDashboard = () => {
                 <span>← Back to Finance Hub</span>
               </button>
 
-              <div className="super-admin-module-title-box">
-                <span className="super-admin-module-crumb">Finance Hub</span>
-                <span style={{ color: '#CBD5E1' }}>/</span>
-                <span className="super-admin-module-name-tag">{getModuleTitle(activeTab)}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <FinancialYearSelector compact />
+                <div className="super-admin-module-title-box">
+                  <span className="super-admin-module-crumb">Finance Hub</span>
+                  <span style={{ color: '#CBD5E1' }}>/</span>
+                  <span className="super-admin-module-name-tag">{getModuleTitle(activeTab)}</span>
+                </div>
               </div>
             </div>
 
@@ -370,6 +364,7 @@ const FinanceDashboard = () => {
                   <span className="live-pulse-dot" />
                   <span>Finance System Online • Payment Operations</span>
                 </div>
+                <FinancialYearSelector />
                 <ApiConnectionPill onOpenModal={() => setShowApiModal(true)} />
                 <ThemeToggle />
               </div>
@@ -412,7 +407,7 @@ const FinanceDashboard = () => {
 
               <div className="super-admin-fy-pill">
                 <Calendar size={13} color="#006B4F" />
-                <span>Union Budget Fund Allocation • FY 2026–27</span>
+                <span>Union Budget Fund Allocation • FY {selectedFY}</span>
               </div>
             </div>
 
@@ -851,22 +846,28 @@ const FinanceDashboard = () => {
                 </span>
               </div>
 
-              <div className="activity-timeline-list">
-                {recentActivities.map((act, index) => (
-                  <div key={index} className="activity-timeline-item">
-                    <span className="activity-timeline-dot">●</span>
-                    <span className="activity-time-pill">{act.time}</span>
-                    <div className="activity-content-box">
-                      <div className="activity-title-text">
-                        {act.title}
-                      </div>
-                      <div className="activity-detail-text">
-                        {act.detail}
+              {recentActivities.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '24px 12px', color: 'var(--text-muted)', fontSize: '13px' }}>
+                  No payment transfers recorded for Financial Year {selectedFY}.
+                </div>
+              ) : (
+                <div className="activity-timeline-list">
+                  {recentActivities.map((act, index) => (
+                    <div key={index} className="activity-timeline-item">
+                      <span className="activity-timeline-dot">●</span>
+                      <span className="activity-time-pill">{act.time}</span>
+                      <div className="activity-content-box">
+                        <div className="activity-title-text">
+                          {act.title}
+                        </div>
+                        <div className="activity-detail-text">
+                          {act.detail}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
           </>

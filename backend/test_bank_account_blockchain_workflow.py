@@ -1,11 +1,8 @@
 import sys
-import os
-import json
 from datetime import datetime, timezone
 from fastapi.testclient import TestClient
 from app import app
 from database import db
-import bank_account_service as bas
 
 def print_step(num, title):
     print(f"\n{'='*75}\n[TEST {num}] {title}\n{'='*75}", flush=True)

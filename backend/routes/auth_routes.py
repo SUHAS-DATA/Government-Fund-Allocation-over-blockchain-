@@ -1,4 +1,3 @@
-import os
 import random
 import string
 from datetime import datetime, timezone
@@ -27,6 +26,27 @@ async def register(request: Request):
     password = data.get("password", "")
     name = data.get("name", "").strip()
     role = data.get("role", "CONTRACTOR").upper()
+
+    # Block public registration for privileged administrative roles
+    if role in ["SUPER_ADMIN", "ADMIN", "FINANCE", "STATE", "DISTRICT"]:
+        auth_header = request.headers.get("Authorization")
+        is_authorized_admin = False
+        if auth_header and auth_header.lower().startswith("bearer "):
+            try:
+                from auth_middleware import decode_token
+                admin_payload = decode_token(auth_header.split(" ")[1])
+                if admin_payload.get("role") == "SUPER_ADMIN":
+                    is_authorized_admin = True
+            except Exception:
+                pass
+        if not is_authorized_admin:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={
+                    "success": False,
+                    "message": f"Unauthorized: Public registration for administrative role '{role}' is forbidden. Administrative accounts can only be provisioned by a verified Super Administrator."
+                }
+            )
 
     if not email or not password or not name:
         return JSONResponse(

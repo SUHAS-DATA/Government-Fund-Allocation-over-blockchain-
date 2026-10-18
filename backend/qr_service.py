@@ -1,6 +1,5 @@
 import io
 import os
-import re
 import base64
 import secrets
 from datetime import datetime, timezone

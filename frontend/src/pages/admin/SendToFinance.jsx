@@ -1,42 +1,51 @@
 import React, { useState, useEffect } from 'react';
-import { Send, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { Send, CheckCircle2, ShieldCheck, AlertCircle } from 'lucide-react';
 import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
+import { useFinancialYear } from '../../context/FinancialYearContext';
 
 const SendToFinance = () => {
+  const { selectedFY } = useFinancialYear();
   const [allocations, setAllocations] = useState([]);
   const [selectedAlloc, setSelectedAlloc] = useState(null);
   const [notes, setNotes] = useState('Approved by Officer. Forwarded to Finance Department.');
   const [sending, setSending] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
 
   const loadAllocations = () => {
-    API.get('/admin/allocations').then((res) => {
+    const fyParam = selectedFY && selectedFY !== 'ALL' ? `?fy=${selectedFY}` : '';
+    API.get(`/admin/allocations${fyParam}`).then((res) => {
       if (res.success) setAllocations(res.allocations || []);
     });
   };
 
   useEffect(() => {
     loadAllocations();
-  }, []);
+  }, [selectedFY]);
 
   const handleSend = async (allocationId) => {
     setSending(true);
     setSuccessMsg('');
+    setErrorMsg('');
+    const idempotencyKey = `IDEM-FWD-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     try {
       const res = await API.post('/admin/budget/send-to-finance', {
         allocation_id: allocationId,
-        notes
+        notes,
+        idempotency_key: idempotencyKey
       });
       if (res.success) {
         setSuccessMsg(`Budget ${allocationId} successfully forwarded to Finance Department.`);
         setSelectedAlloc(null);
         loadAllocations();
+      } else {
+        setErrorMsg(res.message || 'Error forwarding to Finance');
       }
     } catch (e) {
-      alert(e.message || 'Error forwarding to Finance');
+      setErrorMsg(e.message || 'Error forwarding to Finance');
     } finally {
       setSending(false);
     }
@@ -122,9 +131,26 @@ const SendToFinance = () => {
         <DataTable columns={columns} data={allocations} searchKey="scheme_name" />
       </div>
 
-      <Modal title="Forward Budget Allocation to Finance" isOpen={!!selectedAlloc} onClose={() => setSelectedAlloc(null)}>
+      <Modal title="Forward Budget Allocation to Finance" isOpen={!!selectedAlloc} onClose={() => { setSelectedAlloc(null); setErrorMsg(''); }}>
         {selectedAlloc && (
           <div>
+            {errorMsg && (
+              <div style={{
+                background: 'var(--color-danger-bg)',
+                border: '1px solid var(--color-danger-border)',
+                padding: '10px 14px',
+                color: 'var(--color-danger)',
+                marginBottom: '16px',
+                borderRadius: 'var(--radius-sm)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '12px'
+              }}>
+                <AlertCircle size={16} />
+                <span>{errorMsg}</span>
+              </div>
+            )}
             <div style={{ background: 'var(--bg-subtle)', padding: '14px', borderRadius: 'var(--radius-sm)', marginBottom: '16px', fontSize: '13px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Allocation ID:</span>

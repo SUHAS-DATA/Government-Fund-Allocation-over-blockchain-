@@ -19,18 +19,13 @@ Simulates every use case for every actor role:
 """
 
 import sys
-import json
-import time
-from datetime import datetime
-
 # Set UTF-8 encoding for Windows terminals
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
 
-# Import FastAPI app and database
+# Import FastAPI app
 from fastapi.testclient import TestClient
 from app import app
-from database import db
 
 # Color ANSI formatting
 GREEN = "\033[92m"

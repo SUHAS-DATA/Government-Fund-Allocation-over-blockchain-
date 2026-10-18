@@ -7,20 +7,21 @@ import BlockchainBadge from '../../components/BlockchainBadge';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FundAmountInput from '../../components/FundAmountInput';
-import { useRealtimeSync } from '../../context/RealtimeContext';
+import { useFinancialYear } from '../../context/FinancialYearContext';
 
 const BudgetAllocation = () => {
+  const { selectedFY } = useFinancialYear();
   const [allocations, setAllocations] = useState([]);
   const [financialYears, setFinancialYears] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [schemes, setSchemes] = useState([]);
-  const [selectedFY, setSelectedFY] = useState('ALL');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [modalError, setModalError] = useState('');
 
   const [formData, setFormData] = useState({
-    financial_year: '2026-27',
+    financial_year: selectedFY || '2026-27',
     department: '',
     scheme_name: '',
     amount: 10000000
@@ -42,7 +43,7 @@ const BudgetAllocation = () => {
         const activeYear = res.financial_years.find(f => f.status === 'ACTIVE')?.year || res.financial_years[0].year;
         setFormData((prev) => ({
           ...prev,
-          financial_year: prev.financial_year || activeYear
+          financial_year: selectedFY && selectedFY !== 'ALL' ? selectedFY : (prev.financial_year || activeYear)
         }));
       }
     });
@@ -51,7 +52,8 @@ const BudgetAllocation = () => {
       if (res.success) setDepartments(res.departments || []);
     });
 
-    API.get('/admin/schemes').then((res) => {
+    const schemesQuery = fyFilter && fyFilter !== 'ALL' ? `?fy=${fyFilter}` : '';
+    API.get(`/admin/schemes${schemesQuery}`).then((res) => {
       if (res.success && res.schemes?.length > 0) {
         setSchemes(res.schemes);
         setFormData((prev) => {
@@ -70,27 +72,48 @@ const BudgetAllocation = () => {
 
   useEffect(() => {
     loadData(selectedFY, true);
+    setFormData((prev) => ({
+      ...prev,
+      financial_year: selectedFY && selectedFY !== 'ALL' ? selectedFY : prev.financial_year
+    }));
   }, [selectedFY]);
 
   useRealtimeSync(() => loadData(selectedFY, false), { interval: 6000 });
 
   const handleAllocate = async (e) => {
     e.preventDefault();
+    setModalError('');
+    if (formData.amount <= 0) {
+      setModalError('Allocation amount must be a positive number.');
+      return;
+    }
+    if (isExceedingSchemeCeiling) {
+      setModalError(`Cannot Allocate: Amount exceeds remaining scheme budget of ${formatCurrency(schemeRemainingCeiling)}.`);
+      return;
+    }
+
     setSubmitting(true);
+    const idempotencyKey = `IDEM-ALLOC-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     try {
-      const res = await API.post('/admin/budget/allocate', formData);
+      const res = await API.post('/admin/budget/allocate', {
+        ...formData,
+        idempotency_key: idempotencyKey
+      });
       if (res.success) {
         setShowModal(false);
         loadData(selectedFY);
+      } else {
+        setModalError(res.message || 'Allocation failed');
       }
     } catch (err) {
-      alert(err.message || 'Allocation failed');
+      setModalError(err.message || 'Allocation failed. Please verify budget ceiling.');
     } finally {
       setSubmitting(false);
     }
   };
 
   const openAllocateModal = () => {
+    setModalError('');
     const defaultFY = selectedFY !== 'ALL' ? selectedFY : (financialYears.find(f => f.status === 'ACTIVE')?.year || '2026-27');
     const defaultScheme = schemes.find(s => s.name === formData.scheme_name) || schemes[0];
     const rem = defaultScheme ? Math.max(0, (defaultScheme.target_budget || 0) - (defaultScheme.allocated_amount || 0)) : 0;
@@ -278,6 +301,23 @@ const BudgetAllocation = () => {
 
       <Modal title="Allocate Central Funds" isOpen={showModal} onClose={() => setShowModal(false)}>
         <form onSubmit={handleAllocate}>
+          {modalError && (
+            <div style={{
+              padding: '10px 14px',
+              borderRadius: 'var(--radius-sm)',
+              backgroundColor: 'var(--color-danger-bg)',
+              border: '1px solid var(--color-danger-border)',
+              color: 'var(--color-danger)',
+              fontSize: '13px',
+              fontWeight: '600',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <span>{modalError}</span>
+            </div>
+          )}
           <div className="form-group">
             <label className="form-label">Financial Year</label>
             <select

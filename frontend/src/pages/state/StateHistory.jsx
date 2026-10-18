@@ -6,8 +6,10 @@ import BlockchainBadge from '../../components/BlockchainBadge';
 import DataTable from '../../components/DataTable';
 import TransactionDetailsModal from '../../components/TransactionDetailsModal';
 import { useRealtimeSync } from '../../context/RealtimeContext';
+import { useFinancialYear } from '../../context/FinancialYearContext';
 
 const StateHistory = () => {
+  const { selectedFY } = useFinancialYear();
   const [allocations, setAllocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTx, setSelectedTx] = useState(null);
@@ -15,15 +17,18 @@ const StateHistory = () => {
 
   const loadHistory = async () => {
     try {
+      const fyParam = selectedFY ? `&fy=${selectedFY}` : '';
+      const legacyFyParam = selectedFY ? `?fy=${selectedFY}` : '';
+
       // First check universal financial transactions for state to district
-      const txRes = await API.get('/transactions?transaction_type=STATE_TO_DISTRICT');
+      const txRes = await API.get(`/transactions?transaction_type=STATE_TO_DISTRICT${fyParam}`);
       if (txRes.success && txRes.transactions && txRes.transactions.length > 0) {
         setAllocations(txRes.transactions);
         return;
       }
 
       // Fallback to legacy state/allocations
-      const res = await API.get('/state/allocations');
+      const res = await API.get(`/state/allocations${legacyFyParam}`);
       if (res.success) {
         setAllocations(res.allocations || []);
       }
@@ -36,7 +41,7 @@ const StateHistory = () => {
 
   useEffect(() => {
     loadHistory();
-  }, []);
+  }, [selectedFY]);
 
   useRealtimeSync(loadHistory, { interval: 6000 });
 

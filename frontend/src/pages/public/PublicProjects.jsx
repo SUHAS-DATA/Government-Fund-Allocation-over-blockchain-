@@ -6,8 +6,10 @@ import { formatCurrency } from '../../services/blockchain';
 import DataTable from '../../components/DataTable';
 import StateDistrictSelector from '../../components/StateDistrictSelector';
 import { useRealtimeSync } from '../../context/RealtimeContext';
+import { useFinancialYear } from '../../context/FinancialYearContext';
 
 const PublicProjects = () => {
+  const { selectedFY } = useFinancialYear();
   const [searchParams, setSearchParams] = useSearchParams();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -21,6 +23,7 @@ const PublicProjects = () => {
     if (district) params.append('district', district);
     if (searchParams.get('department')) params.append('department', searchParams.get('department'));
     if (searchParams.get('search')) params.append('search', searchParams.get('search'));
+    if (selectedFY) params.append('fy', selectedFY);
 
     API.get(`/public/projects?${params.toString()}`)
       .then((res) => {
@@ -33,7 +36,7 @@ const PublicProjects = () => {
 
   useEffect(() => {
     loadProjects(selectedState, selectedDistrict, true);
-  }, [selectedState, selectedDistrict, searchParams]);
+  }, [selectedState, selectedDistrict, searchParams, selectedFY]);
 
   useRealtimeSync(() => loadProjects(selectedState, selectedDistrict, false), { interval: 6000 });
 

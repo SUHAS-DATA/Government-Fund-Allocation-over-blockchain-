@@ -1,9 +1,8 @@
 import os
 import mimetypes
-from datetime import datetime, timezone
 from typing import Optional
-from fastapi import APIRouter, Request, HTTPException, status, Query, Depends
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import APIRouter, Request, HTTPException, status, Query
+from fastapi.responses import FileResponse
 from database import db, serialize_doc
 from auth_middleware import decode_token
 
@@ -46,8 +45,13 @@ def check_evidence_access(proj: dict, user: dict) -> bool:
         return False
 
     role = user.get("role")
-    if role in ["SUPER_ADMIN", "ADMIN", "FINANCE", "STATE"]:
+    if role in ["SUPER_ADMIN", "ADMIN", "FINANCE"]:
         return True
+
+    if role == "STATE":
+        user_state = (user.get("state_code") or "").strip().upper()
+        proj_state = (proj.get("state_code") or "").strip().upper()
+        return bool(user_state and proj_state and user_state == proj_state)
 
     if role == "DISTRICT":
         user_dist = (user.get("district_name") or "").strip().lower()

@@ -1,11 +1,8 @@
-import sys
-import os
 import json
-import base64
 from datetime import datetime, timezone
 from fastapi.testclient import TestClient
 from app import app
-from database import db
+from database import db, get_active_financial_year
 
 def print_step(num, title):
     print(f"\n{'='*75}\n[TEST {num}] {title}\n{'='*75}", flush=True)
@@ -39,17 +36,20 @@ def run_all_tests():
     con_headers = {"Authorization": f"Bearer {con_token}"}
     print(f"[OK] Contractor authenticated: {con_user['name']} (ID: {con_user.get('contractor_id')})")
 
-    # Ensure Belagavi has funds allocated for PMGSY scheme
+    fy = get_active_financial_year()
+
+    # Ensure Belagavi has sufficient funds allocated for PMGSY scheme in active FY
     db.district_allocations.update_one(
-        {"district_name": "Belagavi", "scheme_name": "Pradhan Mantri Gram Sadak Yojana"},
+        {"district_name": "Belagavi", "scheme_name": "Pradhan Mantri Gram Sadak Yojana", "financial_year": fy},
         {"$set": {
-            "district_alloc_id": "DAL-KA-BEL-PMGSY-001",
+            "district_alloc_id": f"DAL-KA-BEL-PMGSY-{fy}",
             "state_code": "KA",
             "district_name": "Belagavi",
             "scheme_name": "Pradhan Mantri Gram Sadak Yojana",
             "scheme_code": "PMGSY",
-            "amount": 250000000.0,
-            "allocated_amount": 250000000.0,
+            "financial_year": fy,
+            "amount": 500000000.0,
+            "allocated_amount": 500000000.0,
             "created_at": datetime.now(timezone.utc)
         }},
         upsert=True
@@ -66,6 +66,7 @@ def run_all_tests():
         "scheme_name": "Pradhan Mantri Gram Sadak Yojana",
         "state_code": "KA",
         "district_name": "Belagavi",
+        "financial_year": fy,
         "total_budget": 50000000.0,
         "timeline_months": 12,
         "description": "All-weather concrete paving and culvert connectivity for rural habitations."

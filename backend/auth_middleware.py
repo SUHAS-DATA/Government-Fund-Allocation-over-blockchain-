@@ -5,9 +5,18 @@ from datetime import datetime, timedelta, timezone
 from fastapi import Request, HTTPException, status, Depends
 from dotenv import load_dotenv
 
-load_dotenv()
+_env_path = os.path.join(os.path.dirname(__file__), ".env")
+if os.path.exists(_env_path):
+    load_dotenv(_env_path)
+else:
+    load_dotenv()
 
-JWT_SECRET = os.getenv("JWT_SECRET", "super-secure-govtfund-secret-key-blockchain-2026")
+JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET:
+    raise RuntimeError(
+        "CRITICAL SECURITY CONFIGURATION ERROR: 'JWT_SECRET' environment variable is missing. "
+        "Please configure a strong, random JWT_SECRET in your environment or .env file."
+    )
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRATION_HOURS = 24
 

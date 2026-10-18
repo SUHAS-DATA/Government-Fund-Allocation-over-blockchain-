@@ -32,6 +32,8 @@ import { formatCurrency } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
 import { useAuth } from '../../context/AuthContext';
 import { useRealtimeSync } from '../../context/RealtimeContext';
+import { useFinancialYear } from '../../context/FinancialYearContext';
+import FinancialYearSelector from '../../components/FinancialYearSelector';
 import '../admin/SuperAdminHub.css';
 
 // Sub-components for state operations
@@ -97,6 +99,7 @@ const formatIndianDenomination = (amount) => {
 
 const StateDashboard = () => {
   const { user, logout } = useAuth();
+  const { selectedFY } = useFinancialYear();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'overview';
 
@@ -107,7 +110,8 @@ const StateDashboard = () => {
 
   const loadStateData = (showSpinner = false) => {
     if (showSpinner) setLoading(true);
-    API.get('/state/dashboard')
+    const fyParam = selectedFY ? `?fy=${selectedFY}` : '';
+    API.get(`/state/dashboard${fyParam}`)
       .then((res) => {
         if (res.success) setData(res);
       })
@@ -121,7 +125,7 @@ const StateDashboard = () => {
 
   useEffect(() => {
     loadStateData(true);
-  }, []);
+  }, [selectedFY]);
 
   useRealtimeSync(() => loadStateData(false), { interval: 20000 });
 
@@ -198,6 +202,7 @@ const StateDashboard = () => {
               </button>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <FinancialYearSelector compact />
                 <ThemeToggle />
                 <div className="super-admin-module-title-box">
                   <span className="super-admin-module-crumb">State Hub</span>
@@ -408,6 +413,7 @@ const StateDashboard = () => {
                   </span>
                 </div>
 
+                <FinancialYearSelector />
                 <ThemeToggle />
 
                 <div className="super-admin-user-pill">
@@ -449,7 +455,7 @@ const StateDashboard = () => {
 
               <div className="super-admin-fy-pill">
                 <Calendar size={13} color="#006B4F" />
-                <span>State Department of Finance • FY 2026–27</span>
+                <span>State Department of Finance • FY {selectedFY}</span>
               </div>
             </div>
 

@@ -33,6 +33,8 @@ import { formatCurrency } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
 import { useAuth } from '../../context/AuthContext';
 import { useRealtimeSync } from '../../context/RealtimeContext';
+import { useFinancialYear } from '../../context/FinancialYearContext';
+import FinancialYearSelector from '../../components/FinancialYearSelector';
 import { getAllStates, getDistrictsByState, getStateForDistrict, getState } from '../../config/statesDistrictsData';
 import '../admin/SuperAdminHub.css';
 
@@ -122,10 +124,15 @@ const DistrictDashboard = () => {
   const [selectedState, setSelectedState] = useState(isDistrictOfficer ? assignedStateCode : (user?.state_code || 'KA'));
   const [selectedDistrict, setSelectedDistrict] = useState(isDistrictOfficer ? assignedDistrict : 'Belagavi');
 
+  const { selectedFY } = useFinancialYear();
+
   const loadDashboard = (district = selectedDistrict, showSpinner = false) => {
     if (showSpinner) setLoading(true);
     const targetDist = isDistrictOfficer ? assignedDistrict : district;
-    const query = targetDist ? `?district=${encodeURIComponent(targetDist)}` : '';
+    const params = new URLSearchParams();
+    if (targetDist) params.append('district', targetDist);
+    if (selectedFY) params.append('fy', selectedFY);
+    const query = params.toString() ? `?${params.toString()}` : '';
     API.get(`/district/dashboard${query}`)
       .then((res) => {
         if (res.success) {
@@ -151,7 +158,7 @@ const DistrictDashboard = () => {
     } else {
       loadDashboard(selectedDistrict, true);
     }
-  }, [selectedDistrict, user?.district_name, user?.role]);
+  }, [selectedDistrict, user?.district_name, user?.role, selectedFY]);
 
   useRealtimeSync(() => {
     const target = isDistrictOfficer ? assignedDistrict : selectedDistrict;
@@ -262,6 +269,7 @@ const DistrictDashboard = () => {
               </button>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <FinancialYearSelector compact />
                 <ThemeToggle />
                 <div className="super-admin-module-title-box">
                   <span className="super-admin-module-crumb">District Hub</span>
@@ -555,6 +563,7 @@ const DistrictDashboard = () => {
                   </div>
                 )}
 
+                <FinancialYearSelector />
                 <ThemeToggle />
 
                 <div className="super-admin-user-pill">
@@ -596,7 +605,7 @@ const DistrictDashboard = () => {
 
               <div className="super-admin-fy-pill">
                 <MapPin size={13} color="#006B4F" />
-                <span>Operational Jurisdiction: {currentDistrictName} DRDA • FY 2026–27</span>
+                <span>Operational Jurisdiction: {currentDistrictName} DRDA • FY {selectedFY}</span>
               </div>
             </div>
 
@@ -648,7 +657,7 @@ const DistrictDashboard = () => {
                   <span>CONTRACTORS</span>
                 </div>
                 <span className="fin-overview-value">
-                  <AnimatedCounter value={metrics?.contractors_count || 14} />
+                  <AnimatedCounter value={metrics?.contractors_count ?? 0} />
                 </span>
                 <span className="fin-overview-subtext">{pendingKycs} pending KYC</span>
               </div>
@@ -659,7 +668,7 @@ const DistrictDashboard = () => {
                   <span>PROJECT PROGRESS</span>
                 </div>
                 <span className="fin-overview-value">
-                  {metrics?.avg_progress || (recentProjects.length ? Math.round(recentProjects.reduce((acc, p) => acc + (p.progress_percentage || 45), 0) / recentProjects.length) : 68)}%
+                  {metrics?.avg_progress ?? (recentProjects.length ? Math.round(recentProjects.reduce((acc, p) => acc + (p.progress_percentage ?? 0), 0) / recentProjects.length) : 0)}%
                 </span>
                 <span className="fin-overview-subtext">Average site progress</span>
               </div>
@@ -670,7 +679,7 @@ const DistrictDashboard = () => {
                   <span>PENDING MILESTONES</span>
                 </div>
                 <span className="fin-overview-value">
-                  <AnimatedCounter value={metrics?.pending_milestones || 6} />
+                  <AnimatedCounter value={metrics?.pending_milestones ?? 0} />
                 </span>
                 <span className="fin-overview-subtext">Awaiting inspection</span>
               </div>
@@ -681,7 +690,7 @@ const DistrictDashboard = () => {
                   <span>PAYMENT REQUESTS</span>
                 </div>
                 <span className="fin-overview-value">
-                  <AnimatedCounter value={metrics?.pending_payment_requests || 3} />
+                  <AnimatedCounter value={metrics?.pending_payment_requests ?? 0} />
                 </span>
                 <span className="fin-overview-subtext">Pending clearance</span>
               </div>
@@ -779,7 +788,7 @@ const DistrictDashboard = () => {
                 <div className="card-content-body">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <div className="card-large-title">
-                      <AnimatedCounter value={metrics?.contractors_count || 14} suffix=" Registered" />
+                      <AnimatedCounter value={metrics?.contractors_count ?? 0} suffix=" Registered" />
                     </div>
                     {pendingKycs > 0 && (
                       <span className="card-gold-badge">
@@ -815,7 +824,7 @@ const DistrictDashboard = () => {
 
                 <div className="card-content-body">
                   <div className="card-large-title">
-                    {metrics?.avg_progress || (recentProjects.length ? Math.round(recentProjects.reduce((acc, p) => acc + (p.progress_percentage || 45), 0) / recentProjects.length) : 68)}% Avg Progress
+                    {metrics?.avg_progress ?? (recentProjects.length ? Math.round(recentProjects.reduce((acc, p) => acc + (p.progress_percentage ?? 0), 0) / recentProjects.length) : 0)}% Avg Progress
                   </div>
                   <div className="card-description-text">
                     Monitor real-time site engineering work, Gantt schedules, and milestones
@@ -845,7 +854,7 @@ const DistrictDashboard = () => {
 
                 <div className="card-content-body">
                   <div className="card-large-title">
-                    <AnimatedCounter value={metrics?.pending_milestones || 6} suffix=" Verifications" />
+                    <AnimatedCounter value={metrics?.pending_milestones ?? 0} suffix=" Verifications" />
                   </div>
                   <div className="card-description-text">
                     Verify civil construction milestones and field engineer inspection certificates
@@ -875,7 +884,7 @@ const DistrictDashboard = () => {
 
                 <div className="card-content-body">
                   <div className="card-large-title">
-                    <AnimatedCounter value={metrics?.pending_payment_requests || 3} suffix=" In Review" />
+                    <AnimatedCounter value={metrics?.pending_payment_requests ?? 0} suffix=" In Review" />
                   </div>
                   <div className="card-description-text">
                     Approve contractor invoice claims and request funds from State Government

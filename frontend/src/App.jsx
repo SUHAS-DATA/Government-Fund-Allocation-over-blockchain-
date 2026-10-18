@@ -4,6 +4,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { RealtimeProvider } from './context/RealtimeContext';
 import { NotificationProvider } from './context/NotificationContext';
+import { FinancialYearProvider } from './context/FinancialYearContext';
 
 // Portal Configuration Helper & Error Screen
 import { getActivePortal, PORTAL_TYPES } from './config/portalConfig';
@@ -91,7 +92,8 @@ const NotificationsPage = lazyWithRetry(() => import('./pages/common/Notificatio
 
 // Role Home Helper based on Active Portal
 const getRoleHome = (role, activePortal) => {
-  if (activePortal === PORTAL_TYPES.ADMIN) {
+  if (activePortal === PORTAL_TYPES.ADMIN || activePortal === PORTAL_TYPES.AUDITOR) {
+    if (role === 'AUDITOR') return '/admin?tab=monitoring';
     return role === 'FINANCE' ? '/finance' : '/admin';
   }
   if (activePortal === PORTAL_TYPES.FIELD) {
@@ -138,7 +140,8 @@ function App() {
       <AuthProvider>
         <RealtimeProvider>
           <NotificationProvider>
-            <BrowserRouter>
+            <FinancialYearProvider>
+              <BrowserRouter>
             <PortalLayout>
             <Suspense fallback={<PageFallback />}>
               <Routes>
@@ -149,18 +152,18 @@ function App() {
               <Route path="/public/verify/:qrId" element={<PublicVerificationPage />} />
               <Route path="/verify-project/:qrId" element={<PublicVerificationPage />} />
               {/* ========================================================= */}
-              {/* PORTAL 1 — ADMIN (VITE_PORTAL=ADMIN)                      */}
-              {/* Shows ONLY Super Admin and Finance Department             */}
+              {/* PORTAL 1 & 5 — ADMIN & AUDITOR (VITE_PORTAL=ADMIN|AUDITOR)*/}
+              {/* Shows Super Admin, Finance, and Auditor Operations        */}
               {/* ========================================================= */}
-              {activePortal === PORTAL_TYPES.ADMIN && (
+              {(activePortal === PORTAL_TYPES.ADMIN || activePortal === PORTAL_TYPES.AUDITOR) && (
                 <>
-                  {/* Entry Point: Admin Portal Login */}
+                  {/* Entry Point: Admin / Auditor Portal Login */}
                   <Route path="/" element={<AdminPortalPage />} />
                   <Route path="/admin-portal" element={<AdminPortalPage />} />
                   <Route path="/login" element={<AdminPortalPage />} />
 
-                  {/* Super Admin Centered Control Hub & Operations */}
-                  <Route path="/admin" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} activePortal={activePortal}><AdminDashboard /></ProtectedRoute>} />
+                  {/* Super Admin & Auditor Centered Control Hub & Operations */}
+                  <Route path="/admin" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'AUDITOR']} activePortal={activePortal}><AdminDashboard /></ProtectedRoute>} />
                   <Route path="/admin/dashboard" element={<Navigate to="/admin" replace />} />
                   <Route path="/admin/financial-years" element={<Navigate to="/admin?tab=config" replace />} />
                   <Route path="/admin/departments" element={<Navigate to="/admin?tab=departments" replace />} />
@@ -180,8 +183,8 @@ function App() {
                   <Route path="/finance/history" element={<Navigate to="/finance?tab=history" replace />} />
 
                   {/* Common Authenticated Routes */}
-                  <Route path="/profile" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'FINANCE']} activePortal={activePortal}><ProfilePage /></ProtectedRoute>} />
-                  <Route path="/notifications" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'FINANCE']} activePortal={activePortal}><NotificationsPage /></ProtectedRoute>} />
+                  <Route path="/profile" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'FINANCE', 'AUDITOR']} activePortal={activePortal}><ProfilePage /></ProtectedRoute>} />
+                  <Route path="/notifications" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'FINANCE', 'AUDITOR']} activePortal={activePortal}><NotificationsPage /></ProtectedRoute>} />
 
                   {/* Inter-portal links */}
                   <Route path="/contractor-portal" element={<Navigate to="/?portal=CONTRACTOR" replace />} />
@@ -292,6 +295,7 @@ function App() {
             </Suspense>
           </PortalLayout>
         </BrowserRouter>
+        </FinancialYearProvider>
       </NotificationProvider>
     </RealtimeProvider>
   </AuthProvider>

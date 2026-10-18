@@ -1,11 +1,13 @@
 import random
 import string
+import re
 from datetime import datetime, timezone
 from typing import Optional
+from pymongo import ReturnDocument
 from fastapi import APIRouter, Request, Depends, status, Query
 from fastapi.responses import JSONResponse
 from bson import ObjectId
-from database import db, serialize_doc
+from database import db, serialize_doc, get_active_financial_year
 from auth_middleware import require_roles
 import blockchain_service as bcs
 from realtime_manager import realtime_manager
@@ -42,43 +44,61 @@ def format_denomination(amount):
 
 @router.get("/dashboard")
 async def dashboard(
+    fy: Optional[str] = Query(None),
     current_user: dict = Depends(require_roles(["STATE"]))
 ):
     user_state_code = current_user.get("state_code")
     user_state_name = current_user.get("state_name")
 
-    query = {}
-    if user_state_code:
-        query["state_code"] = user_state_code
+    if not user_state_code:
+        if current_user.get("role") == "SUPER_ADMIN":
+            user_state_code = "KA"
+        else:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"success": False, "message": "Access Denied: No state assigned to officer profile."}
+            )
 
-    received_funds = list(db.state_transfers.find(query).sort("created_at", -1))
-    if not received_funds and user_state_code:
-        received_funds = list(db.state_transfers.find().sort("created_at", -1))
+    target_fy = None if fy == "ALL" else (fy or get_active_financial_year())
 
+    # Strictly isolated to officer's state and financial year
+    st_filter = {"state_code": user_state_code}
+    da_filter = {"state_code": user_state_code}
+    if target_fy:
+        st_filter["financial_year"] = target_fy
+        da_filter["financial_year"] = target_fy
+
+    received_funds = list(db.state_transfers.find(st_filter).sort("created_at", -1))
     total_received = sum(f.get("amount", 0) for f in received_funds)
 
-    district_allocations = list(db.district_allocations.find().sort("created_at", -1))
+    district_allocations = list(db.district_allocations.find(da_filter).sort("created_at", -1))
     total_allocated_to_districts = sum(d.get("amount", 0) for d in district_allocations)
 
     remaining_state_balance = max(0, total_received - total_allocated_to_districts)
 
+    dist_match = {"state_code": user_state_code}
+    if target_fy:
+        dist_match["financial_year"] = target_fy
     dist_pipeline = [
+        {"$match": dist_match},
         {"$group": {"_id": "$district_name", "total_allocated": {"$sum": "$amount"}, "alloc_count": {"$sum": 1}}},
         {"$sort": {"total_allocated": -1}}
     ]
     district_breakdown = list(db.district_allocations.aggregate(dist_pipeline))
 
-    current_state_title = user_state_name or (received_funds[0].get("state_name") if received_funds else "State Treasury")
+    current_state_title = user_state_name or (received_funds[0].get("state_name") if received_funds else f"State ({user_state_code})")
 
-    con_query = {"state_code": user_state_code} if user_state_code else {}
+    con_query = {"state_code": user_state_code}
     pending_contractors = db.contractor_kyc.count_documents({**con_query, "kyc_status": "UNDER_REVIEW"})
     total_contractors = db.contractor_kyc.count_documents(con_query)
 
     return {
         "success": True,
-        "state_code": user_state_code or (received_funds[0].get("state_code") if received_funds else "ALL"),
+        "state_code": user_state_code,
         "state_name": current_state_title,
+        "selected_financial_year": target_fy,
         "metrics": {
+            "selected_financial_year": target_fy,
             "total_funds_received": total_received,
             "total_allocated_to_districts": total_allocated_to_districts,
             "remaining_state_treasury_balance": remaining_state_balance,
@@ -93,17 +113,24 @@ async def dashboard(
 
 @router.get("/received-funds")
 async def received_funds(
+    fy: Optional[str] = Query(None),
     current_user: dict = Depends(require_roles(["STATE"]))
 ):
     user_state_code = current_user.get("state_code")
-    query = {}
-    if user_state_code:
-        query["state_code"] = user_state_code
+    if not user_state_code:
+        if current_user.get("role") == "SUPER_ADMIN":
+            user_state_code = "KA"
+        else:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"success": False, "message": "Access Denied: No state assigned to officer profile."}
+            )
 
-    funds = list(db.state_transfers.find(query).sort("created_at", -1))
-    if not funds and user_state_code:
-        funds = list(db.state_transfers.find().sort("created_at", -1))
+    st_filter = {"state_code": user_state_code}
+    if fy and fy != "ALL":
+        st_filter["financial_year"] = fy
 
+    funds = list(db.state_transfers.find(st_filter).sort("created_at", -1))
     return {"success": True, "received_funds": serialize_doc(funds)}
 
 @router.get("/districts")
@@ -111,12 +138,16 @@ async def get_districts(
     state_code: Optional[str] = Query(None),
     current_user: dict = Depends(require_roles(["STATE", "SUPER_ADMIN", "DISTRICT", "FINANCE"]))
 ):
-    req_state_code = state_code.strip().upper() if state_code else ""
-    user_state = req_state_code or current_user.get("state_code")
+    user_role = current_user.get("role")
+    # For state officers, force user's own state jurisdiction
+    if user_role == "STATE":
+        user_state = current_user.get("state_code")
+    else:
+        req_state_code = state_code.strip().upper() if state_code else ""
+        user_state = req_state_code or current_user.get("state_code")
+
     query = {"state_code": user_state} if user_state else {}
     dist_list = list(db.districts.find(query).sort("name", 1))
-    if not dist_list and not user_state:
-        dist_list = list(db.districts.find().sort("name", 1))
     return {"success": True, "districts": serialize_doc(dist_list)}
 
 @router.post("/allocate-to-district", status_code=status.HTTP_201_CREATED)
@@ -133,6 +164,13 @@ async def allocate_to_district(
     district_name = data.get("district_name", "Pune")
     amount = float(data.get("amount", 0))
 
+    user_state_code = (current_user.get("state_code") or "").strip().upper()
+    if not user_state_code and current_user.get("role") != "SUPER_ADMIN":
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={"success": False, "message": "Access Denied: No state assigned to officer profile."}
+        )
+
     if not transfer_id or amount <= 0:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -146,22 +184,76 @@ async def allocate_to_district(
             content={"success": False, "message": "State transfer record not found"}
         )
 
-    already_allocated = trf.get("allocated_to_districts", 0.0)
-    total_transfer = trf.get("amount", 0.0)
-    available_balance = total_transfer - already_allocated
+    # Cross-state isolation: Officer can only allocate transfers belonging to their state
+    trf_state_code = (trf.get("state_code") or "").strip().upper()
+    if user_state_code and trf_state_code != user_state_code and current_user.get("role") != "SUPER_ADMIN":
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={
+                "success": False,
+                "message": f"Cross-state allocation forbidden. Transfer {transfer_id} belongs to state '{trf_state_code}', while your jurisdiction is '{user_state_code}'."
+            }
+        )
 
-    if amount > available_balance:
+    # State-to-District relationship check: Verify target district belongs to this state
+    dist_query = {
+        "state_code": trf_state_code,
+        "$or": [
+            {"name": district_name},
+            {"name": {"$regex": f"^{re.escape(district_name.strip())}$", "$options": "i"}}
+        ]
+    }
+    dist_doc = db.districts.find_one(dist_query)
+    if not dist_doc and user_state_code:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
             content={
                 "success": False,
-                "message": f"Insufficient available balance. Requested amount (INR {amount:,.2f}) exceeds remaining state transfer balance (INR {available_balance:,.2f})"
+                "message": f"Jurisdiction error: District '{district_name}' does not belong to state '{trf_state_code}'."
+            }
+        )
+
+    # Idempotency Protection: Check header or request body
+    idempotency_key = request.headers.get("X-Idempotency-Key") or data.get("idempotency_key")
+    if idempotency_key:
+        existing_alloc = db.district_allocations.find_one({"idempotency_key": idempotency_key})
+        if existing_alloc:
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "success": True,
+                    "message": f"Duplicate request acknowledged: district allocation {existing_alloc.get('district_alloc_id')} already processed.",
+                    "allocation": serialize_doc(existing_alloc),
+                    "is_duplicate": True
+                }
+            )
+
+    # Atomic Reservation: Conditionally reserve amount only if allocated_to_districts + amount <= total transfer amount
+    reserved_trf = db.state_transfers.find_one_and_update(
+        {
+            "transfer_id": transfer_id,
+            "$expr": {"$lte": [{"$add": [{"$ifNull": ["$allocated_to_districts", 0.0]}, amount]}, "$amount"]}
+        },
+        {"$inc": {"allocated_to_districts": amount}},
+        return_document=ReturnDocument.AFTER
+    )
+
+    if not reserved_trf:
+        latest_trf = db.state_transfers.find_one({"transfer_id": transfer_id})
+        cur_alloc = latest_trf.get("allocated_to_districts", 0.0) if latest_trf else 0.0
+        tot_trf = latest_trf.get("amount", 0.0) if latest_trf else 0.0
+        rem_bal = max(0.0, tot_trf - cur_alloc)
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "success": False,
+                "message": f"Insufficient available balance. Requested amount (INR {amount:,.2f}) exceeds remaining state transfer balance (INR {rem_bal:,.2f})"
             }
         )
 
     # Resolve Authoritative Bank Accounts (Entity -> Account Mapping)
-    source_account = bas.get_or_create_state_account(trf.get("state_code", "KA"), trf.get("state_name"))
-    destination_account = bas.get_or_create_district_account(district_name, trf.get("state_code", "KA"))
+    source_account = bas.get_or_create_state_account(trf.get("state_code", user_state_code or "KA"), trf.get("state_name"))
+    destination_account = bas.get_or_create_district_account(district_name, trf.get("state_code", user_state_code or "KA"))
 
     dist_alloc_id = generate_district_alloc_id(district_name)
 
@@ -198,18 +290,35 @@ async def allocate_to_district(
                     )
 
         tx_receipt = bcs.record_district_allocation_onchain(dist_alloc_id, transfer_id, district_name, amount, receiver_address=to_dist)
-        if tx_receipt:
+        if tx_receipt and tx_receipt.get("tx_hash"):
             tx_hash = tx_receipt["tx_hash"]
             block_num = tx_receipt["block_number"]
             from_state = tx_receipt.get("from_address", from_state)
+        else:
+            raise Exception("Blockchain transaction failed to return a valid transaction hash.")
     except Exception as e:
-        print(f"Warning executing district allocation on blockchain: {e}")
+        print(f"Error executing district allocation on blockchain: {e}")
+        # Roll back reservation atomically
+        db.state_transfers.update_one(
+            {"transfer_id": transfer_id},
+            {"$inc": {"allocated_to_districts": -amount}}
+        )
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "success": False,
+                "message": f"Blockchain Transaction Failed: {str(e)}. Funds were not allocated."
+            }
+        )
 
     # 2. Record District Allocation in MongoDB
     now_utc = datetime.now(timezone.utc)
+    fy = trf.get("financial_year") or get_active_financial_year()
     dist_doc = {
         "district_alloc_id": dist_alloc_id,
+        "idempotency_key": idempotency_key,
         "transfer_id": transfer_id,
+        "financial_year": fy,
         "project_id": dist_alloc_id,
         "projectId": dist_alloc_id,
         "scheme_name": trf.get("scheme_name"),
@@ -249,23 +358,43 @@ async def allocate_to_district(
         destination_account=destination_account,
         amount=amount,
         purpose=f"State fund allocation from {state_title} Treasury to {district_name} District Agency for {trf.get('scheme_name')}",
+        financial_year=fy,
         blockchain_tx_hash=tx_hash,
         blockchain_block=block_num,
         related_scheme_id=trf.get("scheme_code"),
         related_scheme_name=trf.get("scheme_name"),
         related_allocation_id=transfer_id,
         created_by=current_user["name"],
-        status="COMPLETED"
+        status="COMPLETED",
+        idempotency_key=idempotency_key
     )
 
-    # 4. Update State Transfer Record
     db.state_transfers.update_one(
         {"transfer_id": transfer_id},
         {"$set": {
-            "allocated_to_districts": already_allocated + amount,
             "last_allocation_at": now_utc
         }}
     )
+
+    try:
+        from audit_service import log_audit_event
+        log_audit_event(
+            event_type="STATE_DISTRICT_ALLOCATION_APPROVED",
+            actor=current_user,
+            target_id=dist_alloc_id,
+            target_type="DISTRICT_ALLOCATION",
+            amount=amount,
+            action="ALLOCATE_TO_DISTRICT",
+            status="SUCCESS",
+            details=f"State allocated {amount} from transfer {transfer_id} to district {district_name}",
+            blockchain_tx_hash=tx_hash,
+            blockchain_block=block_num,
+            financial_year=fy,
+            extra_data={"transfer_id": transfer_id, "district_name": district_name, "state_code": state_code}
+        )
+    except Exception:
+        pass
+
 
     # 5. Log to Global Blockchain Transactions Collection
     if tx_hash:
@@ -336,10 +465,22 @@ async def allocate_to_district(
 
 @router.get("/allocations")
 async def get_allocations(
+    fy: Optional[str] = Query(None),
     current_user: dict = Depends(require_roles(["STATE"]))
 ):
-    state_code = current_user.get("state_code", "MH")
-    allocations = list(db.district_allocations.find({"state_code": state_code}).sort("created_at", -1))
+    state_code = current_user.get("state_code")
+    if not state_code:
+        if current_user.get("role") == "SUPER_ADMIN":
+            state_code = "KA"
+        else:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"success": False, "message": "Access Denied: No state assigned to officer profile."}
+            )
+    query = {"state_code": state_code}
+    if fy and fy != "ALL":
+        query["financial_year"] = fy
+    allocations = list(db.district_allocations.find(query).sort("created_at", -1))
     return {"success": True, "allocations": serialize_doc(allocations)}
 
 # --- State Department Contractor Verification & Directory ---

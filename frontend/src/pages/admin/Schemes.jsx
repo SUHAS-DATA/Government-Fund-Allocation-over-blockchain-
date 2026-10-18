@@ -5,8 +5,10 @@ import { formatCurrency } from '../../services/blockchain';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FundAmountInput from '../../components/FundAmountInput';
+import { useFinancialYear } from '../../context/FinancialYearContext';
 
 const Schemes = () => {
+  const { selectedFY } = useFinancialYear();
   const [schemes, setSchemes] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [showModal, setShowModal] = useState(false);
@@ -20,18 +22,21 @@ const Schemes = () => {
   });
 
   const loadData = () => {
-    API.get('/admin/schemes').then((res) => { if (res.success) setSchemes(res.schemes || []); });
+    API.get(`/admin/schemes?fy=${selectedFY}`).then((res) => { if (res.success) setSchemes(res.schemes || []); });
     API.get('/admin/departments').then((res) => { if (res.success) setDepartments(res.departments || []); });
   };
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [selectedFY]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
     try {
-      await API.post('/admin/schemes', formData);
+      await API.post('/admin/schemes', {
+        ...formData,
+        financial_year: selectedFY
+      });
       setShowModal(false);
       loadData();
     } catch (e) { alert(e.message); }

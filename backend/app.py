@@ -4,7 +4,7 @@ import asyncio
 import time
 import json
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, HTTPException, status, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -37,8 +37,52 @@ logging.basicConfig(
     format="[%(asctime)s] %(levelname)s in %(module)s: %(message)s"
 )
 
+def validate_environment():
+    """
+    Validates required configuration on startup.
+    Fails fast in production on missing or insecure secrets.
+    """
+    env = os.getenv("APP_ENV") or os.getenv("ENVIRONMENT") or "development"
+    is_prod = env.lower() in ["production", "prod"]
+    
+    jwt_secret = os.getenv("JWT_SECRET")
+    if not jwt_secret:
+        raise RuntimeError("Startup Validation Failed: 'JWT_SECRET' is not configured.")
+    if len(jwt_secret) < 32:
+        msg = f"'JWT_SECRET' length is {len(jwt_secret)} chars. Recommended minimum is 32 characters for HS256."
+        if is_prod:
+            raise RuntimeError(f"Startup Validation Failed: {msg}")
+        else:
+            logging.warning(f"[SECURITY_WARNING] {msg}")
+
+    known_insecure_secrets = [
+        "super-secure-govtfund-secret-key-blockchain-2026",
+        "super_secret_national_pfs_blockchain_key_2026",
+        "super_secret_national_pfs_blockchain_key_2026_production"
+    ]
+    if is_prod and jwt_secret in known_insecure_secrets:
+        raise RuntimeError("Startup Validation Failed: Production environment cannot use default example JWT_SECRET.")
+
+    mongo_uri = os.getenv("MONGODB_URI")
+    if not mongo_uri:
+        raise RuntimeError("Startup Validation Failed: 'MONGODB_URI' is not configured.")
+
+    contract_addr = os.getenv("CONTRACT_ADDRESS")
+    if contract_addr and not (contract_addr.startswith("0x") and len(contract_addr) == 42):
+        logging.warning(f"[SECURITY_WARNING] CONTRACT_ADDRESS '{contract_addr}' is not a valid 42-character hex address.")
+        if is_prod:
+            raise RuntimeError("Startup Validation Failed: Invalid CONTRACT_ADDRESS in production.")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logging.info("System startup: Validating security configuration...")
+    try:
+        validate_environment()
+        logging.info("[CONFIG_VERIFIED] Environment and security configuration verified.")
+    except Exception as e:
+        logging.critical(f"[STARTUP_CONFIG_ERROR] {e}")
+        raise
+
     logging.info("System startup: Initializing database indexes and seed data...")
     try:
         loop = asyncio.get_running_loop()
@@ -72,23 +116,46 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# Configurable CORS (Supports Vercel Deployments, localhost, and custom domains)
-cors_origins = os.getenv("CORS_ORIGINS", "*")
-origins = [o.strip() for o in cors_origins.split(",") if o.strip()]
+# Approved Origins Configuration (No wildcard reflections with credentials)
+DEFAULT_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:5000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5000",
+]
+
+configured_cors = os.getenv("CORS_ORIGINS", "")
+approved_origins = set(DEFAULT_ALLOWED_ORIGINS)
+for o in configured_cors.split(","):
+    clean = o.strip()
+    if clean and clean != "*":
+        approved_origins.add(clean)
+
+def is_origin_allowed(origin: str) -> bool:
+    if not origin:
+        return False
+    if origin in approved_origins:
+        return True
+    import re
+    if re.match(r"^https:\/\/([a-zA-Z0-9-]+\.)*vercel\.app$", origin):
+        return True
+    return False
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins if (origins and "*" not in origins) else [],
-    allow_origin_regex=r"^https?://.*",
+    allow_origins=list(approved_origins),
+    allow_origin_regex=r"^https:\/\/([a-zA-Z0-9-]+\.)*vercel\.app$",
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
 )
 
 # Comprehensive CORS Preflight & Security Headers Middleware
 @app.middleware("http")
 async def cors_and_security_middleware(request: Request, call_next):
-    # Immediately answer preflight OPTIONS requests with 200 OK and complete CORS headers
+    # Handle preflight OPTIONS requests strictly for approved origins
     if request.method == "OPTIONS":
         origin = request.headers.get("origin")
         preflight_headers = {
@@ -97,11 +164,9 @@ async def cors_and_security_middleware(request: Request, call_next):
             "Access-Control-Max-Age": "86400",
             "Access-Control-Allow-Private-Network": "true",
         }
-        if origin:
+        if origin and is_origin_allowed(origin):
             preflight_headers["Access-Control-Allow-Origin"] = origin
             preflight_headers["Access-Control-Allow-Credentials"] = "true"
-        else:
-            preflight_headers["Access-Control-Allow-Origin"] = "*"
         return JSONResponse(
             status_code=200,
             content={"message": "OK"},
@@ -119,7 +184,7 @@ async def cors_and_security_middleware(request: Request, call_next):
         )
 
     origin = request.headers.get("origin")
-    if origin:
+    if origin and is_origin_allowed(origin):
         response.headers["Access-Control-Allow-Origin"] = origin
         response.headers["Access-Control-Allow-Credentials"] = "true"
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, PATCH, OPTIONS"
@@ -131,7 +196,6 @@ async def cors_and_security_middleware(request: Request, call_next):
 
     # Auto-broadcast mutations across all connected devices and laptops
     if request.method in ["POST", "PUT", "PATCH", "DELETE"] and response.status_code < 400:
-        # Exclude heartbeat or purely internal paths if necessary, but all state-changing endpoints trigger updates
         realtime_manager.trigger_broadcast("DATA_MUTATED", {
             "path": request.url.path,
             "method": request.method,
@@ -233,11 +297,9 @@ def _cors_headers(request: Request) -> dict:
         "Access-Control-Allow-Headers": "*",
         "Access-Control-Allow-Private-Network": "true",
     }
-    if origin:
+    if origin and is_origin_allowed(origin):
         headers["Access-Control-Allow-Origin"] = origin
         headers["Access-Control-Allow-Credentials"] = "true"
-    else:
-        headers["Access-Control-Allow-Origin"] = "*"
     return headers
 
 # Uniform Error Handlers with Guaranteed CORS Headers

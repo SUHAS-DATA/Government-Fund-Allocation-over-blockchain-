@@ -25,6 +25,8 @@ import {
 import API from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useRealtimeSync } from '../../context/RealtimeContext';
+import { useFinancialYear } from '../../context/FinancialYearContext';
+import FinancialYearSelector from '../../components/FinancialYearSelector';
 import './SuperAdminHub.css';
 
 // Sub-components for admin operations
@@ -95,6 +97,7 @@ const formatIndianDenomination = (amount) => {
 
 const AdminDashboard = () => {
   const { user, logout } = useAuth();
+  const { selectedFY } = useFinancialYear();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get('tab') || 'overview';
 
@@ -114,6 +117,7 @@ const AdminDashboard = () => {
   const fetchAllData = async (showSpinner = false) => {
     if (showSpinner) setLoading(true);
     try {
+      const fyParam = selectedFY ? `?fy=${selectedFY}` : '';
       const [
         dashRes,
         allocRes,
@@ -121,11 +125,11 @@ const AdminDashboard = () => {
         bcRes,
         schemesRes
       ] = await Promise.allSettled([
-        API.get('/admin/dashboard'),
-        API.get('/admin/allocations'),
+        API.get(`/admin/dashboard${fyParam}`),
+        API.get(`/admin/allocations${fyParam}`),
         API.get('/admin/departments'),
         API.get('/admin/blockchain-explorer?summary_only=true'),
-        API.get('/admin/schemes')
+        API.get(`/admin/schemes${fyParam}`)
       ]);
 
       if (dashRes.status === 'fulfilled' && dashRes.value?.success) {
@@ -160,7 +164,7 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     fetchAllData(true);
-  }, []);
+  }, [selectedFY]);
 
   useRealtimeSync(() => fetchAllData(false), { interval: 20000 });
 
@@ -169,58 +173,37 @@ const AdminDashboard = () => {
   const activeFY = metrics.selected_financial_year || metrics.active_financial_year || '2026–27';
 
   // Primary Financial figures
-  const totalFunds = metrics.sanctioned_union_ceiling || 5000000000; // ₹500 Cr
-  const allocatedFunds = metrics.allocated_to_schemes || 1200000000; // ₹120 Cr
+  const totalFunds = metrics.sanctioned_union_ceiling ?? 0;
+  const allocatedFunds = metrics.allocated_to_schemes ?? 0;
   const remainingFunds = metrics.remaining_unallocated_ceiling !== undefined
     ? metrics.remaining_unallocated_ceiling
-    : Math.max(0, totalFunds - allocatedFunds); // ₹380 Cr
+    : Math.max(0, totalFunds - allocatedFunds);
 
   const utilizationPct = totalFunds > 0
     ? Math.min(100, Math.round((allocatedFunds / totalFunds) * 100))
-    : 24;
+    : 0;
 
   // Pending Approvals
   const pendingApprovalsList = allocationsList.filter(a => a.status === 'SANCTIONED');
-  const pendingApprovalsCount = pendingApprovalsList.length > 0 ? pendingApprovalsList.length : 8;
+  const pendingApprovalsCount = pendingApprovalsList.length;
   const urgentApprovalsCount = Math.min(pendingApprovalsCount, 3);
 
   // Operations Figures
-  const activeSchemesCount = schemesList.length > 0 ? schemesList.length : (metrics.schemes_count || 12);
-  const activeProjectsCount = metrics.active_projects_count > 0 ? metrics.active_projects_count : 24;
-  const onTrackProjectsCount = Math.max(1, Math.round(activeProjectsCount * 0.75));
-  const departmentsCount = departmentsList.length > 0 ? departmentsList.length : 24;
-  const activeAllocationsCount = metrics.fy_allocations_count || allocationsList.length || 12;
-  const blockchainTxCount = blockchainStats.txCount > 0 ? blockchainStats.txCount : 1245;
+  const activeSchemesCount = schemesList.length > 0 ? schemesList.length : (metrics.schemes_count ?? 0);
+  const activeProjectsCount = metrics.active_projects_count ?? 0;
+  const onTrackProjectsCount = Math.round(activeProjectsCount * 0.75);
+  const departmentsCount = departmentsList.length > 0 ? departmentsList.length : 0;
+  const activeAllocationsCount = metrics.fy_allocations_count ?? allocationsList.length;
+  const blockchainTxCount = blockchainStats.txCount ?? 0;
 
-  // Timeline events
-  const recentActivities = [
-    {
-      time: '09:42',
-      title: 'Scheme approved',
-      detail: dashboardData?.recent_allocations?.[0]?.scheme_name
-        ? `${dashboardData.recent_allocations[0].scheme_name} (${formatIndianDenomination(dashboardData.recent_allocations[0].amount)})`
-        : 'Education Development Program'
-    },
-    {
-      time: '09:18',
-      title: '₹25 Cr allocation created',
-      detail: dashboardData?.recent_allocations?.[1]?.department
-        ? `${dashboardData.recent_allocations[1].department} • Karnataka State Account`
-        : 'Karnataka State Account'
-    },
-    {
-      time: '08:55',
-      title: 'Payment record verified',
-      detail: dashboardData?.recent_allocations?.[0]?.blockchain_tx_hash
-        ? `Ref: ${dashboardData.recent_allocations[0].blockchain_tx_hash.substring(0, 10)}...${dashboardData.recent_allocations[0].blockchain_tx_hash.substring(dashboardData.recent_allocations[0].blockchain_tx_hash.length - 4)}`
-        : 'Ref: PAY-10245'
-    },
-    {
-      time: '08:30',
-      title: 'Central budget approved',
-      detail: 'Ministry allocation registered and securely recorded'
-    }
-  ];
+  // Timeline events derived dynamically from real allocations
+  const recentActivities = (dashboardData?.recent_allocations && dashboardData.recent_allocations.length > 0)
+    ? dashboardData.recent_allocations.slice(0, 5).map((alloc, idx) => ({
+        time: alloc.created_at ? new Date(alloc.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : `Record #${idx + 1}`,
+        title: `${alloc.scheme_name || 'Central Allocation'} (${formatIndianDenomination(alloc.amount || 0)})`,
+        detail: `Status: ${alloc.status || 'PROCESSED'} • Department: ${alloc.department || 'Central'}${alloc.blockchain_tx_hash ? ` • Tx: ${alloc.blockchain_tx_hash.substring(0, 8)}...` : ''}`
+      }))
+    : [];
 
   // Helper for module header titles
   const getModuleTitle = (tab) => {
@@ -261,6 +244,7 @@ const AdminDashboard = () => {
               </button>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <FinancialYearSelector compact />
                 <ThemeToggle />
                 <div className="super-admin-module-title-box">
                   <span className="super-admin-module-crumb">Super Admin</span>
@@ -295,6 +279,7 @@ const AdminDashboard = () => {
                   <span className="live-pulse-dot" />
                   <span>System Operational</span>
                 </div>
+                <FinancialYearSelector />
                 <ThemeToggle />
               </div>
 
@@ -843,20 +828,26 @@ const AdminDashboard = () => {
               </div>
 
               <div className="activity-timeline-list">
-                {recentActivities.map((act, index) => (
-                  <div key={index} className="activity-timeline-item">
-                    <span className="activity-timeline-dot">●</span>
-                    <span className="activity-time-pill">{act.time}</span>
-                    <div className="activity-content-box">
-                      <div className="activity-title-text">
-                        {act.title}
-                      </div>
-                      <div className="activity-detail-text">
-                        {act.detail}
+                {recentActivities.length > 0 ? (
+                  recentActivities.map((act, index) => (
+                    <div key={index} className="activity-timeline-item">
+                      <span className="activity-timeline-dot">●</span>
+                      <span className="activity-time-pill">{act.time}</span>
+                      <div className="activity-content-box">
+                        <div className="activity-title-text">
+                          {act.title}
+                        </div>
+                        <div className="activity-detail-text">
+                          {act.detail}
+                        </div>
                       </div>
                     </div>
+                  ))
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '24px', color: '#627D98', fontSize: '13px' }}>
+                    No recent central allocation activities recorded for FY {activeFY}.
                   </div>
-                ))}
+                )}
               </div>
             </div>
 
