@@ -7,10 +7,11 @@ import BlockchainBadge from '../../components/BlockchainBadge';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FundAmountInput from '../../components/FundAmountInput';
+import { useRealtimeSync } from '../../context/RealtimeContext';
 import { useFinancialYear } from '../../context/FinancialYearContext';
 
 const BudgetAllocation = () => {
-  const { selectedFY } = useFinancialYear();
+  const { selectedFY, setSelectedFY } = useFinancialYear();
   const [allocations, setAllocations] = useState([]);
   const [financialYears, setFinancialYears] = useState([]);
   const [departments, setDepartments] = useState([]);
