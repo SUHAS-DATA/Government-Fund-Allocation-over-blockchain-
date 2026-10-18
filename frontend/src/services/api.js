@@ -35,13 +35,27 @@ export const normalizeApiUrl = (url) => {
   return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
 };
 
+// Immediate sanity cleanup on deployed remote domains:
+// Remove any stale loopback overrides from previous sessions.
+if (typeof window !== 'undefined' && !isLocalHostname(window.location.hostname)) {
+  try {
+    const existing = localStorage.getItem('govtfund_api_host');
+    if (existing && isLocalhostUrl(existing)) {
+      localStorage.removeItem('govtfund_api_host');
+    }
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem('govtfund_explicit_local_override');
+    }
+  } catch (e) {}
+}
+
 /**
  * Intelligent Dynamic API URL resolver
  * Automatically supports:
  * 1. Intentional user override saved in localStorage ('govtfund_api_host')
  *    - On localhost: respects any saved override (local or cloud).
- *    - On remote/deployed domains (e.g. Vercel): respects remote overrides, but automatically
- *      purges and ignores stale localhost/127.0.0.1 overrides that would silently break the app.
+ *    - On remote/deployed domains (e.g. Vercel): strictly blocks localhost (127.0.0.1, localhost, [::1])
+ *      and purges any stale loopback override from localStorage/sessionStorage.
  * 2. Local development on localhost/loopback targeting local FastAPI backend (127.0.0.1:5000)
  * 3. Deployed cloud environments (e.g. Vercel) targeting configured VITE_API_URL or hosted cloud backend
  */
@@ -55,17 +69,15 @@ export const getApiBaseUrl = () => {
       const clean = saved.trim();
 
       // Guard: On a deployed remote environment (e.g. *.vercel.app),
-      // a stale localhost override cannot function over HTTPS due to browser PNA / Mixed Content
-      // and silently breaks the application. Automatically sanitize it.
+      // localhost/loopback targets (127.0.0.1, localhost, [::1]) are strictly prohibited.
+      // Unconditionally purge any local override and never allow it to override cloud backend.
       if (!isLocalHost && isLocalhostUrl(clean)) {
-        const isExplicitSession = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('govtfund_explicit_local_override') === 'true';
-        if (!isExplicitSession) {
-          try {
-            localStorage.removeItem('govtfund_api_host');
-          } catch (e) {}
-        } else {
-          return normalizeApiUrl(clean);
-        }
+        try {
+          localStorage.removeItem('govtfund_api_host');
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.removeItem('govtfund_explicit_local_override');
+          }
+        } catch (e) {}
       } else {
         return normalizeApiUrl(clean);
       }
@@ -112,14 +124,22 @@ export const getApiConnectionDetails = () => {
 
 export const setApiHost = (host) => {
   if (typeof window === 'undefined') return;
+  const isLocalHost = isLocalHostname(window.location.hostname);
+
   if (!host || !host.trim()) {
     localStorage.removeItem('govtfund_api_host');
     try { sessionStorage.removeItem('govtfund_explicit_local_override'); } catch (e) {}
   } else {
     const clean = host.trim().replace(/\/+$/, '');
-    localStorage.setItem('govtfund_api_host', clean);
-    if (isLocalhostUrl(clean) && !isLocalHostname(window.location.hostname)) {
-      try { sessionStorage.setItem('govtfund_explicit_local_override', 'true'); } catch (e) {}
+    if (!isLocalHost && isLocalhostUrl(clean)) {
+      // Disallow setting localhost targets on deployed cloud environments
+      localStorage.removeItem('govtfund_api_host');
+      try { sessionStorage.removeItem('govtfund_explicit_local_override'); } catch (e) {}
+    } else {
+      localStorage.setItem('govtfund_api_host', clean);
+      if (isLocalhostUrl(clean) && isLocalHost) {
+        try { sessionStorage.setItem('govtfund_explicit_local_override', 'true'); } catch (e) {}
+      }
     }
   }
   window.dispatchEvent(new CustomEvent('govtfund_api_host_changed', { detail: { host } }));
@@ -134,6 +154,17 @@ export const resetApiHost = () => {
 
 export const testBackendHealth = async (targetHost = null) => {
   const host = (targetHost || getApiConnectionDetails().currentHost).replace(/\/+$/, '');
+
+  // Guard against attempting to ping local network addresses from HTTPS cloud deployments
+  if (typeof window !== 'undefined' && !isLocalHostname(window.location.hostname) && isLocalhostUrl(host)) {
+    return {
+      success: false,
+      latency: 0,
+      error: 'Direct local loopback connection blocked on cloud domains',
+      hint: 'Deployed cloud portals connect to the cloud backend. Localhost targeting is only available during local development.',
+    };
+  }
+
   const url = `${host}/api/health`;
   const startTime = Date.now();
 
