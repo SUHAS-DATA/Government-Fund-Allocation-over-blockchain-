@@ -136,6 +136,15 @@ async def approve_and_transfer(
     except Exception:
         data = {}
 
+    if not bcs.is_blockchain_enabled():
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "success": False,
+                "message": "Cloud blockchain transfers are disabled. Fund transfers cannot be executed on the cloud backend without an active local Ganache node."
+            }
+        )
+
     alloc_id = data.get("allocation_id")
     raw_state_code = str(data.get("state_code", "")).strip().upper()
     state_name = data.get("state_name", "Maharashtra")

@@ -118,8 +118,8 @@ const BlockchainExplorer = () => {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', fontSize: '12px' }}>
           <div>
             <span style={{ color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Record System Status:</span>
-            <span className={`badge ${status?.connected !== false ? 'badge-success' : 'badge-danger'}`}>
-              {status?.connected !== false ? 'ONLINE & SECURE' : 'OFFLINE'}
+            <span className={`badge ${status?.connected ? 'badge-success' : (status?.enabled === false ? 'badge-warning' : 'badge-danger')}`}>
+              {status?.connected ? 'ONLINE & SECURE' : (status?.enabled === false ? 'DISABLED (CLOUD DEMO)' : 'OFFLINE')}
             </span>
           </div>
 

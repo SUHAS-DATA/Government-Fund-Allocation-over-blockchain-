@@ -11,9 +11,10 @@ blockchain_bp = router
 
 @router.get("/status")
 async def get_status():
-    connected = bcs.is_blockchain_connected()
-    account = bcs.get_account()
-    contract = bcs.get_contract()
+    enabled = bcs.is_blockchain_enabled()
+    connected = bcs.is_blockchain_connected() if enabled else False
+    account = bcs.get_account() if enabled else None
+    contract = bcs.get_contract() if enabled else None
     chain_id = None
     if connected:
         try:
@@ -23,8 +24,9 @@ async def get_status():
 
     return {
         "success": True,
+        "enabled": enabled,
         "connected": connected,
-        "rpc_url": bcs.RPC_URL,
+        "rpc_url": bcs.RPC_URL if enabled else "BLOCKCHAIN_DISABLED",
         "chain_id": chain_id,
         "wallet_address": account.address if account else None,
         "contract_address": bcs.contract_address,

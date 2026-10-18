@@ -16,8 +16,10 @@ services:
         value: FUNDSYSTEM
       - key: JWT_SECRET
         generateValue: true
+      - key: ENABLE_BLOCKCHAIN
+        value: "false"
       - key: BLOCKCHAIN_RPC_URL
-        sync: false
+        value: ""
       - key: CONTRACT_ADDRESS
         sync: false
       - key: CHAIN_ID

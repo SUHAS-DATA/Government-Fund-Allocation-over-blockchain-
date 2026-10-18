@@ -14,8 +14,52 @@ else:
 
 bc_logger = logging.getLogger("blockchain_service")
 
-RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL") or os.getenv("RPC_URL", "http://127.0.0.1:7545")
-PRIVATE_KEY = os.getenv("BLOCKCHAIN_PRIVATE_KEY")
+def is_blockchain_enabled() -> bool:
+    """
+    Evaluates whether blockchain interaction is enabled.
+    Returns False when:
+    - ENABLE_BLOCKCHAIN is explicitly false/0/no/off/disabled.
+    - Or running in production/cloud without explicit enablement.
+    """
+    flag = os.getenv("ENABLE_BLOCKCHAIN")
+    if flag is not None:
+        return flag.strip().lower() in ["1", "true", "yes", "on", "enable", "enabled"]
+
+    env = os.getenv("APP_ENV") or os.getenv("ENVIRONMENT") or ""
+    if os.getenv("RENDER") or env.lower() in ["production", "prod"]:
+        return False
+
+    return True
+
+def _sanitize_rpc_url(url: str) -> str:
+    if not url:
+        return ""
+    cleaned = url.strip()
+    # Explicitly block and reject deprecated loca.lt tunnel URLs
+    if "loca.lt" in cleaned:
+        bc_logger.warning(
+            f"[BLOCKCHAIN_CONFIG] Rejected deprecated loca.lt tunnel URL: '{cleaned}'. "
+            "localtunnel URLs are prohibited to prevent cloud connection hangs."
+        )
+        return ""
+    return cleaned
+
+_raw_rpc = os.getenv("BLOCKCHAIN_RPC_URL") or os.getenv("RPC_URL", "http://127.0.0.1:7545")
+_sanitized_rpc = _sanitize_rpc_url(_raw_rpc)
+
+if is_blockchain_enabled() and _sanitized_rpc:
+    RPC_URL = _sanitized_rpc
+    PRIVATE_KEY = os.getenv("BLOCKCHAIN_PRIVATE_KEY")
+    w3 = Web3(Web3.HTTPProvider(RPC_URL, request_kwargs={
+        "timeout": 5.0,
+        "headers": {
+            "User-Agent": "Mozilla/5.0"
+        }
+    }))
+else:
+    RPC_URL = None
+    PRIVATE_KEY = None
+    w3 = Web3() # Standalone instance without provider; no RPC network calls
 
 # Load Contract Info
 contract_info_path = os.path.join(os.path.dirname(__file__), "config", "contract_info.json")
@@ -29,24 +73,15 @@ if os.path.exists(contract_info_path):
             contract_address = info.get("contractAddress")
         contract_abi = info.get("abi")
 
-w3 = Web3(Web3.HTTPProvider(RPC_URL, request_kwargs={
-    "timeout": 15.0,
-    "headers": {
-        "bypass-tunnel-reminder": "true",
-        "Bypass-Tunnel-Reminder": "1",
-        "User-Agent": "Mozilla/5.0"
-    }
-}))
-
 def _derive_address_from_key(pk: str, fallback: str) -> str:
-    if not pk:
+    if not pk or not is_blockchain_enabled():
         return fallback
     try:
         return w3.eth.account.from_key(pk).address
     except Exception:
         return fallback
 
-# Dynamic Ganache Multi-Department Public Addresses (Derived from environment variables)
+# Dynamic Ganache Multi-Department Public Addresses (Derived from environment variables only when enabled)
 FINANCE_ADDR = _derive_address_from_key(os.getenv("FINANCE_PRIVATE_KEY") or os.getenv("BLOCKCHAIN_PRIVATE_KEY"), "0x1622F9853bDFEc6ba1A40FBf9bba7Fd74e8B451B")
 STATE_ADDR = _derive_address_from_key(os.getenv("STATE_PRIVATE_KEY"), "0x3bE9Fb1473BcAEe6790dBb9556A8C9637eCC54bC")
 DISTRICT_ADDR = _derive_address_from_key(os.getenv("DISTRICT_PRIVATE_KEY"), "0x2Db964805531b2cc0Cb6961AF0f7d7489F1e4Aa9")
@@ -310,6 +345,8 @@ def get_entity_info(address_or_key):
 _bc_connected_cache = {"status": False, "expires_at": 0}
 
 def is_blockchain_connected(force_refresh: bool = False) -> bool:
+    if not is_blockchain_enabled():
+        return False
     global _bc_connected_cache
     now = time.time()
     if not force_refresh and now < _bc_connected_cache["expires_at"]:
@@ -341,6 +378,26 @@ def get_blockchain_diagnostics() -> dict:
     Safely validates active blockchain configuration without exposing private keys or secrets.
     """
     env = os.getenv("APP_ENV") or os.getenv("ENVIRONMENT") or "development"
+    if not is_blockchain_enabled():
+        return {
+            "environment": env,
+            "rpc_url": "BLOCKCHAIN_DISABLED",
+            "connected": False,
+            "configured_chain_id": int(os.getenv("CHAIN_ID", 1337)),
+            "active_chain_id": None,
+            "chain_id_match": False,
+            "contract_address": contract_address,
+            "contract_deployed": False,
+            "roles": {
+                r: {"key_configured": False, "wallet_derived": WALLET_REGISTRY.get(r, {}).get("address"), "ready": False}
+                for r in ["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR"]
+            },
+            "warnings": [
+                "Cloud blockchain transactions are disabled (ENABLE_BLOCKCHAIN=false). Web3 RPC connection is inactive."
+            ],
+            "status": "HEALTHY"
+        }
+
     warnings = []
     
     connected = is_blockchain_connected(force_refresh=True)
@@ -419,7 +476,11 @@ def get_private_key_for_role(role: str = "FINANCE") -> str:
     - STATE                 -> STATE_PRIVATE_KEY   (Ganache Account 1)
     - DISTRICT              -> DISTRICT_PRIVATE_KEY (Ganache Account 2)
     - CONTRACTOR            -> CONTRACTOR_PRIVATE_KEY (Ganache Account 3)
+    Returns None if blockchain is disabled.
     """
+    if not is_blockchain_enabled():
+        return None
+
     r = str(role or "FINANCE").strip().upper()
     
     if r in ["SUPER_ADMIN", "ADMIN"]:
@@ -464,6 +525,8 @@ def get_private_key_for_role(role: str = "FINANCE") -> str:
     return key or PRIVATE_KEY
 
 def get_account(role: str = "FINANCE", custom_private_key: str = None):
+    if not is_blockchain_enabled():
+        return None
     pk = custom_private_key or get_private_key_for_role(role)
     if not pk:
         return None
@@ -474,9 +537,14 @@ def get_account(role: str = "FINANCE", custom_private_key: str = None):
         return None
 
 def get_contract():
+    if not is_blockchain_enabled():
+        return None
     if not contract_address or not contract_abi:
         return None
-    return w3.eth.contract(address=w3.to_checksum_address(contract_address), abi=contract_abi)
+    try:
+        return w3.eth.contract(address=w3.to_checksum_address(contract_address), abi=contract_abi)
+    except Exception:
+        return None
 
 def calculate_sha256(file_path_or_bytes):
     """Compute standard SHA-256 hex digest for document anchoring"""
@@ -497,6 +565,14 @@ def execute_contract_transaction(func_call, role: str = "FINANCE", custom_privat
     the designated wallet private key for the specified administrative role.
     """
     fn_name = getattr(func_call, "fn_name", "ContractCall")
+
+    if not is_blockchain_enabled():
+        err_msg = (
+            "Cloud blockchain transactions are disabled. "
+            "Fund transfers cannot be executed on the cloud backend without an active local Ganache node."
+        )
+        bc_logger.error(f"[BLOCKCHAIN_TX_BLOCKED] Op={fn_name} | {err_msg}")
+        raise Exception(err_msg)
 
     if not w3.is_connected():
         err_msg = (
@@ -849,6 +925,14 @@ def verify_transaction_onchain(
     - Decodes receipt logs to verify that the specified smart contract event was emitted.
     - Strictly never reports unverified success if the transaction is pending, reverted, missing, or RPC unreachable.
     """
+    if not is_blockchain_enabled():
+        return {
+            "verified": False,
+            "status": "BLOCKCHAIN_DISABLED",
+            "message": "Blockchain verification is inactive on cloud environment (ENABLE_BLOCKCHAIN=false).",
+            "tx_hash": tx_hash
+        }
+
     if not tx_hash or not isinstance(tx_hash, str) or not tx_hash.startswith("0x"):
         return {
             "verified": False,
