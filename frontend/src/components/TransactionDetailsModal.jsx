@@ -15,23 +15,71 @@ import {
 } from 'lucide-react';
 import Modal from './Modal';
 import { formatCurrency } from '../services/blockchain';
-import API from '../services/api';
+import API, { getApiConnectionDetails } from '../services/api';
 
 const TransactionDetailsModal = ({ isOpen = true, onClose, transaction, autoVerify = false }) => {
   const [verifying, setVerifying] = useState(false);
-  const [verificationResult, setVerificationResult] = useState(null);
+  const [liveVerification, setLiveVerification] = useState(null);
   const [copySuccess, setCopySuccess] = useState(false);
   const [verifyError, setVerifyError] = useState('');
+  const [blockchainStatus, setBlockchainStatus] = useState(null);
+  const [statusLoaded, setStatusLoaded] = useState(false);
 
   const txId = transaction?.transaction_id || transaction?.transactionId || transaction?.transfer_id || 'TX-UNKNOWN';
   const txHash = transaction?.blockchain_tx_hash || transaction?.blockchainTxHash || transaction?.tx_hash || '';
   const txType = transaction?.transaction_type || 'FINANCIAL_DISBURSAL';
 
+  const connectionDetails = getApiConnectionDetails();
+  const isCloudEnvironment = !connectionDetails.isLocalTarget;
+  const isBlockchainDisabled = Boolean(
+    statusLoaded
+      ? (!blockchainStatus?.enabled || !blockchainStatus?.connected)
+      : isCloudEnvironment
+  );
+
   useEffect(() => {
-    if (autoVerify && transaction && txId && txId !== 'TX-UNKNOWN' && !verificationResult && !verifying) {
+    let isMounted = true;
+    API.get('/blockchain/status')
+      .then((res) => {
+        if (isMounted) {
+          if (res && res.success) {
+            setBlockchainStatus(res);
+          } else {
+            setBlockchainStatus({ enabled: false, connected: false });
+          }
+          setStatusLoaded(true);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setBlockchainStatus({ enabled: false, connected: false });
+          setStatusLoaded(true);
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    setLiveVerification(null);
+    setVerifyError('');
+  }, [transaction?.transaction_id, transaction?.transfer_id]);
+
+  useEffect(() => {
+    if (
+      autoVerify &&
+      transaction &&
+      txId &&
+      txId !== 'TX-UNKNOWN' &&
+      !liveVerification &&
+      !verifying &&
+      statusLoaded &&
+      !isBlockchainDisabled
+    ) {
       handleVerify();
     }
-  }, [autoVerify, transaction, txId]);
+  }, [autoVerify, transaction, txId, statusLoaded, isBlockchainDisabled]);
 
   if (!transaction) return null;
 
@@ -44,14 +92,24 @@ const TransactionDetailsModal = ({ isOpen = true, onClose, transaction, autoVeri
   };
 
   const handleVerify = async () => {
+    if (isBlockchainDisabled) {
+      setVerifyError('Blockchain verification is inactive on cloud environment (ENABLE_BLOCKCHAIN=false).');
+      return;
+    }
+
     setVerifying(true);
     setVerifyError('');
+    setLiveVerification(null);
     try {
       const res = await API.get(`/transactions/${txId}/verify`);
-      if (res.success) {
-        setVerificationResult(res);
+      setLiveVerification(res);
+      if (res && res.success && res.verified) {
+        // Fresh live verification confirmed on ledger
       } else {
-        setVerifyError(res.message || 'Verification could not confirm block record.');
+        const errorMsg = res?.message || (res?.verification_status === 'BLOCKCHAIN_DISABLED'
+          ? 'Blockchain verification is inactive on cloud environment (ENABLE_BLOCKCHAIN=false).'
+          : 'Verification could not confirm block record.');
+        setVerifyError(errorMsg);
       }
     } catch (err) {
       setVerifyError(err.message || 'Blockchain RPC network timeout during verification.');
@@ -118,20 +176,38 @@ const TransactionDetailsModal = ({ isOpen = true, onClose, transaction, autoVeri
             </span>
 
             <span style={{
-              background: 'var(--color-success-bg)',
-              color: 'var(--color-success)',
+              background: transaction.status === 'COMPLETED' ? 'var(--color-success-bg)' : '#FEF3C7',
+              color: transaction.status === 'COMPLETED' ? 'var(--color-success)' : '#D97706',
               padding: '4px 10px',
               borderRadius: '12px',
               fontSize: '11px',
               fontWeight: '700',
-              border: '1px solid var(--color-success-border)',
+              border: transaction.status === 'COMPLETED' ? '1px solid var(--color-success-border)' : '1px solid #FDE68A',
               display: 'flex',
               alignItems: 'center',
               gap: '4px'
             }}>
               <CheckCircle2 size={12} />
-              {transaction.status === 'COMPLETED' ? 'Verified' : (transaction.status || 'Verified')}
+              Status: {transaction.status || 'COMPLETED'}
             </span>
+
+            {transaction.blockchain_status === 'VERIFIED' && (
+              <span style={{
+                background: '#F0FDF4',
+                color: '#15803D',
+                padding: '4px 10px',
+                borderRadius: '12px',
+                fontSize: '11px',
+                fontWeight: '700',
+                border: '1px solid #BBF7D0',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}>
+                <ShieldCheck size={12} />
+                On-Chain Verified
+              </span>
+            )}
           </div>
         </div>
 
@@ -274,7 +350,7 @@ const TransactionDetailsModal = ({ isOpen = true, onClose, transaction, autoVeri
           background: '#F0F9FF',
           marginBottom: '20px'
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', flexWrap: 'wrap', gap: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <ShieldCheck size={18} color="var(--color-primary)" />
               <strong style={{ fontSize: '13px', color: '#1E1B4B' }}>
@@ -282,29 +358,98 @@ const TransactionDetailsModal = ({ isOpen = true, onClose, transaction, autoVeri
               </strong>
             </div>
 
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={handleVerify}
-              disabled={verifying}
-              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
-            >
-              <RefreshCw size={13} className={verifying ? 'spinning' : ''} />
-              <span>{verifying ? 'Checking Record...' : 'Verify Record'}</span>
-            </button>
+            {isBlockchainDisabled ? (
+              <button
+                className="btn btn-secondary btn-sm"
+                disabled
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  fontSize: '12px',
+                  opacity: 0.75,
+                  cursor: 'not-allowed',
+                  background: '#F1F5F9',
+                  borderColor: '#CBD5E1',
+                  color: '#64748B'
+                }}
+                title="Verification unavailable in cloud demo"
+              >
+                <AlertCircle size={13} color="#D97706" />
+                <span>Verification unavailable in cloud demo</span>
+              </button>
+            ) : (
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={handleVerify}
+                disabled={verifying}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
+              >
+                <RefreshCw size={13} className={verifying ? 'spinning' : ''} />
+                <span>{verifying ? 'Checking Record...' : 'Verify Record'}</span>
+              </button>
+            )}
           </div>
+
+          {isBlockchainDisabled && (
+            <div style={{
+              marginBottom: '12px',
+              padding: '8px 12px',
+              background: '#FFFBEB',
+              border: '1px solid #FDE68A',
+              borderRadius: 'var(--radius-sm)',
+              color: '#92400E',
+              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <AlertCircle size={14} style={{ flexShrink: 0 }} />
+              <span>
+                Blockchain verification is inactive on cloud environment (ENABLE_BLOCKCHAIN=false). Live cryptographic ledger verification requires a connected local Ganache node.
+              </span>
+            </div>
+          )}
 
           <div style={{ background: '#FFFFFF', padding: '12px', borderRadius: 'var(--radius-sm)', border: '1px solid #E0E7FF', fontSize: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
               <span style={{ color: 'var(--text-muted)' }}>System:</span>
-              <strong style={{ color: 'var(--text-main)' }}>National Public Fund System (Verified & Protected)</strong>
+              <strong style={{ color: 'var(--text-main)' }}>National Public Fund System (Audit-Protected)</strong>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <span style={{ color: 'var(--text-muted)' }}>Record Status:</span>
-              <strong style={{ color: 'var(--color-success)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Financial Record:</span>
+              <strong style={{ color: transaction.status === 'COMPLETED' ? 'var(--color-success)' : 'var(--text-main)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                 <CheckCircle2 size={13} />
-                Verified & Recorded
+                {transaction.status || 'COMPLETED'}
               </strong>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', alignItems: 'flex-start' }}>
+              <span style={{ color: 'var(--text-muted)' }}>Stored Ledger Status:</span>
+              <div style={{ textAlign: 'right' }}>
+                {transaction.blockchain_status === 'VERIFIED' ? (
+                  <>
+                    <strong style={{ color: 'var(--color-success)', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <ShieldCheck size={13} />
+                      Previously Verified
+                      {transaction.blockchain_block ? ` (Block #${transaction.blockchain_block})` : ''}
+                    </strong>
+                    {transaction.last_verified_at && (
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        Verified: {new Date(transaction.last_verified_at).toLocaleString()}
+                      </div>
+                    )}
+                  </>
+                ) : txHash ? (
+                  <strong style={{ color: '#D97706', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    <Clock size={13} />
+                    Hash Recorded (Unverified)
+                  </strong>
+                ) : (
+                  <span style={{ color: 'var(--text-muted)' }}>Off-Chain Record (No Hash)</span>
+                )}
+              </div>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -327,8 +472,8 @@ const TransactionDetailsModal = ({ isOpen = true, onClose, transaction, autoVeri
             </div>
           </div>
 
-          {/* Verification Results Panel */}
-          {verificationResult && (
+          {/* Live Verification Results Panel (Only shows when a live check succeeded in this session) */}
+          {liveVerification && liveVerification.success && liveVerification.verified && (
             <div style={{
               marginTop: '12px',
               padding: '12px',
@@ -339,10 +484,10 @@ const TransactionDetailsModal = ({ isOpen = true, onClose, transaction, autoVeri
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontWeight: '800', color: 'var(--color-success)', marginBottom: '4px' }}>
                 <CheckCircle2 size={16} />
-                <span>Record Check Confirmed: Verified</span>
+                <span>Fresh On-Chain Check Confirmed: Verified</span>
               </div>
               <div style={{ color: 'var(--text-secondary)', fontSize: '11px' }}>
-                This payment record is verified and permanently saved in official government financial records.
+                Confirmed on ledger at block #{liveVerification.blockchain?.block_number || liveVerification.block_number || 'N/A'} with {liveVerification.blockchain?.confirmations || liveVerification.confirmations || 0} confirmation(s).
               </div>
             </div>
           )}

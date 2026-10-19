@@ -569,11 +569,24 @@ async def verify_transaction_blockchain(
 
     now_utc = datetime.now(timezone.utc)
     is_verified = bool(verification.get("verified"))
+    verification_status = verification.get("status")
 
-    # Update database record
+    # If blockchain verification is disabled (cloud environment), do not mutate database or log audit failure
+    if verification_status == "BLOCKCHAIN_DISABLED":
+        return {
+            "success": False,
+            "verified": False,
+            "is_verified": False,
+            "verification_status": "BLOCKCHAIN_DISABLED",
+            "message": verification.get("message") or "Blockchain verification is inactive on cloud environment (ENABLE_BLOCKCHAIN=false).",
+            "transaction": serialize_doc(tx),
+            "verification_details": verification
+        }
+
+    # Update database record only when live verification actually executed on-chain
     update_data = {
         "last_verified_at": now_utc,
-        "blockchain_verification_status": verification.get("status"),
+        "blockchain_verification_status": verification_status,
         "blockchain_status": "VERIFIED" if is_verified else "UNVERIFIED"
     }
     if is_verified:
@@ -605,7 +618,7 @@ async def verify_transaction_blockchain(
             "is_verified": False,
             "verification_status": verification.get("status"),
             "message": verification.get("message"),
-            "transaction": serialize_doc(tx),
+            "transaction": serialize_doc({**tx, **update_data}),
             "verification_details": verification
         }
 
