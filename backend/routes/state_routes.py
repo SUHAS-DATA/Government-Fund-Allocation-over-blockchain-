@@ -160,14 +160,6 @@ async def allocate_to_district(
     except Exception:
         data = {}
 
-    if not bcs.is_blockchain_enabled():
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={
-                "success": False,
-                "message": "Cloud blockchain transfers are disabled. District allocations cannot be executed on the cloud backend without an active local Ganache node."
-            }
-        )
 
     transfer_id = data.get("transfer_id")
     district_name = data.get("district_name", "Pune")

@@ -397,15 +397,6 @@ async def allocate_budget(
     except Exception:
         data = {}
 
-    if not bcs.is_blockchain_enabled():
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={
-                "success": False,
-                "message": "Cloud blockchain transfers are disabled. Central budget allocations cannot be executed on the cloud backend without an active local Ganache node."
-            }
-        )
-
     fy = str(data.get("financial_year", "")).strip()
     department = str(data.get("department", "")).strip()
     scheme_name = str(data.get("scheme_name", "")).strip()
