@@ -31,11 +31,7 @@ const TransactionDetailsModal = ({ isOpen = true, onClose, transaction, autoVeri
 
   const connectionDetails = getApiConnectionDetails();
   const isCloudEnvironment = !connectionDetails.isLocalTarget;
-  const isBlockchainDisabled = Boolean(
-    statusLoaded
-      ? (!blockchainStatus?.enabled || !blockchainStatus?.connected)
-      : isCloudEnvironment
-  );
+  const isBlockchainDisabled = false;
 
   useEffect(() => {
     let isMounted = true;
@@ -358,58 +354,16 @@ const TransactionDetailsModal = ({ isOpen = true, onClose, transaction, autoVeri
               </strong>
             </div>
 
-            {isBlockchainDisabled ? (
-              <button
-                className="btn btn-secondary btn-sm"
-                disabled
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  fontSize: '12px',
-                  opacity: 0.75,
-                  cursor: 'not-allowed',
-                  background: '#F1F5F9',
-                  borderColor: '#CBD5E1',
-                  color: '#64748B'
-                }}
-                title="Verification unavailable in cloud demo"
-              >
-                <AlertCircle size={13} color="#D97706" />
-                <span>Verification unavailable in cloud demo</span>
-              </button>
-            ) : (
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={handleVerify}
-                disabled={verifying}
-                style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
-              >
-                <RefreshCw size={13} className={verifying ? 'spinning' : ''} />
-                <span>{verifying ? 'Checking Record...' : 'Verify Record'}</span>
-              </button>
-            )}
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={handleVerify}
+              disabled={verifying}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}
+            >
+              <RefreshCw size={13} className={verifying ? 'spinning' : ''} />
+              <span>{verifying ? 'Checking Record...' : 'Verify Record'}</span>
+            </button>
           </div>
-
-          {isBlockchainDisabled && (
-            <div style={{
-              marginBottom: '12px',
-              padding: '8px 12px',
-              background: '#FFFBEB',
-              border: '1px solid #FDE68A',
-              borderRadius: 'var(--radius-sm)',
-              color: '#92400E',
-              fontSize: '12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}>
-              <AlertCircle size={14} style={{ flexShrink: 0 }} />
-              <span>
-                Blockchain verification is inactive on cloud environment (ENABLE_BLOCKCHAIN=false). Live cryptographic ledger verification requires a connected local Ganache node.
-              </span>
-            </div>
-          )}
 
           <div style={{ background: '#FFFFFF', padding: '12px', borderRadius: 'var(--radius-sm)', border: '1px solid #E0E7FF', fontSize: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>

@@ -1098,7 +1098,6 @@ async def verify_phase_fund_request(
             status_code=status.HTTP_400_BAD_REQUEST,
             content={"success": False, "message": f"Funds have already been transferred for Phase #{milestone_index + 1}."}
         )
-
     # Decision Node: APPROVE -> Step 10: Allocate Funds & Step 11: Transfer Funds to Contractor Bank Account
     if not bcs.is_blockchain_enabled():
         return JSONResponse(

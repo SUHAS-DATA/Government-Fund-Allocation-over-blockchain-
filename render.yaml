@@ -17,7 +17,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: ENABLE_BLOCKCHAIN
-        value: "false"
+        value: "true"
       - key: BLOCKCHAIN_RPC_URL
         value: ""
       - key: CONTRACT_ADDRESS

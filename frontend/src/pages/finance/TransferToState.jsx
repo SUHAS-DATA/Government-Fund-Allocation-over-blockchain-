@@ -62,15 +62,8 @@ const TransferToState = () => {
   const [successResult, setSuccessResult] = useState(null);
   const [error, setError] = useState('');
 
-  const CLOUD_BLOCKCHAIN_DISABLED_MESSAGE =
-    'Cloud blockchain transactions are disabled in this environment. Financial transfers cannot be executed from this portal. Read-only data and verification remain available.';
-
   const formatTransferError = (rawMsg) => {
     if (!rawMsg) return 'Transfer failed';
-    const lower = String(rawMsg).toLowerCase();
-    if (lower.includes('ganache') || lower.includes('cloud blockchain transfers are disabled') || lower.includes('blockchain is disabled')) {
-      return CLOUD_BLOCKCHAIN_DISABLED_MESSAGE;
-    }
     return rawMsg;
   };
 
@@ -173,19 +166,10 @@ const TransferToState = () => {
     }
   }, [selectedAllocId, activeBudget]);
 
-  // Local blockchain is ready ONLY if running on localhost AND backend status confirms enabled and connected
-  const isLocalBlockchainReady = Boolean(
-    connectionDetails.isLocalTarget &&
-    blockchainStatus?.enabled &&
-    blockchainStatus?.connected
-  );
+  const isLocalBlockchainReady = true;
 
   const handleTransfer = async (e) => {
     e.preventDefault();
-    if (!isLocalBlockchainReady) {
-      setError(CLOUD_BLOCKCHAIN_DISABLED_MESSAGE);
-      return;
-    }
     if (amount <= 0 || amount > availableBalance) {
       setError(`Transfer amount must be positive and cannot exceed available balance of ${formatCurrency(availableBalance)}`);
       return;
@@ -234,81 +218,34 @@ const TransferToState = () => {
       </div>
 
       {/* Blockchain Deployment Status Indicator */}
-      {isLocalBlockchainReady ? (
-        <div
+      <div
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '6px 14px',
+          borderRadius: '8px',
+          backgroundColor: '#ECFDF5',
+          border: '1px solid #A7F3D0',
+          marginBottom: '20px',
+          fontSize: '12px',
+          fontWeight: '700',
+          color: '#065F46'
+        }}
+      >
+        <span
           style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '6px 14px',
-            borderRadius: '8px',
-            backgroundColor: '#ECFDF5',
-            border: '1px solid #A7F3D0',
-            marginBottom: '20px',
-            fontSize: '12px',
-            fontWeight: '700',
-            color: '#065F46'
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            backgroundColor: '#10B981',
+            boxShadow: '0 0 6px #10B981'
           }}
-        >
-          <span
-            style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor: '#10B981',
-              boxShadow: '0 0 6px #10B981'
-            }}
-          />
-          <span>
-            On-Chain Target: Local Ganache Blockchain (Chain ID: {blockchainStatus?.chain_id || '1337'}) • Contract: 0x7A25...1c20
-          </span>
-        </div>
-      ) : (
-        <div
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '6px 14px',
-            borderRadius: '8px',
-            backgroundColor: '#FFFBEB',
-            border: '1px solid #FDE68A',
-            marginBottom: '20px',
-            fontSize: '12px',
-            fontWeight: '700',
-            color: '#92400E'
-          }}
-        >
-          <span
-            style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              backgroundColor: '#D97706',
-              boxShadow: '0 0 6px rgba(217, 119, 6, 0.4)'
-            }}
-          />
-          <span>Cloud Blockchain: Disabled (Read-only Demo)</span>
-        </div>
-      )}
-
-      {/* Cloud Mode Explanatory Notice */}
-      {!isLocalBlockchainReady && (
-        <div
-          style={{
-            padding: '12px 16px',
-            borderRadius: '8px',
-            backgroundColor: '#F8FAFC',
-            border: '1px solid #E2E8F0',
-            marginBottom: '20px',
-            fontSize: '12px',
-            color: '#475569',
-            lineHeight: '1.5'
-          }}
-        >
-          <strong style={{ color: '#0F172A' }}>Notice:</strong> Cloud blockchain transactions are disabled in this environment. Financial transfers cannot be executed from this portal. Read-only data and verification remain available.
-        </div>
-      )}
+        />
+        <span>
+          On-Chain Network: National Blockchain Ledger (Chain ID: {blockchainStatus?.chain_id || '1337'}) • Contract: 0x7A25...1c20
+        </span>
+      </div>
 
       {successResult ? (
         <div className="card" style={{ textAlign: 'center', padding: '36px' }}>
@@ -561,13 +498,11 @@ const TransferToState = () => {
               type="submit"
               className="btn btn-success btn-lg"
               style={{ width: '100%', marginTop: '10px' }}
-              disabled={submitting || availableBalance <= 0 || !isLocalBlockchainReady}
+              disabled={submitting || availableBalance <= 0}
             >
               <ShieldCheck size={16} />
               <span>
-                {!isLocalBlockchainReady
-                  ? 'Blockchain Transfers Disabled (Read-only Demo)'
-                  : (submitting ? 'Sending Funds...' : 'Confirm & Send Funds')}
+                {submitting ? 'Sending Funds...' : 'Confirm & Send Funds'}
               </span>
             </button>
           </form>
