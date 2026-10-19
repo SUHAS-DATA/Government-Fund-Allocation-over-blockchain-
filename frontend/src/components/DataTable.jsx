@@ -5,20 +5,37 @@ const DataTable = ({
   columns, 
   data = [], 
   searchKey, 
+  searchKeys,
   searchPlaceholder = 'Filter records...',
   pageSize = 10 
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
+  const effectiveKeys = useMemo(() => {
+    if (Array.isArray(searchKeys) && searchKeys.length > 0) {
+      return searchKeys.filter((k) => typeof k === 'string' && k.trim().length > 0);
+    }
+    if (searchKey && typeof searchKey === 'string' && searchKey.trim().length > 0) {
+      return [searchKey.trim()];
+    }
+    return [];
+  }, [searchKey, searchKeys]);
+
   const filteredData = useMemo(() => {
-    if (!searchTerm || !searchKey) return data;
+    if (!searchTerm || effectiveKeys.length === 0) return data;
+    const term = searchTerm.toLowerCase().trim();
+    if (!term) return data;
+
     return data.filter((item) => {
-      const val = item[searchKey];
-      if (!val) return false;
-      return String(val).toLowerCase().includes(searchTerm.toLowerCase());
+      if (!item || typeof item !== 'object') return false;
+      return effectiveKeys.some((k) => {
+        const val = item[k];
+        if (val === null || val === undefined) return false;
+        return String(val).toLowerCase().includes(term);
+      });
     });
-  }, [data, searchTerm, searchKey]);
+  }, [data, searchTerm, effectiveKeys]);
 
   // Pagination calculation
   const totalPages = Math.max(1, Math.ceil(filteredData.length / pageSize));
@@ -35,7 +52,7 @@ const DataTable = ({
 
   return (
     <div>
-      {searchKey && (
+      {effectiveKeys.length > 0 && (
         <div style={{
           marginBottom: '16px',
           display: 'flex',

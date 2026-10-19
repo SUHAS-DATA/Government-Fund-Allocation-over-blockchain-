@@ -429,7 +429,9 @@ def record_financial_transaction(
     related_milestone_index: Optional[int] = None,
     created_by: Optional[str] = None,
     status: str = "COMPLETED",
-    idempotency_key: Optional[str] = None
+    idempotency_key: Optional[str] = None,
+    related_transfer_id: Optional[str] = None,
+    transfer_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Record an authoritative, non-repudiable financial transaction in db.financial_transactions.
@@ -505,6 +507,12 @@ def record_financial_transaction(
         "completed_at": now if status == "COMPLETED" else None,
         "payload_hash": tx_payload_hash
     }
+
+    resolved_transfer_id = transfer_id or related_transfer_id
+    if resolved_transfer_id:
+        clean_trf_id = str(resolved_transfer_id).strip()
+        tx_doc["transfer_id"] = clean_trf_id
+        tx_doc["related_transfer_id"] = clean_trf_id
 
     db.financial_transactions.insert_one(tx_doc)
 

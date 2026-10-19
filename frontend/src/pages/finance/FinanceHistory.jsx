@@ -6,8 +6,10 @@ import BlockchainBadge from '../../components/BlockchainBadge';
 import DataTable from '../../components/DataTable';
 import TransactionDetailsModal from '../../components/TransactionDetailsModal';
 import { useRealtimeSync } from '../../context/RealtimeContext';
+import { useFinancialYear } from '../../context/FinancialYearContext';
 
 const FinanceHistory = () => {
+  const { selectedFY } = useFinancialYear();
   const [transfers, setTransfers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedTx, setSelectedTx] = useState(null);
@@ -15,15 +17,18 @@ const FinanceHistory = () => {
 
   const loadHistory = async () => {
     try {
+      const fyParam = selectedFY && selectedFY !== 'ALL' ? `&fy=${selectedFY}` : '';
+      const legacyFyParam = selectedFY && selectedFY !== 'ALL' ? `?fy=${selectedFY}` : '';
+
       // First check universal financial transactions
-      const txRes = await API.get('/transactions?transaction_type=CENTRAL_TO_STATE');
+      const txRes = await API.get(`/transactions?transaction_type=CENTRAL_TO_STATE${fyParam}`);
       if (txRes.success && txRes.transactions && txRes.transactions.length > 0) {
         setTransfers(txRes.transactions);
         return;
       }
 
       // Fallback to finance/transfers
-      const legacyRes = await API.get('/finance/transfers');
+      const legacyRes = await API.get(`/finance/transfers${legacyFyParam}`);
       if (legacyRes.success) {
         setTransfers(legacyRes.transfers || []);
       }
@@ -36,7 +41,7 @@ const FinanceHistory = () => {
 
   useEffect(() => {
     loadHistory();
-  }, []);
+  }, [selectedFY]);
 
   useRealtimeSync(loadHistory, { interval: 6000 });
 
@@ -49,16 +54,35 @@ const FinanceHistory = () => {
     {
       header: 'Payment Reference',
       accessor: 'transaction_id',
-      render: (r) => (
-        <div>
-          <strong style={{ color: 'var(--color-primary)', fontFamily: 'monospace', fontSize: '13px' }}>
-            {r.transaction_id || r.transfer_id}
-          </strong>
-          {r.related_scheme_name && (
-            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{r.related_scheme_name}</div>
-          )}
-        </div>
-      )
+      render: (r) => {
+        const txId = r.transaction_id || r.transactionId;
+        const trfId = r.transfer_id || r.related_transfer_id;
+        return (
+          <div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+              <div>
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '700', marginRight: '4px' }}>
+                  TX:
+                </span>
+                <strong style={{ color: 'var(--color-primary)', fontFamily: 'monospace', fontSize: '13px' }}>
+                  {txId || trfId || 'N/A'}
+                </strong>
+              </div>
+              {trfId && txId && trfId !== txId && (
+                <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: '600', marginRight: '4px' }}>
+                    Transfer ID:
+                  </span>
+                  <span>{trfId}</span>
+                </div>
+              )}
+            </div>
+            {r.related_scheme_name && (
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{r.related_scheme_name}</div>
+            )}
+          </div>
+        );
+      }
     },
     {
       header: 'From (Sending Account)',
@@ -195,7 +219,24 @@ const FinanceHistory = () => {
         <DataTable
           columns={columns}
           data={transfers}
-          searchKey="transaction_id"
+          searchKeys={[
+            'transaction_id',
+            'transactionId',
+            'transfer_id',
+            'related_transfer_id',
+            'destination_entity_name',
+            'destination_account_id',
+            'destination_masked_account',
+            'destination_bank_name',
+            'source_entity_name',
+            'source_account_id',
+            'source_masked_account',
+            'source_bank_name',
+            'state_name',
+            'state_code',
+            'related_scheme_name',
+            'blockchain_tx_hash'
+          ]}
           searchPlaceholder="Search by payment reference, state, or account..."
         />
       </div>

@@ -222,6 +222,7 @@ async def list_transactions(
     transaction_type: Optional[str] = Query(None),
     project_id: Optional[str] = Query(None),
     allocation_id: Optional[str] = Query(None),
+    transfer_id: Optional[str] = Query(None),
     limit: int = Query(50, ge=1, le=200),
     current_user: dict = Depends(get_current_user)
 ):
@@ -238,6 +239,9 @@ async def list_transactions(
         and_clauses.append({"$or": [{"related_project_id": project_id}, {"related_allocation_id": project_id}]})
     if allocation_id:
         and_clauses.append({"related_allocation_id": allocation_id})
+    if transfer_id and transfer_id.strip():
+        tid = transfer_id.strip()
+        and_clauses.append({"$or": [{"transfer_id": tid}, {"related_transfer_id": tid}]})
 
     # Role-based scoping
     role = current_user.get("role")
@@ -426,22 +430,81 @@ async def get_audit_trail(
         "audit_logs": logs
     }
 
+def resolve_transaction_record(identifier: str) -> tuple[Optional[dict], Optional[str]]:
+    """
+    Safely resolves a financial transaction by:
+    1. Direct authoritative transaction_id / transactionId
+    2. Explicit transfer_id / related_transfer_id in financial_transactions
+    3. Blockchain transaction hash
+    4. Fallback lookup via state_transfers (by transfer_id) linked to financial_transactions via blockchain_tx_hash
+    Returns (tx_doc, error_message).
+    Detects and rejects ambiguous matches if an identifier matches multiple records.
+    """
+    if not identifier or not isinstance(identifier, str):
+        return None, "Invalid transaction identifier"
+
+    clean_id = identifier.strip()
+    if not clean_id:
+        return None, "Transaction identifier cannot be empty"
+
+    # 1. Exact match on authoritative transaction_id / transactionId
+    direct_matches = list(db.financial_transactions.find({
+        "$or": [{"transaction_id": clean_id}, {"transactionId": clean_id}]
+    }).limit(2))
+    if len(direct_matches) == 1:
+        return direct_matches[0], None
+    elif len(direct_matches) > 1:
+        return None, f"Ambiguous transaction ID '{clean_id}' matches multiple records"
+
+    # 2. Check transfer_id / related_transfer_id in financial_transactions
+    transfer_matches = list(db.financial_transactions.find({
+        "$or": [{"transfer_id": clean_id}, {"related_transfer_id": clean_id}]
+    }).limit(2))
+    if len(transfer_matches) == 1:
+        return transfer_matches[0], None
+    elif len(transfer_matches) > 1:
+        return None, f"Ambiguous transfer ID '{clean_id}' matches multiple records"
+
+    # 3. Blockchain tx hash match (if 0x hex)
+    if clean_id.startswith("0x"):
+        hash_matches = list(db.financial_transactions.find({
+            "$or": [{"blockchain_tx_hash": clean_id}, {"blockchain_hash": clean_id}]
+        }).limit(2))
+        if len(hash_matches) == 1:
+            return hash_matches[0], None
+        elif len(hash_matches) > 1:
+            return None, f"Ambiguous blockchain hash '{clean_id}' matches multiple records"
+
+    # 4. Fallback lookup via state_transfers (by transfer_id) linked via blockchain_tx_hash
+    st_matches = list(db.state_transfers.find({"transfer_id": clean_id}).limit(2))
+    if len(st_matches) == 1 and st_matches[0].get("blockchain_tx_hash"):
+        st_hash = st_matches[0]["blockchain_tx_hash"]
+        linked_matches = list(db.financial_transactions.find({
+            "$or": [{"blockchain_tx_hash": st_hash}, {"blockchain_hash": st_hash}]
+        }).limit(2))
+        if len(linked_matches) == 1:
+            return linked_matches[0], None
+        elif len(linked_matches) > 1:
+            return None, f"Ambiguous state transfer '{clean_id}' links to multiple financial records"
+    elif len(st_matches) > 1:
+        return None, f"Ambiguous state transfer ID '{clean_id}' matches multiple transfer records"
+
+    return None, None
+
 @router.get("/transactions/{transaction_id}")
 async def get_transaction_details(
     transaction_id: str,
     current_user: dict = Depends(get_current_user)
 ):
-
     """
     Retrieve single transaction record with complete blockchain verification details.
     """
-    tx = db.financial_transactions.find_one({
-        "$or": [
-            {"transaction_id": transaction_id},
-            {"transactionId": transaction_id},
-            {"blockchain_tx_hash": transaction_id}
-        ]
-    })
+    tx, err = resolve_transaction_record(transaction_id)
+    if err:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": err}
+        )
     if not tx:
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -469,13 +532,12 @@ async def verify_transaction_blockchain(
     Cross-examine application transaction record with on-chain Ethereum ledger.
     Compares stored transaction parameters with on-chain block receipt and event hash.
     """
-    tx = db.financial_transactions.find_one({
-        "$or": [
-            {"transaction_id": transaction_id},
-            {"transactionId": transaction_id},
-            {"blockchain_tx_hash": transaction_id}
-        ]
-    })
+    tx, err = resolve_transaction_record(transaction_id)
+    if err:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": err}
+        )
     if not tx:
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,

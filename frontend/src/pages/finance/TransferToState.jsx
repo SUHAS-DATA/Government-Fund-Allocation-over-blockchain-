@@ -337,8 +337,16 @@ const TransferToState = () => {
           <div style={{ background: 'var(--bg-subtle)', padding: '20px', borderRadius: 'var(--radius-sm)', marginBottom: '24px', textAlign: 'left' }}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px', fontSize: '13px' }}>
               <div>
-                <div style={{ color: 'var(--text-muted)' }}>Payment Reference:</div>
-                <strong style={{ fontFamily: 'monospace', color: 'var(--color-primary)' }}>{successResult.transfer?.transfer_id}</strong>
+                <div style={{ color: 'var(--text-muted)' }}>Payment Reference (TX):</div>
+                <strong style={{ fontFamily: 'monospace', color: 'var(--color-primary)' }}>
+                  {successResult.transaction?.transaction_id || successResult.transfer?.transfer_id}
+                </strong>
+                {successResult.transfer?.transfer_id && (
+                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '3px', fontFamily: 'monospace' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>Transfer ID: </span>
+                    <span>{successResult.transfer?.transfer_id}</span>
+                  </div>
+                )}
               </div>
 
               <div>

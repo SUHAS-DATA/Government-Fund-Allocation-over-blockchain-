@@ -349,6 +349,7 @@ async def approve_and_transfer(
         related_scheme_id=alloc.get("scheme_code"),
         related_scheme_name=alloc.get("scheme_name"),
         related_allocation_id=alloc_id,
+        related_transfer_id=trf_id,
         created_by=current_user["name"],
         status="COMPLETED",
         idempotency_key=idempotency_key
@@ -455,7 +456,11 @@ async def approve_and_transfer(
 
 @router.get("/transfers")
 async def get_transfers(
+    fy: Optional[str] = Query(None),
     current_user: dict = Depends(require_roles(["FINANCE"]))
 ):
-    transfers = list(db.state_transfers.find().sort("created_at", -1))
+    query = {}
+    if fy and fy.strip() and fy.strip() != "ALL":
+        query["financial_year"] = fy.strip()
+    transfers = list(db.state_transfers.find(query).sort("created_at", -1))
     return {"success": True, "transfers": serialize_doc(transfers)}
