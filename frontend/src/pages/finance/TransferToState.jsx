@@ -218,34 +218,95 @@ const TransferToState = () => {
       </div>
 
       {/* Blockchain Deployment Status Indicator */}
-      <div
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '6px 14px',
-          borderRadius: '8px',
-          backgroundColor: '#ECFDF5',
-          border: '1px solid #A7F3D0',
-          marginBottom: '20px',
-          fontSize: '12px',
-          fontWeight: '700',
-          color: '#065F46'
-        }}
-      >
-        <span
+      {connectionDetails.isLocalTarget ? (
+        <div
           style={{
-            width: '8px',
-            height: '8px',
-            borderRadius: '50%',
-            backgroundColor: '#10B981',
-            boxShadow: '0 0 6px #10B981'
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '10px',
+            padding: '10px 16px',
+            borderRadius: '10px',
+            backgroundColor: blockchainStatus?.connected ? '#ECFDF5' : '#FFFBEB',
+            border: blockchainStatus?.connected ? '1px solid #A7F3D0' : '1px solid #FDE68A',
+            marginBottom: '20px',
+            fontSize: '12px',
+            color: blockchainStatus?.connected ? '#065F46' : '#92400E'
           }}
-        />
-        <span>
-          On-Chain Network: National Blockchain Ledger (Chain ID: {blockchainStatus?.chain_id || '5777'}) • Contract: 0x7A25...1c20
-        </span>
-      </div>
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span
+              style={{
+                width: '10px',
+                height: '10px',
+                borderRadius: '50%',
+                backgroundColor: blockchainStatus?.connected ? '#10B981' : '#F59E0B',
+                boxShadow: blockchainStatus?.connected ? '0 0 6px #10B981' : '0 0 6px #F59E0B'
+              }}
+            />
+            <span style={{ fontWeight: '700' }}>
+              {blockchainStatus?.connected
+                ? `Connected to Local Ganache (127.0.0.1:7545, Chain ID: ${blockchainStatus?.chain_id || '1337'}) • Real-time On-Chain Mining Active`
+                : 'Local Ganache RPC Offline: Please ensure Ganache is running with workspace "RSSS" on port 7545'}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowApiModal(true)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: blockchainStatus?.connected ? '#047857' : '#B45309',
+              fontSize: '11px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              textDecoration: 'underline'
+            }}
+          >
+            Network Settings
+          </button>
+        </div>
+      ) : (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '10px',
+            padding: '10px 16px',
+            borderRadius: '10px',
+            backgroundColor: '#EFF6FF',
+            border: '1px solid #BFDBFE',
+            marginBottom: '20px',
+            fontSize: '12px',
+            color: '#1E40AF'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Cloud size={16} color="#2563EB" />
+            <span>
+              <strong>Cloud Network Mode (Render):</strong> Transactions are recorded on Cloud Ledger and do <em>not</em> reach your local Ganache. To see transactions update in Ganache, run locally on <code>http://localhost:5173</code>.
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowApiModal(true)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#1D4ED8',
+              fontSize: '11px',
+              fontWeight: '700',
+              cursor: 'pointer',
+              textDecoration: 'underline'
+            }}
+          >
+            Network Settings
+          </button>
+        </div>
+      )}
 
       {successResult ? (
         <div className="card" style={{ textAlign: 'center', padding: '36px' }}>
@@ -378,137 +439,137 @@ const TransferToState = () => {
                 </select>
               </div>
 
-            {activeBudget && (
-              <div style={{ background: 'var(--bg-subtle)', padding: '14px', borderRadius: 'var(--radius-sm)', marginBottom: '18px', display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Department: </span>
-                  <strong style={{ color: 'var(--text-main)' }}>{activeBudget.department}</strong>
+              {activeBudget && (
+                <div style={{ background: 'var(--bg-subtle)', padding: '14px', borderRadius: 'var(--radius-sm)', marginBottom: '18px', display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Department: </span>
+                    <strong style={{ color: 'var(--text-main)' }}>{activeBudget.department}</strong>
+                  </div>
+                  <div>
+                    <span style={{ color: 'var(--text-muted)' }}>Remaining Approved Budget: </span>
+                    <strong style={{ color: 'var(--color-success)', fontSize: '15px' }}>{formatCurrency(availableBalance)}</strong>
+                  </div>
                 </div>
-                <div>
-                  <span style={{ color: 'var(--text-muted)' }}>Remaining Approved Budget: </span>
-                  <strong style={{ color: 'var(--color-success)', fontSize: '15px' }}>{formatCurrency(availableBalance)}</strong>
+              )}
+
+              <div className="grid-2">
+                <div className="form-group">
+                  <label className="form-label">Destination State Government</label>
+                  <select
+                    className="form-control form-select"
+                    value={selectedStateCode}
+                    onChange={(e) => setSelectedStateCode(e.target.value)}
+                  >
+                    {states.map((s) => (
+                      <option key={s.code} value={s.code}>{s.name} ({s.code})</option>
+                    ))}
+                  </select>
+                </div>
+
+                <FundAmountInput
+                  label="Amount to Send to State Account"
+                  value={amount}
+                  onChange={(val) => setAmount(val)}
+                  max={availableBalance}
+                  required={true}
+                  helperText="Enter the amount to send in Crores, Lakhs, or Thousands. Ex: 100 (Cr)."
+                />
+              </div>
+
+              {/* Registered Bank Account Routing Card */}
+              <div style={{
+                background: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                borderRadius: 'var(--radius-md)',
+                padding: '16px',
+                marginBottom: '20px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Landmark size={15} color="var(--color-primary)" />
+                    <span>Government Account Details</span>
+                  </div>
+                  <span style={{ fontSize: '11px', background: 'var(--color-success-bg)', color: 'var(--color-success)', border: '1px solid var(--color-success-border)', padding: '2px 8px', borderRadius: '10px', fontWeight: '700' }}>
+                    Verified Government Account Link
+                  </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '14px', alignItems: 'center' }}>
+                  {/* Source Central Account */}
+                  <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 'var(--radius-sm)', padding: '12px' }}>
+                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', marginBottom: '4px' }}>
+                      From: Central Office Account
+                    </div>
+                    <div style={{ fontWeight: '800', fontSize: '12px', color: 'var(--text-main)', marginBottom: '3px' }}>
+                      {centralAccount?.account_holder_name || 'Ministry of Finance - Central Fund'}
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                      Bank: <strong>{centralAccount?.bank_name || 'Reserve Bank of India'}</strong>
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                      A/C: <strong>{centralAccount?.masked_account_number || 'XXXX XXXX 6451'}</strong>
+                    </div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                      IFSC: {centralAccount?.ifsc || 'RBIS0GOVT01'}
+                    </div>
+                  </div>
+
+                  {/* Direction */}
+                  <div style={{ textAlign: 'center' }}>
+                    <ArrowRight size={20} color="var(--color-primary)" />
+                  </div>
+
+                  {/* Destination State Account */}
+                  <div style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: 'var(--radius-sm)', padding: '12px' }}>
+                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#059669', textTransform: 'uppercase', marginBottom: '4px' }}>
+                      To: State Government Account
+                    </div>
+                    <div style={{ fontWeight: '800', fontSize: '12px', color: 'var(--text-main)', marginBottom: '3px' }}>
+                      {stateAccount?.account_holder_name || `${states.find(s => s.code === selectedStateCode)?.name || selectedStateCode} State Treasury`}
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                      Bank: <strong>{stateAccount?.bank_name || 'State Bank of India'}</strong>
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
+                      A/C: <strong>{stateAccount?.masked_account_number || 'XXXX XXXX 8472'}</strong>
+                    </div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '3px' }}>
+                      IFSC: {stateAccount?.ifsc || 'SBIN0004582'}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '10px', fontStyle: 'italic' }}>
+                  Funds will be transferred directly to the confirmed State Government Account with secure record verification.
                 </div>
               </div>
-            )}
 
-            <div className="grid-2">
               <div className="form-group">
-                <label className="form-label">Destination State Government</label>
-                <select
-                  className="form-control form-select"
-                  value={selectedStateCode}
-                  onChange={(e) => setSelectedStateCode(e.target.value)}
-                >
-                  {states.map((s) => (
-                    <option key={s.code} value={s.code}>{s.name} ({s.code})</option>
-                  ))}
-                </select>
+                <label className="form-label">Approval Note</label>
+                <textarea
+                  className="form-control"
+                  rows="3"
+                  value={signOffNote}
+                  onChange={(e) => setSignOffNote(e.target.value)}
+                  required
+                ></textarea>
               </div>
 
-              <FundAmountInput
-                label="Amount to Send to State Account"
-                value={amount}
-                onChange={(val) => setAmount(val)}
-                max={availableBalance}
-                required={true}
-                helperText="Enter the amount to send in Crores, Lakhs, or Thousands. Ex: 100 (Cr)."
-              />
-            </div>
-
-            {/* Registered Bank Account Routing Card */}
-            <div style={{
-              background: '#F8FAFC',
-              border: '1px solid #E2E8F0',
-              borderRadius: 'var(--radius-md)',
-              padding: '16px',
-              marginBottom: '20px'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                <div style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-main)', textTransform: 'uppercase', letterSpacing: '0.4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <Landmark size={15} color="var(--color-primary)" />
-                  <span>Government Account Details</span>
-                </div>
-                <span style={{ fontSize: '11px', background: 'var(--color-success-bg)', color: 'var(--color-success)', border: '1px solid var(--color-success-border)', padding: '2px 8px', borderRadius: '10px', fontWeight: '700' }}>
-                  Verified Government Account Link
+              <button
+                type="submit"
+                className="btn btn-success btn-lg"
+                style={{ width: '100%', marginTop: '10px' }}
+                disabled={submitting || availableBalance <= 0}
+              >
+                <ShieldCheck size={16} />
+                <span>
+                  {submitting ? 'Sending Funds...' : 'Confirm & Send Funds'}
                 </span>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: '14px', alignItems: 'center' }}>
-                {/* Source Central Account */}
-                <div style={{ background: '#FFFFFF', border: '1px solid #E2E8F0', borderRadius: 'var(--radius-sm)', padding: '12px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', marginBottom: '4px' }}>
-                    From: Central Office Account
-                  </div>
-                  <div style={{ fontWeight: '800', fontSize: '12px', color: 'var(--text-main)', marginBottom: '3px' }}>
-                    {centralAccount?.account_holder_name || 'Ministry of Finance - Central Fund'}
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                    Bank: <strong>{centralAccount?.bank_name || 'Reserve Bank of India'}</strong>
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
-                    A/C: <strong>{centralAccount?.masked_account_number || 'XXXX XXXX 6451'}</strong>
-                  </div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '3px' }}>
-                    IFSC: {centralAccount?.ifsc || 'RBIS0GOVT01'}
-                  </div>
-                </div>
-
-                {/* Direction */}
-                <div style={{ textAlign: 'center' }}>
-                  <ArrowRight size={20} color="var(--color-primary)" />
-                </div>
-
-                {/* Destination State Account */}
-                <div style={{ background: '#FFFFFF', border: '1px solid #CBD5E1', borderRadius: 'var(--radius-sm)', padding: '12px' }}>
-                  <div style={{ fontSize: '10px', fontWeight: '700', color: '#059669', textTransform: 'uppercase', marginBottom: '4px' }}>
-                    To: State Government Account
-                  </div>
-                  <div style={{ fontWeight: '800', fontSize: '12px', color: 'var(--text-main)', marginBottom: '3px' }}>
-                    {stateAccount?.account_holder_name || `${states.find(s => s.code === selectedStateCode)?.name || selectedStateCode} State Treasury`}
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
-                    Bank: <strong>{stateAccount?.bank_name || 'State Bank of India'}</strong>
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'monospace' }}>
-                    A/C: <strong>{stateAccount?.masked_account_number || 'XXXX XXXX 8472'}</strong>
-                  </div>
-                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '3px' }}>
-                    IFSC: {stateAccount?.ifsc || 'SBIN0004582'}
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '10px', fontStyle: 'italic' }}>
-                Funds will be transferred directly to the confirmed State Government Account with secure record verification.
-              </div>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">Approval Note</label>
-              <textarea
-                className="form-control"
-                rows="3"
-                value={signOffNote}
-                onChange={(e) => setSignOffNote(e.target.value)}
-                required
-              ></textarea>
-            </div>
-
-            <button
-              type="submit"
-              className="btn btn-success btn-lg"
-              style={{ width: '100%', marginTop: '10px' }}
-              disabled={submitting || availableBalance <= 0}
-            >
-              <ShieldCheck size={16} />
-              <span>
-                {submitting ? 'Sending Funds...' : 'Confirm & Send Funds'}
-              </span>
-            </button>
-          </form>
-        )}
-      </div>
-    )}
+              </button>
+            </form>
+          )}
+        </div>
+      )}
 
       {/* Transaction Details & Blockchain Verification Modal */}
       <TransactionDetailsModal

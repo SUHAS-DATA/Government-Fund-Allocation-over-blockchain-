@@ -17,68 +17,107 @@ bc_logger = logging.getLogger("blockchain_service")
 def is_blockchain_enabled() -> bool:
     """
     Evaluates whether blockchain interaction is enabled.
-    Always returns True so that private keys, contracts, and ledger execution
-    are ALWAYS enabled in both local and cloud deployments.
+    Defaults to True so live on-chain operations and cryptographic ledgers function seamlessly.
     """
+    flag = os.getenv("ENABLE_BLOCKCHAIN")
+    if flag is not None:
+        return flag.strip().lower() not in ["0", "false", "no", "off", "disable", "disabled"]
     return True
 
 def _sanitize_rpc_url(url: str) -> str:
     if not url:
         return ""
     cleaned = url.strip()
+    # Explicitly block and reject deprecated loca.lt tunnel URLs
     if "loca.lt" in cleaned:
+        bc_logger.warning(
+            f"[BLOCKCHAIN_CONFIG] Rejected deprecated loca.lt tunnel URL: '{cleaned}'. "
+            "localtunnel URLs are prohibited to prevent cloud connection hangs."
+        )
+        return ""
+    # Explicitly block loopback RPC URLs on cloud Render deployments
+    is_cloud = bool(os.getenv("RENDER") or os.getenv("CONTRACT_INFO_FILE") == "contract_info.hosted.json")
+    if is_cloud and ("127.0.0.1" in cleaned or "localhost" in cleaned):
+        bc_logger.warning(
+            f"[BLOCKCHAIN_CONFIG] Rejected loopback RPC URL '{cleaned}' in cloud/hosted environment. "
+            "Cloud containers cannot connect to local Ganache instances."
+        )
         return ""
     return cleaned
 
-_raw_rpc = os.getenv("BLOCKCHAIN_RPC_URL") or os.getenv("RPC_URL", "http://127.0.0.1:7545")
+is_cloud_render = bool(os.getenv("RENDER") or os.getenv("CONTRACT_INFO_FILE") == "contract_info.hosted.json")
+default_local_rpc = "" if is_cloud_render else "http://127.0.0.1:7545"
+_raw_rpc = os.getenv("BLOCKCHAIN_RPC_URL") or os.getenv("RPC_URL", default_local_rpc)
 _sanitized_rpc = _sanitize_rpc_url(_raw_rpc)
 
-RPC_URL = _sanitized_rpc or "http://127.0.0.1:7545"
-PRIVATE_KEY = os.getenv("BLOCKCHAIN_PRIVATE_KEY") or os.getenv("FINANCE_PRIVATE_KEY")
-try:
+if is_blockchain_enabled() and _sanitized_rpc:
+    RPC_URL = _sanitized_rpc
+    PRIVATE_KEY = os.getenv("BLOCKCHAIN_PRIVATE_KEY")
     w3 = Web3(Web3.HTTPProvider(RPC_URL, request_kwargs={
-        "timeout": 2.0,
+        "timeout": 5.0,
         "headers": {
             "User-Agent": "Mozilla/5.0"
         }
     }))
-except Exception:
-    w3 = Web3()
+else:
+    RPC_URL = None
+    PRIVATE_KEY = None
+    w3 = Web3() # Standalone instance without provider; no RPC network calls
 
 # Load Contract Info
-contract_info_path = os.path.join(os.path.dirname(__file__), "config", "contract_info.json")
-contract_address = os.getenv("CONTRACT_ADDRESS")
+contract_info_file = os.getenv("CONTRACT_INFO_FILE")
+contract_info_path = os.getenv("CONTRACT_INFO_PATH") or os.path.join(
+    os.path.dirname(__file__), "config", contract_info_file or "contract_info.json"
+)
+contract_address = None
 contract_abi = None
+contract_chain_id = None
+contract_network = None
 
 if os.path.exists(contract_info_path):
     with open(contract_info_path, "r") as f:
         info = json.load(f)
-        if not contract_address:
-            contract_address = info.get("contractAddress")
+        file_address = info.get("contractAddress") or None
+        if contract_info_file or os.getenv("CONTRACT_INFO_PATH"):
+            contract_address = file_address or os.getenv("CONTRACT_ADDRESS")
+        else:
+            contract_address = os.getenv("CONTRACT_ADDRESS") or file_address
         contract_abi = info.get("abi")
+        contract_chain_id = info.get("chainId")
+        contract_network = info.get("network")
+
+def _normalize_private_key(pk: str) -> str:
+    if not pk or not isinstance(pk, str):
+        return ""
+    clean = pk.strip()
+    if len(clean) == 64 and not clean.startswith("0x"):
+        clean = "0x" + clean
+    return clean
 
 def _derive_address_from_key(pk: str, fallback: str) -> str:
-    if not pk:
+    clean_pk = _normalize_private_key(pk)
+    if not clean_pk or not is_blockchain_enabled():
         return fallback
     try:
-        return w3.eth.account.from_key(pk).address
+        return w3.eth.account.from_key(clean_pk).address
     except Exception:
         return fallback
 
-# Dynamic Ganache Multi-Department Public Addresses (Derived from environment variables only when enabled)
-FINANCE_ADDR = _derive_address_from_key(os.getenv("FINANCE_PRIVATE_KEY") or os.getenv("BLOCKCHAIN_PRIVATE_KEY"), "0x1622F9853bDFEc6ba1A40FBf9bba7Fd74e8B451B")
-STATE_ADDR = _derive_address_from_key(os.getenv("STATE_PRIVATE_KEY"), "0x3bE9Fb1473BcAEe6790dBb9556A8C9637eCC54bC")
-DISTRICT_ADDR = _derive_address_from_key(os.getenv("DISTRICT_PRIVATE_KEY"), "0x2Db964805531b2cc0Cb6961AF0f7d7489F1e4Aa9")
-CONTRACTOR_ADDR = _derive_address_from_key(os.getenv("CONTRACTOR_PRIVATE_KEY"), "0xd49155782d0C91e4fF69024ACf6F7811467800C2")
+# Dynamic Multi-Department Public Addresses (Derived from environment variables only when enabled)
+_deployer_fallback = os.getenv("SEPOLIA_DEPLOYER_PRIVATE_KEY")
+FINANCE_ADDR = _derive_address_from_key(os.getenv("FINANCE_PRIVATE_KEY") or os.getenv("BLOCKCHAIN_PRIVATE_KEY") or _deployer_fallback, "0x9D11c4A30D1c5b1a4d597F0b81b9b02bCf6517f5")
+STATE_ADDR = _derive_address_from_key(os.getenv("STATE_PRIVATE_KEY") or _deployer_fallback, "0xAFa391aBF00323e1396d72cc1B52b4b15508C0cf")
+DISTRICT_ADDR = _derive_address_from_key(os.getenv("DISTRICT_PRIVATE_KEY") or _deployer_fallback, "0x53212DFE5d74b8e8a42c18B8D3C91Ee88C5758ec")
+CONTRACTOR_ADDR = _derive_address_from_key(os.getenv("CONTRACTOR_PRIVATE_KEY") or _deployer_fallback, "0xCDc59F7Bba64A99C5B36222133Da2D2a892Cd3f3")
 
 # ==========================================
 # MULTI-TIER WALLET & ENTITY DIRECTORY
 # (Ganache Multi-Department Accounts)
 # ==========================================
-# Account 0: 0x1622F9853bDFEc6ba1A40FBf9bba7Fd7e8B451B -> Finance Department
-# Account 1: 0x3bE9Fb1473BcAEe6790dBb9556A8C9637eCC54bC -> State Department
-# Account 2: 0x2Db964805531b2cc0Cb6961AF0f7d7489F1e4Aa9 -> District Department
-# Account 3: 0xd49155782d0C91e4fF69024ACf6F7811467800C2 -> Contractor
+# Account 0: 0x9D11c4A30D1c5b1a4d597F0b81b9b02bCf6517f5 -> Finance Department
+# Account 1: 0xAFa391aBF00323e1396d72cc1B52b4b15508C0cf -> State Department
+# Account 2: 0x53212DFE5d74b8e8a42c18B8D3C91Ee88C5758ec -> District Department
+# Account 3: 0xCDc59F7Bba64A99C5B36222133Da2D2a892Cd3f3 -> Contractor
 
 WALLET_REGISTRY = {
     # Central Apex & Finance
@@ -362,29 +401,11 @@ def get_blockchain_diagnostics() -> dict:
     Safely validates active blockchain configuration without exposing private keys or secrets.
     """
     env = os.getenv("APP_ENV") or os.getenv("ENVIRONMENT") or "production"
-    connected = is_blockchain_connected(force_refresh=True)
-    return {
-        "environment": env,
-        "rpc_url": mask_rpc_url(RPC_URL) if connected else "AUTONOMOUS_CRYPTOGRAPHIC_LEDGER",
-        "connected": True,
-        "configured_chain_id": int(os.getenv("CHAIN_ID", 1337)),
-        "active_chain_id": int(os.getenv("CHAIN_ID", 1337)),
-        "chain_id_match": True,
-        "contract_address": contract_address or "0x7A259d42d1F6e24cfF76aDDF89eEBDAC195E1c20",
-        "contract_deployed": True,
-        "roles": {
-            r: {"key_configured": True, "wallet_derived": WALLET_REGISTRY.get(r, {}).get("address"), "ready": True}
-            for r in ["SUPER_ADMIN", "FINANCE", "STATE", "DISTRICT", "CONTRACTOR"]
-        },
-        "warnings": [],
-        "status": "HEALTHY"
-    }
-
     warnings = []
     
     connected = is_blockchain_connected(force_refresh=True)
     active_chain_id = None
-    configured_chain_id = int(os.getenv("CHAIN_ID", 1337))
+    configured_chain_id = int(os.getenv("CHAIN_ID")) if os.getenv("CHAIN_ID") else (contract_chain_id or 1337)
     chain_id_match = False
 
     if connected:
@@ -454,19 +475,27 @@ def get_blockchain_diagnostics() -> dict:
 def get_private_key_for_role(role: str = "FINANCE") -> str:
     """
     Dynamically resolve the private key corresponding to the administrative role:
-    - FINANCE / SUPER_ADMIN -> FINANCE_PRIVATE_KEY (Ganache Account 0)
-    - STATE                 -> STATE_PRIVATE_KEY   (Ganache Account 1)
-    - DISTRICT              -> DISTRICT_PRIVATE_KEY (Ganache Account 2)
-    - CONTRACTOR            -> CONTRACTOR_PRIVATE_KEY (Ganache Account 3)
+    - FINANCE / SUPER_ADMIN -> FINANCE_PRIVATE_KEY (or SEPOLIA_DEPLOYER_PRIVATE_KEY)
+    - STATE                 -> STATE_PRIVATE_KEY
+    - DISTRICT              -> DISTRICT_PRIVATE_KEY
+    - CONTRACTOR            -> CONTRACTOR_PRIVATE_KEY
     Returns None if blockchain is disabled.
     """
-def get_private_key_for_role(role: str = "FINANCE"):
+    if not is_blockchain_enabled():
+        return None
+
     r = str(role or "FINANCE").strip().upper()
+    global_deployer = (
+        os.getenv("SEPOLIA_DEPLOYER_PRIVATE_KEY")
+        or os.getenv("BLOCKCHAIN_PRIVATE_KEY")
+        or os.getenv("SUPER_ADMIN_PRIVATE_KEY")
+    )
     
     if r in ["SUPER_ADMIN", "ADMIN"]:
         key = (
             os.getenv("ADMIN_PRIVATE_KEY")
             or os.getenv("SUPER_ADMIN_PRIVATE_KEY")
+            or os.getenv("SEPOLIA_DEPLOYER_PRIVATE_KEY")
             or os.getenv("FINANCE_PRIVATE_KEY")
             or os.getenv("BLOCKCHAIN_PRIVATE_KEY")
         )
@@ -475,37 +504,42 @@ def get_private_key_for_role(role: str = "FINANCE"):
             os.getenv("FINANCE_PRIVATE_KEY")
             or os.getenv("ADMIN_PRIVATE_KEY")
             or os.getenv("SUPER_ADMIN_PRIVATE_KEY")
+            or os.getenv("SEPOLIA_DEPLOYER_PRIVATE_KEY")
             or os.getenv("BLOCKCHAIN_PRIVATE_KEY")
         )
     elif r == "STATE":
         key = (
             os.getenv("STATE_PRIVATE_KEY")
             or os.getenv("FINANCE_PRIVATE_KEY")
-            or os.getenv("BLOCKCHAIN_PRIVATE_KEY")
+            or global_deployer
         )
     elif r == "DISTRICT":
         key = (
             os.getenv("DISTRICT_PRIVATE_KEY")
             or os.getenv("FINANCE_PRIVATE_KEY")
-            or os.getenv("BLOCKCHAIN_PRIVATE_KEY")
+            or global_deployer
         )
     elif r == "CONTRACTOR":
         key = (
             os.getenv("CONTRACTOR_PRIVATE_KEY")
             or os.getenv("FINANCE_PRIVATE_KEY")
-            or os.getenv("BLOCKCHAIN_PRIVATE_KEY")
+            or global_deployer
         )
     else:
         key = (
             os.getenv("FINANCE_PRIVATE_KEY")
             or os.getenv("ADMIN_PRIVATE_KEY")
-            or os.getenv("BLOCKCHAIN_PRIVATE_KEY")
+            or global_deployer
         )
         
-    return key or PRIVATE_KEY
+    resolved = key or global_deployer or PRIVATE_KEY
+    return _normalize_private_key(resolved)
 
 def get_account(role: str = "FINANCE", custom_private_key: str = None):
-    pk = custom_private_key or get_private_key_for_role(role)
+    if not is_blockchain_enabled():
+        return None
+    raw_pk = custom_private_key or get_private_key_for_role(role)
+    pk = _normalize_private_key(raw_pk)
     if not pk:
         return None
     try:
@@ -515,6 +549,8 @@ def get_account(role: str = "FINANCE", custom_private_key: str = None):
         return None
 
 def get_contract():
+    if not is_blockchain_enabled():
+        return None
     if not contract_address or not contract_abi:
         return None
     try:
@@ -545,8 +581,7 @@ def generate_cryptographic_ledger_receipt(role: str = "FINANCE", op_name: str = 
     from datetime import datetime, timezone
 
     latest_tx = db.blockchain_transactions.find_one(sort=[("block_number", -1)])
-    last_block = int(latest_tx.get("block_number", 353)) if latest_tx and latest_tx.get("block_number") else 353
-    next_block = max(354, last_block + 1)
+    next_block = (int(latest_tx.get("block_number", 330)) if latest_tx and latest_tx.get("block_number") else 330) + 1
 
     seed = f"{op_name}:{role}:{time.time()}:{secrets.token_hex(16)}".encode("utf-8")
     tx_hash_hex = "0x" + hashlib.sha256(seed).hexdigest()
@@ -662,6 +697,15 @@ def send_native_eth_transfer(sender_role: str, receiver_address: str, amount_eth
         account = get_account(role=sender_role)
         pk = get_private_key_for_role(sender_role)
         if not account or not pk or not w3.is_connected():
+            return None
+
+        # Safeguard: Native ETH transfers are strictly restricted to local Ganache (Chain ID 1337).
+        # Never drain real SepoliaETH or hosted network gas on simulated native transfers.
+        try:
+            current_chain = w3.eth.chain_id
+        except Exception:
+            current_chain = None
+        if current_chain != 1337:
             return None
         
         target = w3.to_checksum_address(receiver_address)
@@ -928,42 +972,33 @@ def verify_transaction_onchain(
             "message": "Invalid transaction hash format. Must be a 0x-prefixed hex string."
         }
 
-    if not is_blockchain_connected(force_refresh=True):
-        try:
-            from database import db
-            tx_rec = (
-                db.blockchain_transactions.find_one({"blockchain_tx_hash": tx_hash})
-                or db.fund_transfers.find_one({"blockchain_tx_hash": tx_hash})
-                or db.blockchain_transactions.find_one({"tx_hash": tx_hash})
-                or db.fund_transfers.find_one({"tx_hash": tx_hash})
-                or db.projects.find_one({"blockchain_tx_hash": tx_hash})
-                or db.budget_allocations.find_one({"blockchain_tx_hash": tx_hash})
-            )
-            block_no = 1042
-            sender = expected_sender or WALLET_REGISTRY["FINANCE"]["address"]
-            contract_target = expected_contract or contract_address or "0x7A259d42d1F6e24cfF76aDDF89eEBDAC195E1c20"
-            if tx_rec:
-                block_no = tx_rec.get("block_number") or tx_rec.get("blockchain_block") or 1042
-                sender = tx_rec.get("from_address") or tx_rec.get("sender_address") or sender
-                contract_target = tx_rec.get("to_address") or tx_rec.get("contract_address") or contract_target
+    if not is_blockchain_enabled():
+        return {
+            "verified": False,
+            "status": "BLOCKCHAIN_DISABLED",
+            "message": "Blockchain verification is inactive on cloud environment (ENABLE_BLOCKCHAIN=false)."
+        }
 
-            return {
-                "verified": True,
-                "status": "VERIFIED_SUCCESS",
-                "message": f"Transaction verified on National Cryptographic Blockchain Ledger in Block #{block_no}.",
-                "tx_hash": tx_hash,
-                "block_number": block_no,
-                "gas_used": 21000,
-                "from_address": sender,
-                "to_address": contract_target,
-                "confirmations": 14,
-                "decoded_events": [{
-                    "event": expected_event or "FundTransferred",
-                    "args": {"txHash": tx_hash, "status": "CONFIRMED"}
-                }]
-            }
+    if not is_blockchain_connected(force_refresh=True):
+        return {
+            "verified": False,
+            "status": "RPC_DISCONNECTED",
+            "message": f"Blockchain RPC node at {mask_rpc_url(RPC_URL)} is currently unreachable. Verification failed."
+        }
+
+    target_contract = expected_contract or contract_address
+    if target_contract:
+        try:
+            code = w3.eth.get_code(w3.to_checksum_address(target_contract))
+            if len(code) <= 2:
+                return {
+                    "verified": False,
+                    "status": "CONTRACT_NOT_DEPLOYED",
+                    "message": f"No smart contract bytecode deployed at {target_contract} on active network."
+                }
         except Exception as e:
-            bc_logger.warning(f"Error checking ledger: {e}")
+            bc_logger.warning(f"Error checking contract bytecode: {e}")
+
 
     # 1. Query Transaction
     try:
@@ -998,7 +1033,8 @@ def verify_transaction_onchain(
         }
 
     # Validate Chain ID
-    expected_cid = expected_chain_id or int(os.getenv("CHAIN_ID", 1337))
+    configured_cid = os.getenv("CHAIN_ID")
+    expected_cid = expected_chain_id or (int(configured_cid) if configured_cid else (contract_chain_id or 1337))
     tx_chain_id = tx.get("chainId")
     if tx_chain_id is not None and tx_chain_id != expected_cid:
         return {
@@ -1208,5 +1244,3 @@ def get_onchain_fund_transfer_record(transfer_key: str):
     except Exception as e:
         bc_logger.warning(f"Error querying on-chain fund transfer record {transfer_key}: {e}")
         return None
-
-

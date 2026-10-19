@@ -15,11 +15,25 @@ from auth_middleware import generate_token
 client = TestClient(app)
 
 def test_blockchain_enabled_evaluates_correctly():
-    """Verify blockchain interaction remains permanently active across all environments."""
-    assert bcs.is_blockchain_enabled() is True
+    """Verify ENABLE_BLOCKCHAIN flag parsing and default active behavior."""
     with patch.dict(os.environ, {"ENABLE_BLOCKCHAIN": "false"}, clear=False):
+        assert bcs.is_blockchain_enabled() is False
+
+    with patch.dict(os.environ, {"ENABLE_BLOCKCHAIN": "0"}, clear=False):
+        assert bcs.is_blockchain_enabled() is False
+
+    with patch.dict(os.environ, {"ENABLE_BLOCKCHAIN": "off"}, clear=False):
+        assert bcs.is_blockchain_enabled() is False
+
+    with patch.dict(os.environ, {"ENABLE_BLOCKCHAIN": "true"}, clear=False):
         assert bcs.is_blockchain_enabled() is True
+
+    with patch.dict(os.environ, {"ENABLE_BLOCKCHAIN": "1"}, clear=False):
+        assert bcs.is_blockchain_enabled() is True
+
+    # Cloud fallback when ENABLE_BLOCKCHAIN is not set remains active
     with patch.dict(os.environ, {"RENDER": "true"}, clear=False):
+        os.environ.pop("ENABLE_BLOCKCHAIN", None)
         assert bcs.is_blockchain_enabled() is True
 
 def test_localtunnel_url_is_strictly_sanitized():
@@ -38,13 +52,33 @@ def test_cryptographic_receipt_generation():
     assert receipt["gas_used"] > 0
 
 def test_blockchain_status_endpoint_returns_active():
-    """Verify /api/blockchain/status returns active enabled status."""
+    """Verify /api/blockchain/status returns active enabled status and reflects connection state accurately."""
+    # 1. Base endpoint health: enabled and success must be true, reflecting real connection status
     res = client.get("/api/blockchain/status")
     assert res.status_code == 200
     data = res.json()
     assert data["success"] is True
     assert data["enabled"] is True
-    assert data["connected"] is True
+    assert data["connected"] == bcs.is_blockchain_connected()
+
+    # 2. When RPC node is connected, status truthfully reports connected=True
+    with patch.object(bcs, "is_blockchain_connected", return_value=True):
+        res_conn = client.get("/api/blockchain/status")
+        assert res_conn.status_code == 200
+        data_conn = res_conn.json()
+        assert data_conn["success"] is True
+        assert data_conn["enabled"] is True
+        assert data_conn["connected"] is True
+
+    # 3. When RPC node is disconnected, status truthfully reports connected=False and contract_deployed=False
+    with patch.object(bcs, "is_blockchain_connected", return_value=False):
+        res_disconn = client.get("/api/blockchain/status")
+        assert res_disconn.status_code == 200
+        data_disconn = res_disconn.json()
+        assert data_disconn["success"] is True
+        assert data_disconn["enabled"] is True
+        assert data_disconn["connected"] is False
+        assert data_disconn["contract_deployed"] is False
 
 def test_finance_approve_and_transfer_executes_on_cloud():
     """Verify /api/finance/approve-and-transfer executes cleanly without cloud block."""

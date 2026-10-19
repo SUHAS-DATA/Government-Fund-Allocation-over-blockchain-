@@ -80,3 +80,6 @@ Thumbs.db
 # Backend uploads (keep folder structure with .gitkeep)
 backend/uploads/*
 !backend/uploads/.gitkeep
+
+# Temporary scratch & analysis scripts
+backend/scratch/

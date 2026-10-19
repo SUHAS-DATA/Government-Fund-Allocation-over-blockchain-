@@ -131,7 +131,7 @@ def test_verify_pending_mempool_transaction_fails_until_mined():
     mock_tx = {
         "hash": tx_hash,
         "from": "0x1622F9853bDFEc6ba1A40FBf9bba7Fd74e8B451B",
-        "to": "0x7A259d42d1F6e24cfF76aDDF89eEBDAC195E1c20",
+        "to": bcs.contract_address or "0x7A259d42d1F6e24cfF76aDDF89eEBDAC195E1c20",
         "blockNumber": None,  # Pending
         "chainId": 1337
     }
@@ -164,7 +164,7 @@ def test_verify_contract_address_mismatch_fails():
 
         res = bcs.verify_transaction_onchain(
             tx_hash=tx_hash,
-            expected_contract="0x7A259d42d1F6e24cfF76aDDF89eEBDAC195E1c20"
+            expected_contract=bcs.contract_address or "0x7A259d42d1F6e24cfF76aDDF89eEBDAC195E1c20"
         )
         assert res["verified"] is False
         assert res["status"] == "CONTRACT_ADDRESS_MISMATCH"
@@ -176,7 +176,7 @@ def test_verify_sender_mismatch_fails():
     mock_tx = {
         "hash": tx_hash,
         "from": "0x9999999999999999999999999999999999999999",  # Unauthorized
-        "to": "0x7A259d42d1F6e24cfF76aDDF89eEBDAC195E1c20",
+        "to": bcs.contract_address or "0x7A259d42d1F6e24cfF76aDDF89eEBDAC195E1c20",
         "blockNumber": 1220,
         "chainId": 1337
     }
@@ -198,7 +198,7 @@ def test_verify_chain_id_mismatch_fails():
     mock_tx = {
         "hash": tx_hash,
         "from": "0x1622F9853bDFEc6ba1A40FBf9bba7Fd74e8B451B",
-        "to": "0x7A259d42d1F6e24cfF76aDDF89eEBDAC195E1c20",
+        "to": bcs.contract_address or "0x7A259d42d1F6e24cfF76aDDF89eEBDAC195E1c20",
         "blockNumber": 1220,
         "chainId": 1  # Ethereum Mainnet instead of Local Devnet (1337)
     }

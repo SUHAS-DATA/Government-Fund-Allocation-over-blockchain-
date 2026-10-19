@@ -1,0 +1,17 @@
+# Hardhat compilation artifacts and cache
+artifacts/
+cache/
+typechain/
+typechain-types/
+
+# Node modules
+node_modules/
+
+# Secrets and environment variables
+.env
+.env.*
+!.env.example
+
+# Coverage reports
+coverage/
+coverage.json

@@ -1,7 +1,20 @@
 import contractInfo from '../config/contract_info.json';
 
 export const getContractAddress = () => {
-  return contractInfo?.contractAddress || '0x7A259d42d1F6e24cfF76aDDF89eEBDAC195E1c20';
+  if (import.meta.env.VITE_CONTRACT_ADDRESS && import.meta.env.VITE_CONTRACT_ADDRESS.trim()) {
+    return import.meta.env.VITE_CONTRACT_ADDRESS.trim();
+  }
+  return contractInfo?.contractAddress || '0x103cdC78636491B20deadC5574755Bbd64B119c6';
+};
+
+export const getExplorerTxUrl = (txHash) => {
+  if (!txHash) return '#';
+  return `https://sepolia.etherscan.io/tx/${txHash}`;
+};
+
+export const getExplorerAddressUrl = (address) => {
+  if (!address) return '#';
+  return `https://sepolia.etherscan.io/address/${address}`;
 };
 
 export const formatTxHash = (hash, start = 8, end = 6) => {
@@ -42,7 +55,57 @@ export const copyToClipboard = async (text) => {
 
 // Directory of Multi-Tier Government Accounts & Registered Contractors
 export const KNOWN_ENTITIES = {
-  // Administrative Accounts
+  // GOV_BLOCKS Multi-Tier Administrative Accounts
+  '0x9D11c4A30D1c5b1a4d597F0b81b9b02bCf6517f5': {
+    name: 'Ministry of Finance (Central Office)',
+    shortName: 'Finance Dept',
+    tier: 'Tier 1: Central Finance',
+    color: '#0369A1',
+    bg: '#E0F2FE'
+  },
+  '0xAFa391aBF00323e1396d72cc1B52b4b15508C0cf': {
+    name: 'Karnataka State Finance Department',
+    shortName: 'State Office',
+    tier: 'Tier 2: State Department',
+    color: '#4338CA',
+    bg: '#EEF2FF'
+  },
+  '0x53212DFE5d74b8e8a42c18B8D3C91Ee88C5758ec': {
+    name: 'Belagavi District Office',
+    shortName: 'District Office',
+    tier: 'Tier 3: District Office',
+    color: '#B45309',
+    bg: '#FEF3C7'
+  },
+  '0xCDc59F7Bba64A99C5B36222133Da2D2a892Cd3f3': {
+    name: 'Apex Infrastructure Contractors Pvt Ltd',
+    shortName: 'Contractor',
+    tier: 'Tier 4: Contractor Account',
+    color: '#15803D',
+    bg: '#DCFCE7'
+  },
+  '0xDD821Cb2C6150759EfBd4896EfB41CaC635dA744': {
+    name: 'Government Project Smart Contract Escrow',
+    shortName: 'Contract Escrow',
+    tier: 'Smart Contract Escrow',
+    color: '#6D28D9',
+    bg: '#EDE9FE'
+  },
+  '0x103cdC78636491B20deadC5574755Bbd64B119c6': {
+    name: 'Government Fund Smart Contract Escrow (Sepolia)',
+    shortName: 'Sepolia Escrow',
+    tier: 'Smart Contract Escrow',
+    color: '#6D28D9',
+    bg: '#EDE9FE'
+  },
+  '0xeCcD57EfadFCc6217a21Bf482FEBe18c9F3D6148': {
+    name: 'National Blockchain Deployer & Super Admin',
+    shortName: 'Super Admin',
+    tier: 'Tier 1: Central Authority',
+    color: '#0369A1',
+    bg: '#E0F2FE'
+  },
+  // Legacy / Fallback mapping support
   '0x1622F9853bDFEc6ba1A40FBf9bba7Fd74e8B451B': {
     name: 'Ministry of Finance (Central Office)',
     shortName: 'Finance Dept',

@@ -20,20 +20,29 @@ async def get_status():
         try:
             chain_id = bcs.w3.eth.chain_id
         except Exception:
-            chain_id = int(os.getenv("CHAIN_ID", 5777))
+            chain_id = int(os.getenv("CHAIN_ID", 1337))
     else:
-        chain_id = int(os.getenv("CHAIN_ID", 5777))
+        chain_id = int(os.getenv("CHAIN_ID", 1337))
+
+    contract_deployed = False
+    if connected and contract and bcs.contract_address:
+        try:
+            code = bcs.w3.eth.get_code(bcs.contract_address)
+            contract_deployed = len(code) > 2
+        except Exception:
+            contract_deployed = False
 
     return {
         "success": True,
-        "enabled": True,
-        "connected": True,
-        "rpc_url": bcs.RPC_URL or "AUTONOMOUS_LEDGER",
+        "enabled": enabled,
+        "connected": connected,
+        "rpc_url": bcs.mask_rpc_url(bcs.RPC_URL) if bcs.RPC_URL else "NOT_CONFIGURED",
         "chain_id": chain_id,
         "wallet_address": (account.address if account else None) or bcs.FINANCE_ADDR,
-        "contract_address": bcs.contract_address or "0x7A259d42d1F6e24cfF76aDDF89eEBDAC195E1c20",
-        "contract_deployed": True
+        "contract_address": bcs.contract_address or "NOT_CONFIGURED",
+        "contract_deployed": contract_deployed
     }
+
 
 @router.get("/transactions")
 async def get_transactions(fy: Optional[str] = Query(None)):

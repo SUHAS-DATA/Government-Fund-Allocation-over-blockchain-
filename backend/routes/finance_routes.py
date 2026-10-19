@@ -127,6 +127,7 @@ async def verify_budget(
     return {"success": True, "message": f"Budget {allocation_id} verified successfully."}
 
 @router.post("/approve-and-transfer", status_code=status.HTTP_201_CREATED)
+@router.post("/transfer-to-state", status_code=status.HTTP_201_CREATED)
 async def approve_and_transfer(
     request: Request,
     current_user: dict = Depends(require_roles(["FINANCE"]))
