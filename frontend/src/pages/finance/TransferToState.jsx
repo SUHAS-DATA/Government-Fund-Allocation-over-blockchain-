@@ -61,9 +61,14 @@ const TransferToState = () => {
   const [submitting, setSubmitting] = useState(false);
   const [successResult, setSuccessResult] = useState(null);
   const [error, setError] = useState('');
+  const [pendingIdempotencyKey, setPendingIdempotencyKey] = useState(null);
+  const [isRecovering, setIsRecovering] = useState(false);
 
   const formatTransferError = (rawMsg) => {
     if (!rawMsg) return 'Transfer failed';
+    if (typeof rawMsg === 'string' && (rawMsg.includes('timeout') || rawMsg.includes('ECONNABORTED'))) {
+      return 'The transfer request timed out while awaiting blockchain confirmation. Your transaction may have already completed on-chain. Please click "Check Transfer Status / Recover" below.';
+    }
     return rawMsg;
   };
 
@@ -168,8 +173,8 @@ const TransferToState = () => {
 
   const isLocalBlockchainReady = true;
 
-  const handleTransfer = async (e) => {
-    e.preventDefault();
+  const handleTransfer = async (e, retryKey = null) => {
+    if (e) e.preventDefault();
     if (amount <= 0 || amount > availableBalance) {
       setError(`Transfer amount must be positive and cannot exceed available balance of ${formatCurrency(availableBalance)}`);
       return;
@@ -179,25 +184,55 @@ const TransferToState = () => {
 
     setSubmitting(true);
     setError('');
-    const idempotencyKey = `IDEM-FIN-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    const idempotencyKey = retryKey || pendingIdempotencyKey || `IDEM-FIN-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    setPendingIdempotencyKey(idempotencyKey);
+
+    const payload = {
+      allocation_id: selectedAllocId,
+      state_code: selectedStateCode,
+      state_name: st?.name || 'Maharashtra',
+      amount: Number(amount),
+      sign_off_note: signOffNote,
+      financial_year: selectedFY,
+      idempotency_key: idempotencyKey
+    };
+
     try {
-      const res = await API.post('/finance/approve-and-transfer', {
-        allocation_id: selectedAllocId,
-        state_code: selectedStateCode,
-        state_name: st?.name || 'Maharashtra',
-        amount: Number(amount),
-        sign_off_note: signOffNote,
-        financial_year: selectedFY,
-        idempotency_key: idempotencyKey
-      });
+      const res = await API.post(
+        '/finance/approve-and-transfer',
+        payload,
+        { timeout: 60000 }
+      );
 
       if (res.success) {
+        setPendingIdempotencyKey(null);
         setSuccessResult(res);
       } else {
         setError(formatTransferError(res.message));
       }
     } catch (err) {
-      setError(formatTransferError(err.message));
+      const isTimeout = err?.message && (err.message.includes('timeout') || err.message.includes('Network Error'));
+      if (isTimeout) {
+        // Attempt immediate status recovery probe with same idempotency key
+        try {
+          setIsRecovering(true);
+          const probe = await API.post(
+            '/finance/approve-and-transfer',
+            payload,
+            { timeout: 15000 }
+          );
+          if (probe && probe.success) {
+            setPendingIdempotencyKey(null);
+            setSuccessResult(probe);
+            return;
+          }
+        } catch (probeErr) {
+          // Probe also timed out or network error; retain pendingIdempotencyKey for manual recovery button
+        } finally {
+          setIsRecovering(false);
+        }
+      }
+      setError(formatTransferError(err?.message));
     } finally {
       setSubmitting(false);
     }
@@ -368,7 +403,7 @@ const TransferToState = () => {
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap' }}>
-            <button className="btn btn-secondary" onClick={() => setSuccessResult(null)}>
+            <button className="btn btn-secondary" onClick={() => { setSuccessResult(null); setPendingIdempotencyKey(null); }}>
               Send More Funds
             </button>
             {successResult.transaction && (
@@ -389,16 +424,31 @@ const TransferToState = () => {
               background: 'var(--color-danger-bg)',
               border: '1px solid var(--color-danger-border)',
               borderRadius: 'var(--radius-sm)',
-              padding: '10px 14px',
+              padding: '12px 14px',
               color: 'var(--color-danger)',
               marginBottom: '16px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
               fontSize: '12px'
             }}>
-              <AlertCircle size={16} />
-              <span>{error}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                <span>{error}</span>
+              </div>
+              {pendingIdempotencyKey && (
+                <div style={{ marginTop: '10px', paddingTop: '8px', borderTop: '1px dashed var(--color-danger-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                    Idempotency Key: <code>{pendingIdempotencyKey}</code>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleTransfer(null, pendingIdempotencyKey)}
+                    disabled={submitting || isRecovering}
+                    className="btn btn-secondary"
+                    style={{ fontSize: '11px', padding: '4px 10px', height: 'auto', background: 'var(--color-surface)' }}
+                  >
+                    {isRecovering ? 'Checking Status...' : 'Check Transfer Status / Recover'}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
@@ -428,7 +478,11 @@ const TransferToState = () => {
                 <select
                   className="form-control form-select"
                   value={selectedAllocId}
-                  onChange={(e) => setSelectedAllocId(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedAllocId(e.target.value);
+                    setPendingIdempotencyKey(null);
+                    setError('');
+                  }}
                   required
                 >
                   {budgets.map((b) => (
@@ -458,7 +512,11 @@ const TransferToState = () => {
                   <select
                     className="form-control form-select"
                     value={selectedStateCode}
-                    onChange={(e) => setSelectedStateCode(e.target.value)}
+                    onChange={(e) => {
+                      setSelectedStateCode(e.target.value);
+                      setPendingIdempotencyKey(null);
+                      setError('');
+                    }}
                   >
                     {states.map((s) => (
                       <option key={s.code} value={s.code}>{s.name} ({s.code})</option>
@@ -469,7 +527,11 @@ const TransferToState = () => {
                 <FundAmountInput
                   label="Amount to Send to State Account"
                   value={amount}
-                  onChange={(val) => setAmount(val)}
+                  onChange={(val) => {
+                    setAmount(val);
+                    setPendingIdempotencyKey(null);
+                    setError('');
+                  }}
                   max={availableBalance}
                   required={true}
                   helperText="Enter the amount to send in Crores, Lakhs, or Thousands. Ex: 100 (Cr)."
@@ -559,11 +621,11 @@ const TransferToState = () => {
                 type="submit"
                 className="btn btn-success btn-lg"
                 style={{ width: '100%', marginTop: '10px' }}
-                disabled={submitting || availableBalance <= 0}
+                disabled={submitting || isRecovering || availableBalance <= 0}
               >
                 <ShieldCheck size={16} />
                 <span>
-                  {submitting ? 'Sending Funds...' : 'Confirm & Send Funds'}
+                  {submitting ? 'Sending Funds...' : isRecovering ? 'Verifying Transfer...' : 'Confirm & Send Funds'}
                 </span>
               </button>
             </form>

@@ -745,8 +745,17 @@ def acknowledge_state_receipt_onchain(trf_id: str, state_name: str, amount: floa
     """
     State Treasury Officer signs an on-chain receipt anchoring the transfer,
     so that Account #1's TX COUNT in Ganache also increments immediately upon receiving funds!
+    Restricted to local Ganache (Chain ID 1337) to prevent redundant on-chain mining delays on Sepolia.
     """
     try:
+        # Safeguard: Local Ganache only (Chain ID 1337). Do not send redundant acknowledgement transactions on Sepolia.
+        try:
+            current_chain = w3.eth.chain_id
+        except Exception:
+            current_chain = None
+        if current_chain != 1337:
+            return None
+
         contract = get_contract()
         if not contract or not hasattr(contract.functions, "anchorDocumentHash"):
             return None
@@ -758,6 +767,7 @@ def acknowledge_state_receipt_onchain(trf_id: str, state_name: str, amount: floa
     except Exception as e:
         print(f"Warning acknowledging state receipt on-chain: {e}")
         return None
+
 
 def record_state_transfer_onchain(trf_id, alloc_id, state_name, amount, receiver_address=None):
     rec_addr = receiver_address or get_entity_wallet("STATE", state_name)
@@ -1036,7 +1046,8 @@ def verify_transaction_onchain(
     configured_cid = os.getenv("CHAIN_ID")
     expected_cid = expected_chain_id or (int(configured_cid) if configured_cid else (contract_chain_id or 1337))
     tx_chain_id = tx.get("chainId")
-    if tx_chain_id is not None and tx_chain_id != expected_cid:
+    is_ganache_compat = (expected_chain_id is None and expected_cid in (1337, 5777) and tx_chain_id in (1337, 5777))
+    if tx_chain_id is not None and tx_chain_id != expected_cid and not is_ganache_compat:
         return {
             "verified": False,
             "status": "CHAIN_ID_MISMATCH",
