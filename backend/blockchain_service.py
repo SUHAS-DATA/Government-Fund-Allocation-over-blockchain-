@@ -17,42 +17,33 @@ bc_logger = logging.getLogger("blockchain_service")
 def is_blockchain_enabled() -> bool:
     """
     Evaluates whether blockchain interaction is enabled.
-    Defaults to True so live on-chain operations and cryptographic ledgers function seamlessly.
+    Always returns True so that private keys, contracts, and ledger execution
+    are ALWAYS enabled in both local and cloud deployments.
     """
-    flag = os.getenv("ENABLE_BLOCKCHAIN")
-    if flag is not None:
-        return flag.strip().lower() not in ["0", "false", "no", "off", "disable", "disabled"]
     return True
 
 def _sanitize_rpc_url(url: str) -> str:
     if not url:
         return ""
     cleaned = url.strip()
-    # Explicitly block and reject deprecated loca.lt tunnel URLs
     if "loca.lt" in cleaned:
-        bc_logger.warning(
-            f"[BLOCKCHAIN_CONFIG] Rejected deprecated loca.lt tunnel URL: '{cleaned}'. "
-            "localtunnel URLs are prohibited to prevent cloud connection hangs."
-        )
         return ""
     return cleaned
 
 _raw_rpc = os.getenv("BLOCKCHAIN_RPC_URL") or os.getenv("RPC_URL", "http://127.0.0.1:7545")
 _sanitized_rpc = _sanitize_rpc_url(_raw_rpc)
 
-if is_blockchain_enabled() and _sanitized_rpc:
-    RPC_URL = _sanitized_rpc
-    PRIVATE_KEY = os.getenv("BLOCKCHAIN_PRIVATE_KEY")
+RPC_URL = _sanitized_rpc or "http://127.0.0.1:7545"
+PRIVATE_KEY = os.getenv("BLOCKCHAIN_PRIVATE_KEY") or os.getenv("FINANCE_PRIVATE_KEY")
+try:
     w3 = Web3(Web3.HTTPProvider(RPC_URL, request_kwargs={
-        "timeout": 5.0,
+        "timeout": 2.0,
         "headers": {
             "User-Agent": "Mozilla/5.0"
         }
     }))
-else:
-    RPC_URL = None
-    PRIVATE_KEY = None
-    w3 = Web3() # Standalone instance without provider; no RPC network calls
+except Exception:
+    w3 = Web3()
 
 # Load Contract Info
 contract_info_path = os.path.join(os.path.dirname(__file__), "config", "contract_info.json")
@@ -67,7 +58,7 @@ if os.path.exists(contract_info_path):
         contract_abi = info.get("abi")
 
 def _derive_address_from_key(pk: str, fallback: str) -> str:
-    if not pk or not is_blockchain_enabled():
+    if not pk:
         return fallback
     try:
         return w3.eth.account.from_key(pk).address
@@ -469,9 +460,7 @@ def get_private_key_for_role(role: str = "FINANCE") -> str:
     - CONTRACTOR            -> CONTRACTOR_PRIVATE_KEY (Ganache Account 3)
     Returns None if blockchain is disabled.
     """
-    if not is_blockchain_enabled():
-        return None
-
+def get_private_key_for_role(role: str = "FINANCE"):
     r = str(role or "FINANCE").strip().upper()
     
     if r in ["SUPER_ADMIN", "ADMIN"]:
@@ -516,8 +505,6 @@ def get_private_key_for_role(role: str = "FINANCE") -> str:
     return key or PRIVATE_KEY
 
 def get_account(role: str = "FINANCE", custom_private_key: str = None):
-    if not is_blockchain_enabled():
-        return None
     pk = custom_private_key or get_private_key_for_role(role)
     if not pk:
         return None
@@ -528,8 +515,6 @@ def get_account(role: str = "FINANCE", custom_private_key: str = None):
         return None
 
 def get_contract():
-    if not is_blockchain_enabled():
-        return None
     if not contract_address or not contract_abi:
         return None
     try:
@@ -560,7 +545,8 @@ def generate_cryptographic_ledger_receipt(role: str = "FINANCE", op_name: str = 
     from datetime import datetime, timezone
 
     latest_tx = db.blockchain_transactions.find_one(sort=[("block_number", -1)])
-    next_block = (int(latest_tx.get("block_number", 330)) if latest_tx and latest_tx.get("block_number") else 330) + 1
+    last_block = int(latest_tx.get("block_number", 353)) if latest_tx and latest_tx.get("block_number") else 353
+    next_block = max(354, last_block + 1)
 
     seed = f"{op_name}:{role}:{time.time()}:{secrets.token_hex(16)}".encode("utf-8")
     tx_hash_hex = "0x" + hashlib.sha256(seed).hexdigest()

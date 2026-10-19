@@ -243,7 +243,7 @@ const TransferToState = () => {
           }}
         />
         <span>
-          On-Chain Network: National Blockchain Ledger (Chain ID: {blockchainStatus?.chain_id || '1337'}) • Contract: 0x7A25...1c20
+          On-Chain Network: National Blockchain Ledger (Chain ID: {blockchainStatus?.chain_id || '5777'}) • Contract: 0x7A25...1c20
         </span>
       </div>
 

@@ -20,9 +20,9 @@ async def get_status():
         try:
             chain_id = bcs.w3.eth.chain_id
         except Exception:
-            chain_id = int(os.getenv("CHAIN_ID", 1337))
+            chain_id = int(os.getenv("CHAIN_ID", 5777))
     else:
-        chain_id = int(os.getenv("CHAIN_ID", 1337))
+        chain_id = int(os.getenv("CHAIN_ID", 5777))
 
     return {
         "success": True,

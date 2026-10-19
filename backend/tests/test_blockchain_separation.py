@@ -15,25 +15,11 @@ from auth_middleware import generate_token
 client = TestClient(app)
 
 def test_blockchain_enabled_evaluates_correctly():
-    """Verify ENABLE_BLOCKCHAIN flag parsing and default active behavior."""
+    """Verify blockchain interaction remains permanently active across all environments."""
+    assert bcs.is_blockchain_enabled() is True
     with patch.dict(os.environ, {"ENABLE_BLOCKCHAIN": "false"}, clear=False):
-        assert bcs.is_blockchain_enabled() is False
-
-    with patch.dict(os.environ, {"ENABLE_BLOCKCHAIN": "0"}, clear=False):
-        assert bcs.is_blockchain_enabled() is False
-
-    with patch.dict(os.environ, {"ENABLE_BLOCKCHAIN": "off"}, clear=False):
-        assert bcs.is_blockchain_enabled() is False
-
-    with patch.dict(os.environ, {"ENABLE_BLOCKCHAIN": "true"}, clear=False):
         assert bcs.is_blockchain_enabled() is True
-
-    with patch.dict(os.environ, {"ENABLE_BLOCKCHAIN": "1"}, clear=False):
-        assert bcs.is_blockchain_enabled() is True
-
-    # Cloud fallback when ENABLE_BLOCKCHAIN is not set remains active
     with patch.dict(os.environ, {"RENDER": "true"}, clear=False):
-        os.environ.pop("ENABLE_BLOCKCHAIN", None)
         assert bcs.is_blockchain_enabled() is True
 
 def test_localtunnel_url_is_strictly_sanitized():
