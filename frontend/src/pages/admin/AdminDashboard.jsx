@@ -255,12 +255,19 @@ const AdminDashboard = () => {
             </div>
 
             <div className="super-admin-module-content">
-              {activeTab === 'config' && <FinancialYears />}
-              {activeTab === 'schemes' && <Schemes />}
-              {activeTab === 'allocation' && <BudgetAllocation />}
+              {activeTab === 'config' && <FinancialYears initialFinancialYears={dashboardData?.financial_years} />}
+              {activeTab === 'schemes' && <Schemes initialSchemes={schemesList} initialDepartments={departmentsList} />}
+              {activeTab === 'allocation' && (
+                <BudgetAllocation
+                  initialAllocations={allocationsList}
+                  initialDepartments={departmentsList}
+                  initialSchemes={schemesList}
+                  initialFinancialYears={dashboardData?.financial_years}
+                />
+              )}
               {activeTab === 'send_finance' && <SendToFinance />}
               {activeTab === 'projects' && <ProjectsManagement />}
-              {activeTab === 'departments' && <Departments />}
+              {activeTab === 'departments' && <Departments initialDepartments={departmentsList} />}
               {activeTab === 'monitoring' && <BlockchainExplorer />}
               {activeTab === 'users' && <UserManagement />}
               {activeTab === 'notifications' && <NotificationsPage />}

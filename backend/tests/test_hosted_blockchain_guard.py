@@ -75,3 +75,102 @@ def test_status_endpoint_never_claims_fake_deployed_contract():
         data = res.json()
         assert data["connected"] is False
         assert data["contract_deployed"] is False
+
+
+def test_hosted_mode_rejects_loopback_rpc():
+    """Verify that hosted environments reject loopback/Ganache RPC endpoints."""
+    with patch.object(bcs, "is_hosted_environment", return_value=True):
+        assert bcs._sanitize_rpc_url("http://127.0.0.1:7545") == ""
+        assert bcs._sanitize_rpc_url("http://localhost:8545") == ""
+        assert bcs._sanitize_rpc_url("https://sepolia.infura.io/v3/test-key") == "https://sepolia.infura.io/v3/test-key"
+
+    with patch.object(bcs, "is_hosted_environment", return_value=False):
+        assert bcs._sanitize_rpc_url("http://127.0.0.1:7545") == "http://127.0.0.1:7545"
+
+
+def test_hosted_mode_forbids_silent_fallback_on_tx_failure():
+    """Verify that in hosted mode, failed contract transaction broadcasts raise exceptions instead of returning mock receipts."""
+    mock_func = MagicMock()
+    mock_func.estimate_gas.return_value = 100000
+
+    mock_w3 = MagicMock()
+    mock_w3.is_connected.return_value = True
+    mock_w3.eth.get_transaction_count.return_value = 1
+    mock_w3.eth.gas_price = 20000000000
+    mock_w3.eth.send_raw_transaction.side_effect = Exception("Sepolia RPC timeout or error")
+
+    mock_account = MagicMock()
+    mock_account.address = "0x9D11c4A30D1c5b1a4d597F0b81b9b02bCf6517f5"
+
+    # Hosted mode: Must raise Exception, never silent fallback
+    with patch.object(bcs, "is_cloud_render", True), \
+         patch.object(bcs, "w3", mock_w3), \
+         patch.object(bcs, "get_account", return_value=mock_account), \
+         patch.object(bcs, "get_private_key_for_role", return_value="0x" + "1" * 64):
+        with pytest.raises(Exception, match="Hosted blockchain transaction failed on Sepolia"):
+            bcs.execute_contract_transaction(mock_func, role="FINANCE")
+
+    # Local mode: Falls back to local dev cryptographic ledger receipt
+    with patch.object(bcs, "is_cloud_render", False), \
+         patch.object(bcs, "w3", mock_w3), \
+         patch.object(bcs, "get_account", return_value=mock_account), \
+         patch.object(bcs, "get_private_key_for_role", return_value="0x" + "1" * 64):
+        res = bcs.execute_contract_transaction(mock_func, role="FINANCE")
+        assert res is not None
+        assert res.get("status") == "SUCCESS"
+
+
+def test_hosted_mode_fund_operations_fail_when_disconnected():
+    """Verify financial operations raise an exception when disconnected in hosted mode, rather than generating mock receipts."""
+    with patch.object(bcs, "is_cloud_render", True), \
+         patch.object(bcs, "is_blockchain_connected", return_value=False), \
+         patch.object(bcs, "get_contract", return_value=None):
+        with pytest.raises(Exception, match="Cannot record budget allocation"):
+            bcs.record_budget_allocation_onchain("ALLOC-001", "Scheme", "Dept", 100000)
+
+        with pytest.raises(Exception, match="Cannot record state transfer"):
+            bcs.record_state_transfer_onchain("TRF-001", "ALLOC-001", "Maharashtra", 50000)
+
+        with pytest.raises(Exception, match="Cannot record district allocation"):
+            bcs.record_district_allocation_onchain("DIST-001", "TRF-001", "Pune", 25000)
+
+
+def test_hosted_mode_rejects_ganache_tx_chain_id():
+    """Verify that verify_transaction_onchain rejects chain ID 1337/5777 when in hosted mode."""
+    mock_w3 = MagicMock()
+    mock_w3.is_connected.return_value = True
+    mock_w3.to_checksum_address.side_effect = lambda a: a
+    mock_w3.eth.get_code.return_value = b"contract_code"
+    mock_w3.eth.get_transaction.return_value = {
+        "hash": b"123",
+        "from": "0x9D11c4A30D1c5b1a4d597F0b81b9b02bCf6517f5",
+        "to": "0x103cdC78636491B20deadC5574755Bbd64B119c6",
+        "value": 0,
+        "input": b"",
+        "blockNumber": 12345,
+        "chainId": 1337  # Ganache chain ID
+    }
+    mock_receipt = MagicMock()
+    mock_receipt.status = 1
+    mock_receipt.blockNumber = 12345
+    mock_receipt.gasUsed = 50000
+    mock_receipt.logs = []
+    mock_w3.eth.get_transaction_receipt.return_value = mock_receipt
+
+    with patch.object(bcs, "is_blockchain_enabled", return_value=True), \
+         patch.object(bcs, "is_blockchain_connected", return_value=True), \
+         patch.object(bcs, "is_contract_deployed", return_value=True), \
+         patch.object(bcs, "w3", mock_w3), \
+         patch.object(bcs, "contract_address", "0x103cdC78636491B20deadC5574755Bbd64B119c6"):
+        # Hosted mode: chain ID mismatch is flagged
+        with patch.object(bcs, "is_cloud_render", True), \
+             patch.object(bcs, "contract_chain_id", 11155111):
+            res = bcs.verify_transaction_onchain("0x" + "ab" * 32)
+            assert res["verified"] is False
+            assert res["status"] == "CHAIN_ID_MISMATCH"
+
+        # Local mode: Ganache compatibility (1337/5777) is accepted
+        with patch.object(bcs, "is_cloud_render", False), \
+             patch.object(bcs, "contract_chain_id", 1337):
+            res = bcs.verify_transaction_onchain("0x" + "ab" * 32)
+            assert res["verified"] is True

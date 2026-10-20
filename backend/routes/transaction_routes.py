@@ -622,6 +622,14 @@ async def verify_transaction_blockchain(
             "verification_details": verification
         }
 
+    active_cid = verification.get("chain_id") or bcs.get_cached_chain_id() or bcs.contract_chain_id or (11155111 if bcs.is_cloud_render else 1337)
+    if active_cid == 11155111:
+        network_label = "Ethereum Sepolia Testnet (Chain ID: 11155111)"
+    elif active_cid in (1337, 5777, 31337):
+        network_label = f"Ethereum Local Devnet (Chain ID: {active_cid})"
+    else:
+        network_label = f"Ethereum Network (Chain ID: {active_cid})"
+
     return {
         "success": True,
         "verified": True,
@@ -630,7 +638,7 @@ async def verify_transaction_blockchain(
         "message": verification.get("message"),
         "transaction": serialize_doc({**tx, **update_data}),
         "blockchain": {
-            "network": f"Ethereum Local Devnet (Chain ID: {os.getenv('CHAIN_ID', 1337)})",
+            "network": network_label,
             "tx_hash": tx_hash,
             "block_number": verification.get("block_number"),
             "confirmations": verification.get("confirmations"),

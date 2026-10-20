@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
+from concurrent.futures import ThreadPoolExecutor
 from database import db, get_active_financial_year, serialize_doc
 import blockchain_service as bcs
 from audit_service import log_audit_event
@@ -36,9 +37,51 @@ def reconcile_financial_records(
         report["message"] = "Cannot reconcile with blockchain: RPC node is disconnected or unreachable."
         return report
 
+    def _fetch_alloc_onchain(alloc_id):
+        try:
+            return alloc_id, bcs.get_onchain_budget_allocation(alloc_id)
+        except Exception:
+            return alloc_id, None
+
+    def _fetch_trf_onchain(pair):
+        trf_id, tx_hash = pair
+        onchain = None
+        v_res = None
+        try:
+            onchain = bcs.get_onchain_state_transfer(trf_id)
+        except Exception:
+            pass
+        if tx_hash:
+            try:
+                v_res = bcs.verify_transaction_onchain(tx_hash, expected_contract=bcs.contract_address)
+            except Exception:
+                pass
+        return trf_id, onchain, v_res
+
+    def _fetch_dist_alloc_onchain(pair):
+        dist_id, tx_hash = pair
+        onchain = None
+        v_res = None
+        try:
+            onchain = bcs.get_onchain_district_allocation(dist_id)
+        except Exception:
+            pass
+        if tx_hash:
+            try:
+                v_res = bcs.verify_transaction_onchain(tx_hash, expected_contract=bcs.contract_address)
+            except Exception:
+                pass
+        return dist_id, onchain, v_res
+
     # 1. Reconcile Central Budget Allocations
     alloc_query = {"financial_year": fy} if fy else {}
-    allocations = list(db.budget_allocations.find(alloc_query).limit(limit))
+    allocations = list(db.budget_allocations.find(alloc_query).sort([("_id", -1)]).limit(limit))
+
+    alloc_ids = [a.get("allocation_id") for a in allocations if a.get("allocation_id")]
+    onchain_alloc_map = {}
+    if alloc_ids:
+        with ThreadPoolExecutor(max_workers=min(5, len(alloc_ids))) as executor:
+            onchain_alloc_map = dict(executor.map(_fetch_alloc_onchain, alloc_ids))
 
     for alloc in allocations:
         report["total_records_checked"] += 1
@@ -46,7 +89,7 @@ def reconcile_financial_records(
         mongo_amount = float(alloc.get("amount", 0.0))
         mongo_disbursed = float(alloc.get("disbursed_amount", 0.0))
 
-        onchain = bcs.get_onchain_budget_allocation(alloc_id)
+        onchain = onchain_alloc_map.get(alloc_id)
         item_status = "MATCHED"
         issue = None
 
@@ -91,7 +134,14 @@ def reconcile_financial_records(
 
     # 2. Reconcile State Transfers
     st_query = {"financial_year": fy} if fy else {}
-    transfers = list(db.state_transfers.find(st_query).limit(limit))
+    transfers = list(db.state_transfers.find(st_query).sort([("_id", -1)]).limit(limit))
+
+    trf_pairs = [(t.get("transfer_id"), t.get("blockchain_tx_hash")) for t in transfers if t.get("transfer_id")]
+    onchain_trf_map = {}
+    if trf_pairs:
+        with ThreadPoolExecutor(max_workers=min(5, len(trf_pairs))) as executor:
+            trf_results = list(executor.map(_fetch_trf_onchain, trf_pairs))
+            onchain_trf_map = {r[0]: (r[1], r[2]) for r in trf_results}
 
     for trf in transfers:
         report["total_records_checked"] += 1
@@ -99,7 +149,7 @@ def reconcile_financial_records(
         mongo_amount = float(trf.get("amount", 0.0))
         tx_hash = trf.get("blockchain_tx_hash")
 
-        onchain = bcs.get_onchain_state_transfer(trf_id)
+        onchain, v_res = onchain_trf_map.get(trf_id, (None, None))
         item_status = "MATCHED"
         issue = None
 
@@ -114,10 +164,10 @@ def reconcile_financial_records(
 
         # Also verify the underlying transaction receipt if hash present
         if tx_hash:
-            v_res = bcs.verify_transaction_onchain(tx_hash, expected_contract=bcs.contract_address)
-            if not v_res.get("verified"):
+            if not v_res or not v_res.get("verified"):
                 item_status = "TRANSACTION_UNVERIFIED"
-                issue = f"On-chain receipt unverified: {v_res.get('message')}"
+                msg = v_res.get("message") if v_res else "Verification lookup failed"
+                issue = f"On-chain receipt unverified: {msg}"
 
         db.state_transfers.update_one(
             {"transfer_id": trf_id},
@@ -146,14 +196,21 @@ def reconcile_financial_records(
         report["reconciled_items"].append(record_entry)
 
     # 3. Reconcile District Allocations
-    dist_allocs = list(db.district_allocations.find(st_query).limit(limit))
+    dist_allocs = list(db.district_allocations.find(st_query).sort([("_id", -1)]).limit(limit))
+    dist_pairs = [(d.get("district_alloc_id"), d.get("blockchain_tx_hash")) for d in dist_allocs if d.get("district_alloc_id")]
+    onchain_dist_map = {}
+    if dist_pairs:
+        with ThreadPoolExecutor(max_workers=min(5, len(dist_pairs))) as executor:
+            dist_results = list(executor.map(_fetch_dist_alloc_onchain, dist_pairs))
+            onchain_dist_map = {r[0]: (r[1], r[2]) for r in dist_results}
+
     for d_alloc in dist_allocs:
         report["total_records_checked"] += 1
         dist_id = d_alloc.get("district_alloc_id")
         mongo_amount = float(d_alloc.get("amount", 0.0))
         tx_hash = d_alloc.get("blockchain_tx_hash")
 
-        onchain = bcs.get_onchain_district_allocation(dist_id)
+        onchain, v_res = onchain_dist_map.get(dist_id, (None, None))
         item_status = "MATCHED"
         issue = None
 
@@ -167,10 +224,10 @@ def reconcile_financial_records(
                 issue = f"District allocation amount mismatch: MongoDB={mongo_amount}, OnChain={onchain_amount}."
 
         if tx_hash:
-            v_res = bcs.verify_transaction_onchain(tx_hash, expected_contract=bcs.contract_address)
-            if not v_res.get("verified"):
+            if not v_res or not v_res.get("verified"):
                 item_status = "TRANSACTION_UNVERIFIED"
-                issue = f"On-chain receipt unverified: {v_res.get('message')}"
+                msg = v_res.get("message") if v_res else "Verification lookup failed"
+                issue = f"On-chain receipt unverified: {msg}"
 
         db.district_allocations.update_one(
             {"district_alloc_id": dist_id},

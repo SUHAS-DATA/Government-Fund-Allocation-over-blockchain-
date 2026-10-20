@@ -97,9 +97,6 @@ async def dashboard(
 
     target_fy = fy if (fy and fy != "ALL") else None
 
-    # Strictly fetch districts of user's state
-    state_districts = list(db.districts.find({"state_code": user_state}).sort("name", 1))
-
     da_query = {
         "$or": [
             {"district_name": district_name},
@@ -108,9 +105,6 @@ async def dashboard(
     }
     if target_fy:
         da_query["financial_year"] = target_fy
-    received_allocs = list(db.district_allocations.find(da_query).sort("created_at", -1))
-    
-    total_received = sum(a.get("amount", 0) for a in received_allocs)
 
     p_query = {
         "$or": [
@@ -120,14 +114,27 @@ async def dashboard(
     }
     if target_fy:
         p_query["financial_year"] = target_fy
-    projects = list(db.projects.find(p_query).sort("created_at", -1))
-    
+
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        f_sd = executor.submit(lambda: list(db.districts.find({"state_code": user_state}).sort("name", 1)))
+        f_ra = executor.submit(lambda: list(db.district_allocations.find(da_query).sort("created_at", -1)))
+        f_pr = executor.submit(lambda: list(db.projects.find(p_query).sort("created_at", -1)))
+        f_kyc = executor.submit(lambda: db.contractor_kyc.count_documents({"state_code": user_state, "kyc_status": "UNDER_REVIEW"}))
+        f_grv = executor.submit(lambda: db.complaints.count_documents({
+            "district_name": {"$regex": f"^{re.escape(district_name)}$", "$options": "i"},
+            "status": {"$ne": "RESOLVED"}
+        }))
+
+        state_districts = f_sd.result()
+        received_allocs = f_ra.result()
+        projects = f_pr.result()
+        pending_kyc = f_kyc.result()
+        open_grievances = f_grv.result()
+
+    total_received = sum(a.get("amount", 0) for a in received_allocs)
     total_released = sum(p.get("released_amount", 0) for p in projects)
-    pending_kyc = db.contractor_kyc.count_documents({"state_code": user_state, "kyc_status": "UNDER_REVIEW"})
-    open_grievances = db.complaints.count_documents({
-        "district_name": {"$regex": f"^{re.escape(district_name)}$", "$options": "i"},
-        "status": {"$ne": "RESOLVED"}
-    })
 
     return {
         "success": True,

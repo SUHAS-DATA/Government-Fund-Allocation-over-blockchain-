@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FileSpreadsheet, Plus } from 'lucide-react';
 import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
@@ -7,11 +7,13 @@ import Modal from '../../components/Modal';
 import FundAmountInput from '../../components/FundAmountInput';
 import { useFinancialYear } from '../../context/FinancialYearContext';
 
-const Schemes = () => {
+const Schemes = ({ initialSchemes, initialDepartments } = {}) => {
   const { selectedFY } = useFinancialYear();
-  const [schemes, setSchemes] = useState([]);
-  const [departments, setDepartments] = useState([]);
+  const [schemes, setSchemes] = useState(initialSchemes || []);
+  const [departments, setDepartments] = useState(initialDepartments || []);
   const [showModal, setShowModal] = useState(false);
+  const isInitialMount = useRef(true);
+
   const [formData, setFormData] = useState({
     code: '',
     name: '',
@@ -27,6 +29,11 @@ const Schemes = () => {
   };
 
   useEffect(() => {
+    if (isInitialMount.current && initialSchemes && initialSchemes.length > 0) {
+      isInitialMount.current = false;
+      return;
+    }
+    isInitialMount.current = false;
     loadData();
   }, [selectedFY]);
 

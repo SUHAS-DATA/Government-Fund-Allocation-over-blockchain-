@@ -3,6 +3,7 @@ import json
 import time
 import hashlib
 import logging
+from typing import Optional, Dict, Any, Tuple
 from web3 import Web3
 from dotenv import load_dotenv
 
@@ -35,9 +36,9 @@ def _sanitize_rpc_url(url: str) -> str:
             "localtunnel URLs are prohibited to prevent cloud connection hangs."
         )
         return ""
-    # Explicitly block loopback RPC URLs on cloud Render deployments
-    is_cloud = bool(os.getenv("RENDER") or os.getenv("CONTRACT_INFO_FILE") == "contract_info.hosted.json")
-    if is_cloud and ("127.0.0.1" in cleaned or "localhost" in cleaned):
+    # Explicitly block loopback RPC URLs on cloud Render / hosted deployments
+    is_cloud = is_hosted_environment()
+    if is_cloud and ("127.0.0.1" in cleaned or "localhost" in cleaned or ":7545" in cleaned or ":8545" in cleaned):
         bc_logger.warning(
             f"[BLOCKCHAIN_CONFIG] Rejected loopback RPC URL '{cleaned}' in cloud/hosted environment. "
             "Cloud containers cannot connect to local Ganache instances."
@@ -45,7 +46,15 @@ def _sanitize_rpc_url(url: str) -> str:
         return ""
     return cleaned
 
-is_cloud_render = bool(os.getenv("RENDER") or os.getenv("CONTRACT_INFO_FILE") == "contract_info.hosted.json")
+def is_hosted_environment() -> bool:
+    """Determines whether the application is running in a hosted / production cloud environment."""
+    return bool(
+        os.getenv("RENDER")
+        or os.getenv("CONTRACT_INFO_FILE") == "contract_info.hosted.json"
+        or (os.getenv("APP_ENV") or os.getenv("ENVIRONMENT") or "").lower() in ["production", "prod", "hosted"]
+    )
+
+is_cloud_render = is_hosted_environment()
 default_local_rpc = "" if is_cloud_render else "http://127.0.0.1:7545"
 _raw_rpc = os.getenv("BLOCKCHAIN_RPC_URL") or os.getenv("RPC_URL", default_local_rpc)
 _sanitized_rpc = _sanitize_rpc_url(_raw_rpc)
@@ -65,9 +74,12 @@ else:
     w3 = Web3() # Standalone instance without provider; no RPC network calls
 
 # Load Contract Info
-contract_info_file = os.getenv("CONTRACT_INFO_FILE")
+HOSTED_SEPOLIA_CHAIN_ID = 11155111
+HOSTED_SEPOLIA_CONTRACT = "0x103cdC78636491B20deadC5574755Bbd64B119c6"
+
+contract_info_file = os.getenv("CONTRACT_INFO_FILE") or ("contract_info.hosted.json" if is_cloud_render else "contract_info.json")
 contract_info_path = os.getenv("CONTRACT_INFO_PATH") or os.path.join(
-    os.path.dirname(__file__), "config", contract_info_file or "contract_info.json"
+    os.path.dirname(__file__), "config", contract_info_file
 )
 contract_address = None
 contract_abi = None
@@ -85,6 +97,14 @@ if os.path.exists(contract_info_path):
         contract_abi = info.get("abi")
         contract_chain_id = info.get("chainId")
         contract_network = info.get("network")
+
+if is_cloud_render:
+    if not contract_chain_id or contract_chain_id in (1337, 5777):
+        contract_chain_id = HOSTED_SEPOLIA_CHAIN_ID
+    if not contract_address or contract_address == "0x7A259d42d1F6e24cfF76aDDF89eEBDAC195E1c20":
+        contract_address = HOSTED_SEPOLIA_CONTRACT
+    if not contract_network or contract_network == "ganache":
+        contract_network = "sepolia"
 
 def _normalize_private_key(pk: str) -> str:
     if not pk or not isinstance(pk, str):
@@ -366,6 +386,15 @@ def get_entity_info(address_or_key):
     }
 
 _bc_connected_cache = {"status": False, "expires_at": 0}
+_chain_id_cache = {"chain_id": None, "expires_at": 0}
+_contract_code_cache = {}  # {checksum_address: {"deployed": bool, "expires_at": float}}
+
+def clear_blockchain_cache():
+    """Reset all in-memory Web3 caches (useful in testing and reconnects)"""
+    global _bc_connected_cache, _chain_id_cache, _contract_code_cache
+    _bc_connected_cache = {"status": False, "expires_at": 0}
+    _chain_id_cache = {"chain_id": None, "expires_at": 0}
+    _contract_code_cache.clear()
 
 def is_blockchain_connected(force_refresh: bool = False) -> bool:
     if not is_blockchain_enabled():
@@ -378,8 +407,54 @@ def is_blockchain_connected(force_refresh: bool = False) -> bool:
         status = bool(w3.is_connected())
     except Exception:
         status = False
-    _bc_connected_cache = {"status": status, "expires_at": now + 10}
+    _bc_connected_cache = {"status": status, "expires_at": now + 15}
     return status
+
+def get_cached_chain_id(force_refresh: bool = False) -> Optional[int]:
+    """Retrieve network chain ID with 60-second in-memory caching"""
+    if not is_blockchain_enabled():
+        return None
+    global _chain_id_cache
+    now = time.time()
+    if not force_refresh and _chain_id_cache["chain_id"] and now < _chain_id_cache["expires_at"]:
+        return _chain_id_cache["chain_id"]
+    try:
+        cid = int(w3.eth.chain_id)
+        _chain_id_cache = {"chain_id": cid, "expires_at": now + 60}
+        return cid
+    except Exception:
+        return _chain_id_cache["chain_id"]
+
+def is_contract_deployed(address: str, force_refresh: bool = False) -> Optional[bool]:
+    """Check if bytecode exists at address with in-memory caching.
+    Returns:
+      True if bytecode > 2 bytes,
+      False if bytecode <= 2 bytes (confirmed empty),
+      None if check could not be performed (e.g. invalid address or RPC error).
+    """
+    if not address:
+        return None
+    global _contract_code_cache
+    try:
+        chk = w3.to_checksum_address(address)
+    except Exception:
+        return None
+
+    now = time.time()
+    entry = _contract_code_cache.get(chk)
+    if not force_refresh and entry:
+        if entry["deployed"] is not None and (entry["deployed"] or now < entry["expires_at"]):
+            return entry["deployed"]
+
+    try:
+        code = w3.eth.get_code(chk)
+        deployed = len(code) > 2
+        exp = now + (86400 if deployed else 15)
+        _contract_code_cache[chk] = {"deployed": deployed, "expires_at": exp}
+        return deployed
+    except Exception as e:
+        bc_logger.warning(f"Error checking contract code at {chk}: {e}")
+        return None
 
 def mask_rpc_url(url: str) -> str:
     if not url:
@@ -396,21 +471,22 @@ def mask_rpc_url(url: str) -> str:
     except Exception:
         return url[:15] + "..."
 
-def get_blockchain_diagnostics() -> dict:
+def get_blockchain_diagnostics(force_refresh: bool = False) -> dict:
     """
     Safely validates active blockchain configuration without exposing private keys or secrets.
+    Uses in-memory caching to prevent slow live RPC calls during high-frequency telemetry.
     """
     env = os.getenv("APP_ENV") or os.getenv("ENVIRONMENT") or "production"
     warnings = []
     
-    connected = is_blockchain_connected(force_refresh=True)
+    connected = is_blockchain_connected(force_refresh=force_refresh)
     active_chain_id = None
-    configured_chain_id = int(os.getenv("CHAIN_ID")) if os.getenv("CHAIN_ID") else (contract_chain_id or 1337)
+    configured_chain_id = int(os.getenv("CHAIN_ID")) if os.getenv("CHAIN_ID") else (contract_chain_id or (HOSTED_SEPOLIA_CHAIN_ID if is_cloud_render else 1337))
     chain_id_match = False
 
     if connected:
         try:
-            active_chain_id = w3.eth.chain_id
+            active_chain_id = get_cached_chain_id(force_refresh=force_refresh)
             chain_id_match = (active_chain_id == configured_chain_id)
             if not chain_id_match:
                 warnings.append(
@@ -434,9 +510,9 @@ def get_blockchain_diagnostics() -> dict:
     contract_deployed = False
     if connected and contract_address:
         try:
-            code = w3.eth.get_code(w3.to_checksum_address(contract_address))
-            contract_deployed = len(code) > 2
-            if not contract_deployed:
+            dep = is_contract_deployed(contract_address, force_refresh=force_refresh)
+            contract_deployed = bool(dep)
+            if dep is False:
                 warnings.append(
                     f"No smart contract bytecode deployed at {contract_address} on chain {active_chain_id}."
                 )
@@ -607,10 +683,10 @@ def execute_contract_transaction(func_call, role: str = "FINANCE", custom_privat
     pk = custom_private_key or get_private_key_for_role(role)
     account = get_account(role=role, custom_private_key=custom_private_key)
 
-    # 1. If RPC is connected to active Ganache node, execute live on-chain
+    # 1. If RPC is connected to active node, execute live on-chain
     if w3 and w3.is_connected() and account and pk and func_call is not None:
         try:
-            nonce = w3.eth.get_transaction_count(account.address)
+            nonce = w3.eth.get_transaction_count(account.address, 'pending')
             try:
                 gas_est = func_call.estimate_gas({"from": account.address})
                 gas_limit = int(gas_est * 1.3)
@@ -618,12 +694,14 @@ def execute_contract_transaction(func_call, role: str = "FINANCE", custom_privat
                 gas_limit = 600000
 
             try:
-                chain_id = w3.eth.chain_id
+                chain_id = get_cached_chain_id() or w3.eth.chain_id
             except Exception:
-                chain_id = int(os.getenv("CHAIN_ID", 1337))
+                chain_id = int(os.getenv("CHAIN_ID")) if os.getenv("CHAIN_ID") else (contract_chain_id or (HOSTED_SEPOLIA_CHAIN_ID if is_cloud_render else 1337))
 
             try:
                 gas_price = w3.eth.gas_price or w3.to_wei(20, 'gwei')
+                if is_cloud_render:
+                    gas_price = int(gas_price * 1.20)  # 20% priority buffer for immediate Sepolia block inclusion
             except Exception:
                 gas_price = w3.to_wei(20, 'gwei')
 
@@ -638,7 +716,7 @@ def execute_contract_transaction(func_call, role: str = "FINANCE", custom_privat
             signed_tx = w3.eth.account.sign_transaction(tx, pk)
             raw_tx = getattr(signed_tx, "raw_transaction", None) or getattr(signed_tx, "rawTransaction")
             tx_hash = w3.eth.send_raw_transaction(raw_tx)
-            receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=30)
+            receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=45)
 
             tx_hash_hex = receipt.transactionHash.hex() if hasattr(receipt.transactionHash, "hex") else str(receipt.transactionHash)
             if not tx_hash_hex.startswith("0x"):
@@ -666,12 +744,18 @@ def execute_contract_transaction(func_call, role: str = "FINANCE", custom_privat
         except Exception as e:
             if "reverted" in str(e).lower():
                 raise
+            if is_cloud_render:
+                bc_logger.error(f"[BLOCKCHAIN_TX_ERROR] Hosted RPC transaction failed ({e}). Silent fallback forbidden.")
+                raise Exception(f"Hosted blockchain transaction failed on Sepolia: {e}")
             bc_logger.warning(
                 f"[BLOCKCHAIN_TX_RPC_FALLBACK] Live RPC broadcast failed ({e}). "
                 "Generating authoritative cryptographic ledger receipt."
             )
 
-    # 2. Autonomous Cryptographic Ledger Engine (guarantees live execution in cloud environments)
+    if is_cloud_render:
+        raise Exception(f"Cannot execute {fn_name} on-chain: Hosted blockchain node is offline or signing key is missing.")
+
+    # 2. Autonomous Cryptographic Ledger Engine (local dev only)
     return generate_cryptographic_ledger_receipt(role=role, op_name=fn_name)
 
 # --- Contract Action Wrappers ---
@@ -685,7 +769,10 @@ def record_budget_allocation_onchain(alloc_id, scheme, dept, amount):
                 role="SUPER_ADMIN"
             )
         except Exception:
-            pass
+            if is_cloud_render:
+                raise
+    if is_cloud_render:
+        raise Exception(f"Cannot record budget allocation {alloc_id} on-chain: Hosted blockchain is disconnected.")
     return generate_cryptographic_ledger_receipt(role="SUPER_ADMIN", op_name="allocateBudget")
 
 def send_native_eth_transfer(sender_role: str, receiver_address: str, amount_eth: float = 0.1):
@@ -797,7 +884,12 @@ def record_state_transfer_onchain(trf_id, alloc_id, state_name, amount, receiver
 
             return tx_res
         except Exception as e:
+            if is_cloud_render:
+                raise
             bc_logger.warning(f"Live contract call failed: {e}. Using ledger engine.")
+
+    if is_cloud_render:
+        raise Exception(f"Cannot record state transfer {trf_id} on-chain: Hosted blockchain is disconnected or offline.")
 
     return generate_cryptographic_ledger_receipt(role="FINANCE", op_name="transferToState", target_address=rec_addr_checksum)
 
@@ -822,7 +914,12 @@ def record_district_allocation_onchain(dist_alloc_id, trf_id, district_name, amo
             send_native_eth_transfer("STATE", rec_addr_checksum, amount_eth=0.05)
             return tx_res
         except Exception as e:
+            if is_cloud_render:
+                raise
             bc_logger.warning(f"Live contract call failed: {e}. Using ledger engine.")
+
+    if is_cloud_render:
+        raise Exception(f"Cannot record district allocation {dist_alloc_id} on-chain: Hosted blockchain is disconnected or offline.")
 
     return generate_cryptographic_ledger_receipt(role="STATE", op_name="allocateToDistrict", target_address=rec_addr_checksum)
 
@@ -989,7 +1086,7 @@ def verify_transaction_onchain(
             "message": "Blockchain verification is inactive on cloud environment (ENABLE_BLOCKCHAIN=false)."
         }
 
-    if not is_blockchain_connected(force_refresh=True):
+    if not is_blockchain_connected(force_refresh=False):
         return {
             "verified": False,
             "status": "RPC_DISCONNECTED",
@@ -998,16 +1095,13 @@ def verify_transaction_onchain(
 
     target_contract = expected_contract or contract_address
     if target_contract:
-        try:
-            code = w3.eth.get_code(w3.to_checksum_address(target_contract))
-            if len(code) <= 2:
-                return {
-                    "verified": False,
-                    "status": "CONTRACT_NOT_DEPLOYED",
-                    "message": f"No smart contract bytecode deployed at {target_contract} on active network."
-                }
-        except Exception as e:
-            bc_logger.warning(f"Error checking contract bytecode: {e}")
+        deployed = is_contract_deployed(target_contract, force_refresh=False)
+        if deployed is False:
+            return {
+                "verified": False,
+                "status": "CONTRACT_NOT_DEPLOYED",
+                "message": f"No smart contract bytecode deployed at {target_contract} on active network."
+            }
 
 
     # 1. Query Transaction
@@ -1044,9 +1138,9 @@ def verify_transaction_onchain(
 
     # Validate Chain ID
     configured_cid = os.getenv("CHAIN_ID")
-    expected_cid = expected_chain_id or (int(configured_cid) if configured_cid else (contract_chain_id or 1337))
+    expected_cid = expected_chain_id or (int(configured_cid) if configured_cid else (contract_chain_id or (HOSTED_SEPOLIA_CHAIN_ID if is_cloud_render else 1337)))
     tx_chain_id = tx.get("chainId")
-    is_ganache_compat = (expected_chain_id is None and expected_cid in (1337, 5777) and tx_chain_id in (1337, 5777))
+    is_ganache_compat = (not is_cloud_render and expected_chain_id is None and expected_cid in (1337, 5777) and tx_chain_id in (1337, 5777))
     if tx_chain_id is not None and tx_chain_id != expected_cid and not is_ganache_compat:
         return {
             "verified": False,

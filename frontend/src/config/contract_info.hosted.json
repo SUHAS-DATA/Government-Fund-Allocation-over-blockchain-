@@ -1,0 +1,17 @@
+{
+  "contractAddress": "0x103cdC78636491B20deadC5574755Bbd64B119c6",
+  "network": "sepolia",
+  "chainId": 11155111,
+  "deployer": "0xeCcD57EfadFCc6217a21Bf482FEBe18c9F3D6148",
+  "deploymentTransaction": "0x001429b80bd5e236806d8c902a1ec47c035040b542dc40a523ade5ac3967ddc6",
+  "deploymentBlockNumber": 11949523,
+  "roles": {
+    "superAdmin": "0xeCcD57EfadFCc6217a21Bf482FEBe18c9F3D6148",
+    "finance": "0xeCcD57EfadFCc6217a21Bf482FEBe18c9F3D6148",
+    "state": "0xeCcD57EfadFCc6217a21Bf482FEBe18c9F3D6148",
+    "district": "0xeCcD57EfadFCc6217a21Bf482FEBe18c9F3D6148",
+    "contractor": "0xeCcD57EfadFCc6217a21Bf482FEBe18c9F3D6148",
+    "auditor": "0xeCcD57EfadFCc6217a21Bf482FEBe18c9F3D6148"
+  },
+  "deployedAt": "2026-10-19T17:02:12.088Z"
+}

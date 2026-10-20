@@ -428,7 +428,7 @@ export const ApiConnectionModal = ({ isOpen, onClose }) => {
                 </div>
 
                 <div style={{ marginTop: '10px', fontSize: '12px', color: '#475569', lineHeight: '1.5', paddingLeft: '48px' }}>
-                  The default cloud backend hosted on Render. Note: Cloud backends cannot reach your private laptop's <code>127.0.0.1:7545</code> unless a secure tunnel or local client connection is used.
+                  The default production cloud backend hosted on Render. Connects to Ethereum Sepolia Testnet (Chain ID 11155111) for decentralized on-chain ledger tracking.
                 </div>
               </div>
 

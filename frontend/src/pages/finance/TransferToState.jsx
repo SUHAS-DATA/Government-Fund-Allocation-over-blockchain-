@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Send,
@@ -59,10 +59,22 @@ const TransferToState = () => {
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
+  const [transferStage, setTransferStage] = useState('');
   const [successResult, setSuccessResult] = useState(null);
   const [error, setError] = useState('');
   const [pendingIdempotencyKey, setPendingIdempotencyKey] = useState(null);
   const [isRecovering, setIsRecovering] = useState(false);
+
+  const stageTimersRef = useRef([]);
+
+  const clearStageTimers = () => {
+    stageTimersRef.current.forEach(clearTimeout);
+    stageTimersRef.current = [];
+  };
+
+  useEffect(() => {
+    return () => clearStageTimers();
+  }, []);
 
   const formatTransferError = (rawMsg) => {
     if (!rawMsg) return 'Transfer failed';
@@ -157,7 +169,7 @@ const TransferToState = () => {
     }
   }, [selectedStateCode]);
 
-  useRealtimeSync(loadBudgets, { interval: 6000 });
+  useRealtimeSync(loadBudgets, { interval: 18000 });
 
   const activeBudget = budgets.find((b) => b.allocation_id === selectedAllocId);
   const availableBalance = activeBudget ? (activeBudget.amount - (activeBudget.disbursed_amount || 0)) : 0;
@@ -184,6 +196,19 @@ const TransferToState = () => {
 
     setSubmitting(true);
     setError('');
+    setTransferStage('AUTHORIZING');
+    clearStageTimers();
+
+    const t1 = setTimeout(() => {
+      setTransferStage('BROADCASTING');
+    }, 2500);
+
+    const t2 = setTimeout(() => {
+      setTransferStage('CONFIRMING');
+    }, 7000);
+
+    stageTimersRef.current = [t1, t2];
+
     const idempotencyKey = retryKey || pendingIdempotencyKey || `IDEM-FIN-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
     setPendingIdempotencyKey(idempotencyKey);
 
@@ -234,7 +259,9 @@ const TransferToState = () => {
       }
       setError(formatTransferError(err?.message));
     } finally {
+      clearStageTimers();
       setSubmitting(false);
+      setTransferStage('');
     }
   };
 
@@ -322,7 +349,7 @@ const TransferToState = () => {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Cloud size={16} color="#2563EB" />
             <span>
-              <strong>Cloud Network Mode (Render):</strong> Transactions are recorded on Cloud Ledger and do <em>not</em> reach your local Ganache. To see transactions update in Ganache, run locally on <code>http://localhost:5173</code>.
+              <strong>Hosted Blockchain Network:</strong> Connected to Ethereum Sepolia Testnet (Chain ID 11155111) • On-Chain Contract: <code>{blockchainStatus?.contract_address ? `${blockchainStatus.contract_address.substring(0, 10)}...${blockchainStatus.contract_address.substring(38)}` : '0x103cdC...19c6'}</code> • Decentralized on-chain ledger active.
             </span>
           </div>
           <button
@@ -617,6 +644,60 @@ const TransferToState = () => {
                 ></textarea>
               </div>
 
+              {submitting && (
+                <div style={{
+                  background: 'var(--bg-subtle, #F8FAFC)',
+                  border: '1px solid #E2E8F0',
+                  borderRadius: 'var(--radius-sm, 8px)',
+                  padding: '14px 16px',
+                  marginBottom: '16px'
+                }}>
+                  <div style={{ fontSize: '12px', fontWeight: '700', color: 'var(--text-main, #1E293B)', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span>Transfer Progress</span>
+                    <span style={{ fontSize: '11px', color: 'var(--color-primary, #2563EB)', fontWeight: '600' }}>
+                      {transferStage === 'AUTHORIZING' && 'Stage 1 of 3: Authorization & Sanction Check'}
+                      {transferStage === 'BROADCASTING' && 'Stage 2 of 3: Transaction Broadcast'}
+                      {transferStage === 'CONFIRMING' && 'Stage 3 of 3: Awaiting Block Confirmation (~12–18s)'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', fontSize: '11px' }}>
+                    <div style={{
+                      padding: '8px',
+                      borderRadius: '6px',
+                      background: transferStage === 'AUTHORIZING' ? '#EFF6FF' : '#F1F5F9',
+                      border: transferStage === 'AUTHORIZING' ? '1px solid #3B82F6' : '1px solid #E2E8F0',
+                      color: transferStage === 'AUTHORIZING' ? '#1D4ED8' : '#64748B'
+                    }}>
+                      <div style={{ fontWeight: '700' }}>1. Authorize</div>
+                      <div style={{ fontSize: '10px' }}>Sanction & balance check</div>
+                    </div>
+
+                    <div style={{
+                      padding: '8px',
+                      borderRadius: '6px',
+                      background: transferStage === 'BROADCASTING' ? '#EFF6FF' : (transferStage === 'CONFIRMING' ? '#ECFDF5' : '#F1F5F9'),
+                      border: transferStage === 'BROADCASTING' ? '1px solid #3B82F6' : (transferStage === 'CONFIRMING' ? '1px solid #10B981' : '1px solid #E2E8F0'),
+                      color: transferStage === 'BROADCASTING' ? '#1D4ED8' : (transferStage === 'CONFIRMING' ? '#047857' : '#64748B')
+                    }}>
+                      <div style={{ fontWeight: '700' }}>2. Submit</div>
+                      <div style={{ fontSize: '10px' }}>Signed RPC broadcast to network</div>
+                    </div>
+
+                    <div style={{
+                      padding: '8px',
+                      borderRadius: '6px',
+                      background: transferStage === 'CONFIRMING' ? '#FEF3C7' : '#F1F5F9',
+                      border: transferStage === 'CONFIRMING' ? '1px solid #F59E0B' : '1px solid #E2E8F0',
+                      color: transferStage === 'CONFIRMING' ? '#B45309' : '#64748B'
+                    }}>
+                      <div style={{ fontWeight: '700' }}>3. Confirm</div>
+                      <div style={{ fontSize: '10px' }}>Awaiting block receipt (~12–18s)</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <button
                 type="submit"
                 className="btn btn-success btn-lg"
@@ -625,7 +706,15 @@ const TransferToState = () => {
               >
                 <ShieldCheck size={16} />
                 <span>
-                  {submitting ? 'Sending Funds...' : isRecovering ? 'Verifying Transfer...' : 'Confirm & Send Funds'}
+                  {submitting ? (
+                    transferStage === 'CONFIRMING' ? 'Confirming On-Chain (~12–18s)...' :
+                    transferStage === 'BROADCASTING' ? 'Broadcasting Transaction...' :
+                    'Authorizing & Securing Disbursal...'
+                  ) : isRecovering ? (
+                    'Verifying Transfer...'
+                  ) : (
+                    'Confirm & Send Funds'
+                  )}
                 </span>
               </button>
             </form>

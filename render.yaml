@@ -20,10 +20,12 @@ services:
         value: "true"
       - key: BLOCKCHAIN_RPC_URL
         value: ""
+      - key: CONTRACT_INFO_FILE
+        value: contract_info.hosted.json
       - key: CONTRACT_ADDRESS
-        sync: false
+        value: 0x103cdC78636491B20deadC5574755Bbd64B119c6
       - key: CHAIN_ID
-        value: 1337
+        value: 11155111
       - key: ADMIN_PRIVATE_KEY
         sync: false
       - key: SUPER_ADMIN_PRIVATE_KEY

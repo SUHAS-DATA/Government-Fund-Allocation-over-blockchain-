@@ -15,20 +15,51 @@ def generate_complaint_id():
     rand_suffix = ''.join(random.choices(string.digits, k=6))
     return f"GRV-2026-{rand_suffix}"
 
+from concurrent.futures import ThreadPoolExecutor
+
 @router.get("/stats")
 async def get_public_stats(fy: Optional[str] = Query(None)):
     target_fy = fy or get_active_financial_year()
-    budget_stats = list(db.budget_allocations.aggregate([
-        {"$match": {"financial_year": target_fy}},
-        {"$group": {"_id": None, "total": {"$sum": "$amount"}, "disbursed": {"$sum": "$disbursed_amount"}}}
-    ]))
+
+    def _get_budget_stats():
+        return list(db.budget_allocations.aggregate([
+            {"$match": {"financial_year": target_fy}},
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}, "disbursed": {"$sum": "$disbursed_amount"}}}
+        ]))
+
+    def _get_projects():
+        return db.projects.count_documents({"financial_year": target_fy})
+
+    def _get_states():
+        try:
+            return db.states.estimated_document_count()
+        except Exception:
+            return db.states.count_documents({})
+
+    def _get_schemes():
+        return db.schemes.count_documents({"$or": [{"financial_year": target_fy}, {"financial_year": {"$exists": False}}]})
+
+    def _get_tx_count():
+        try:
+            return db.blockchain_transactions.estimated_document_count()
+        except Exception:
+            return db.blockchain_transactions.count_documents({})
+
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        f_b = executor.submit(_get_budget_stats)
+        f_p = executor.submit(_get_projects)
+        f_st = executor.submit(_get_states)
+        f_sc = executor.submit(_get_schemes)
+        f_tx = executor.submit(_get_tx_count)
+
+        budget_stats = f_b.result()
+        projects_count = f_p.result()
+        states_count = f_st.result()
+        schemes_count = f_sc.result()
+        tx_count = f_tx.result()
+
     total_allocated = budget_stats[0]["total"] if budget_stats else 0.0
     total_disbursed = budget_stats[0]["disbursed"] if budget_stats else 0.0
-
-    projects_count = db.projects.count_documents({"financial_year": target_fy})
-    states_count = db.states.count_documents({})
-    schemes_count = db.schemes.count_documents({"$or": [{"financial_year": target_fy}, {"financial_year": {"$exists": False}}]})
-    tx_count = db.blockchain_transactions.count_documents({})
 
     return {
         "success": True,
@@ -61,10 +92,16 @@ async def get_public_financial_years():
 
 @router.get("/hierarchy")
 async def get_hierarchy():
-    states = list(db.states.find().sort("name", 1))
-    districts = list(db.districts.find().sort("name", 1))
-    departments = list(db.departments.find().sort("name", 1))
-    schemes = list(db.schemes.find().sort("name", 1))
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        f_states = executor.submit(lambda: list(db.states.find().sort("name", 1)))
+        f_districts = executor.submit(lambda: list(db.districts.find().sort("name", 1)))
+        f_departments = executor.submit(lambda: list(db.departments.find().sort("name", 1)))
+        f_schemes = executor.submit(lambda: list(db.schemes.find().sort("name", 1)))
+
+        states = f_states.result()
+        districts = f_districts.result()
+        departments = f_departments.result()
+        schemes = f_schemes.result()
 
     return {
         "success": True,

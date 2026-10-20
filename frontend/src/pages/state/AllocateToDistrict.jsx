@@ -47,7 +47,7 @@ const AllocateToDistrict = () => {
     loadReceivedFunds();
   }, [selectedFY]);
 
-  useRealtimeSync(loadReceivedFunds, { interval: 6000 });
+  useRealtimeSync(loadReceivedFunds, { interval: 18000 });
 
   const activeTransfer = receivedFunds.find((f) => f.transfer_id === selectedTransferId);
   const activeStateCode = activeTransfer?.state_code || 'KA';

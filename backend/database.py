@@ -1,4 +1,5 @@
 import os
+import time
 from pymongo import MongoClient, ASCENDING, DESCENDING
 from bson import ObjectId
 from datetime import datetime
@@ -71,6 +72,7 @@ def init_indexes():
     try:
         db.budget_allocations.create_index([("allocation_id", ASCENDING)], unique=True)
         db.budget_allocations.create_index([("financial_year", ASCENDING), ("status", ASCENDING)])
+        db.budget_allocations.create_index([("financial_year", ASCENDING), ("created_at", DESCENDING)])
         db.budget_allocations.create_index([("state_code", ASCENDING)])
     except Exception as e:
         print(f"Warning initializing budget_allocations index: {e}")
@@ -79,6 +81,8 @@ def init_indexes():
     try:
         db.state_transfers.create_index([("transfer_id", ASCENDING)], unique=True)
         db.state_transfers.create_index([("financial_year", ASCENDING), ("state_code", ASCENDING)])
+        db.state_transfers.create_index([("financial_year", ASCENDING), ("created_at", DESCENDING)])
+        db.state_transfers.create_index([("state_code", ASCENDING), ("financial_year", ASCENDING), ("created_at", DESCENDING)])
         db.state_transfers.create_index([("state_code", ASCENDING), ("status", ASCENDING)])
         db.state_transfers.create_index([("created_at", DESCENDING)])
     except Exception as e:
@@ -88,6 +92,8 @@ def init_indexes():
     try:
         db.district_allocations.create_index([("district_alloc_id", ASCENDING)], unique=True)
         db.district_allocations.create_index([("financial_year", ASCENDING), ("state_code", ASCENDING), ("district_name", ASCENDING)])
+        db.district_allocations.create_index([("district_name", ASCENDING), ("financial_year", ASCENDING), ("created_at", DESCENDING)])
+        db.district_allocations.create_index([("state_code", ASCENDING), ("financial_year", ASCENDING), ("created_at", DESCENDING)])
         db.district_allocations.create_index([("district_name", ASCENDING), ("status", ASCENDING)])
         db.district_allocations.create_index([("state_code", ASCENDING)])
     except Exception as e:
@@ -186,6 +192,7 @@ def init_indexes():
     try:
         db.financial_transactions.create_index([("transaction_id", ASCENDING)], unique=True, sparse=True)
         db.financial_transactions.create_index([("transaction_type", ASCENDING)])
+        db.financial_transactions.create_index([("transaction_type", ASCENDING), ("financial_year", ASCENDING), ("created_at", DESCENDING)])
         db.financial_transactions.create_index([("source_account_id", ASCENDING)])
         db.financial_transactions.create_index([("destination_account_id", ASCENDING)])
         db.financial_transactions.create_index([("related_project_id", ASCENDING)])
@@ -194,6 +201,22 @@ def init_indexes():
         db.financial_transactions.create_index([("created_at", DESCENDING)])
     except Exception as e:
         print(f"Warning initializing financial_transactions index: {e}")
+
+    # 17. Audit Logs collection
+    try:
+        db.audit_logs.create_index([("timestamp", DESCENDING)])
+        db.audit_logs.create_index([("financial_year", ASCENDING), ("timestamp", DESCENDING)])
+        db.audit_logs.create_index([("action", ASCENDING), ("timestamp", DESCENDING)])
+        db.audit_logs.create_index([("target_id", ASCENDING)])
+    except Exception as e:
+        print(f"Warning initializing audit_logs index: {e}")
+
+    # 18. Fraud Reports collection
+    try:
+        db.fraud_reports.create_index([("status", ASCENDING)])
+        db.fraud_reports.create_index([("created_at", DESCENDING)])
+    except Exception as e:
+        print(f"Warning initializing fraud_reports index: {e}")
 
     # Auto-seed standard Central, State, and District bank accounts
     try:
@@ -275,20 +298,39 @@ def compute_project_progress(proj, milestones=None):
         
     return min(100, max(0, int(round(total_weighted_progress))))
 
-def get_active_financial_year() -> str:
+_active_fy_cache = {"year": None, "expires_at": 0}
+
+def get_active_financial_year(force_refresh: bool = False) -> str:
     """
     Returns the currently active financial year from MongoDB, falling back to '2026-27'.
+    Cached in-memory with a 60-second TTL to avoid 70ms database round-trips on every request.
     """
+    global _active_fy_cache
+    now = time.time()
+    if not force_refresh and _active_fy_cache["year"] and now < _active_fy_cache["expires_at"]:
+        return _active_fy_cache["year"]
     try:
         active_doc = db.financial_years.find_one({"status": "ACTIVE"})
         if active_doc and active_doc.get("year"):
-            return str(active_doc["year"]).strip()
+            val = str(active_doc["year"]).strip()
+            _active_fy_cache["year"] = val
+            _active_fy_cache["expires_at"] = now + 60
+            return val
         latest = db.financial_years.find_one({}, sort=[("year", -1)])
         if latest and latest.get("year"):
-            return str(latest["year"]).strip()
+            val = str(latest["year"]).strip()
+            _active_fy_cache["year"] = val
+            _active_fy_cache["expires_at"] = now + 60
+            return val
     except Exception:
         pass
     return "2026-27"
+
+def invalidate_active_financial_year_cache():
+    """Immediately invalidates the cached active financial year."""
+    global _active_fy_cache
+    _active_fy_cache["year"] = None
+    _active_fy_cache["expires_at"] = 0
 
 def ensure_financial_year_associations():
     """
@@ -350,6 +392,22 @@ def ensure_financial_year_associations():
     except Exception as e:
         print(f"Notice: Non-destructive financial year backfill check: {e}")
 
-# Initialize indexes and associations when imported
-init_indexes()
-ensure_financial_year_associations()
+_db_initialized = False
+
+def init_db(force: bool = False):
+    """
+    Initializes indexes and non-destructive associations safely during application startup.
+    Guarantees run-once behavior so module imports do not block on network I/O.
+    """
+    global _db_initialized
+    if _db_initialized and not force:
+        return
+    try:
+        init_indexes()
+    except Exception as e:
+        print(f"Index initialization notice: {e}")
+    try:
+        ensure_financial_year_associations()
+    except Exception as e:
+        print(f"Financial year association notice: {e}")
+    _db_initialized = True

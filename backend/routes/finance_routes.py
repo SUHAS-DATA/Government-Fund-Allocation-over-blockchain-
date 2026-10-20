@@ -54,23 +54,30 @@ async def dashboard(
     }
     if target_fy:
         pending_query["financial_year"] = target_fy
-    pending_budgets = list(db.budget_allocations.find(pending_query))
+    from concurrent.futures import ThreadPoolExecutor
 
     disbursed_match = {"financial_year": target_fy} if target_fy else {}
     disbursed_pipeline = [
         {"$match": disbursed_match} if disbursed_match else {"$match": {}},
         {"$group": {"_id": None, "total": {"$sum": "$amount"}, "count": {"$sum": 1}}}
     ]
-    disbursed_stats = list(db.state_transfers.aggregate(disbursed_pipeline))
-    total_disbursed = disbursed_stats[0]["total"] if disbursed_stats else 0
-    transfers_count = disbursed_stats[0]["count"] if disbursed_stats else 0
-
     state_pipeline = [
         {"$match": disbursed_match} if disbursed_match else {"$match": {}},
         {"$group": {"_id": "$state_name", "total_amount": {"$sum": "$amount"}, "transfer_count": {"$sum": 1}}},
         {"$sort": {"total_amount": -1}}
     ]
-    state_breakdown = list(db.state_transfers.aggregate(state_pipeline))
+
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        f_pending = executor.submit(lambda: list(db.budget_allocations.find(pending_query)))
+        f_disbursed = executor.submit(lambda: list(db.state_transfers.aggregate(disbursed_pipeline)))
+        f_breakdown = executor.submit(lambda: list(db.state_transfers.aggregate(state_pipeline)))
+
+        pending_budgets = f_pending.result()
+        disbursed_stats = f_disbursed.result()
+        state_breakdown = f_breakdown.result()
+
+    total_disbursed = disbursed_stats[0]["total"] if disbursed_stats else 0
+    transfers_count = disbursed_stats[0]["count"] if disbursed_stats else 0
 
     return {
         "success": True,

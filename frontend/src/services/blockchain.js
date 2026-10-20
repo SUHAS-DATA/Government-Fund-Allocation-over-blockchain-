@@ -1,10 +1,26 @@
-import contractInfo from '../config/contract_info.json';
+import localContractInfo from '../config/contract_info.json';
+import hostedContractInfo from '../config/contract_info.hosted.json';
+import { getApiConnectionDetails } from './api';
+
+export const getActiveContractInfo = () => {
+  const details = getApiConnectionDetails();
+  return details.isLocalTarget ? localContractInfo : hostedContractInfo;
+};
 
 export const getContractAddress = () => {
   if (import.meta.env.VITE_CONTRACT_ADDRESS && import.meta.env.VITE_CONTRACT_ADDRESS.trim()) {
     return import.meta.env.VITE_CONTRACT_ADDRESS.trim();
   }
-  return contractInfo?.contractAddress || '0x103cdC78636491B20deadC5574755Bbd64B119c6';
+  const activeInfo = getActiveContractInfo();
+  return activeInfo?.contractAddress || '0x103cdC78636491B20deadC5574755Bbd64B119c6';
+};
+
+export const getActiveChainId = () => {
+  if (import.meta.env.VITE_CHAIN_ID && import.meta.env.VITE_CHAIN_ID.trim()) {
+    return parseInt(import.meta.env.VITE_CHAIN_ID.trim(), 10);
+  }
+  const activeInfo = getActiveContractInfo();
+  return activeInfo?.chainId || 11155111;
 };
 
 export const getExplorerTxUrl = (txHash) => {

@@ -68,13 +68,7 @@ async def dashboard(
         st_filter["financial_year"] = target_fy
         da_filter["financial_year"] = target_fy
 
-    received_funds = list(db.state_transfers.find(st_filter).sort("created_at", -1))
-    total_received = sum(f.get("amount", 0) for f in received_funds)
-
-    district_allocations = list(db.district_allocations.find(da_filter).sort("created_at", -1))
-    total_allocated_to_districts = sum(d.get("amount", 0) for d in district_allocations)
-
-    remaining_state_balance = max(0, total_received - total_allocated_to_districts)
+    from concurrent.futures import ThreadPoolExecutor
 
     dist_match = {"state_code": user_state_code}
     if target_fy:
@@ -84,13 +78,26 @@ async def dashboard(
         {"$group": {"_id": "$district_name", "total_allocated": {"$sum": "$amount"}, "alloc_count": {"$sum": 1}}},
         {"$sort": {"total_allocated": -1}}
     ]
-    district_breakdown = list(db.district_allocations.aggregate(dist_pipeline))
-
-    current_state_title = user_state_name or (received_funds[0].get("state_name") if received_funds else f"State ({user_state_code})")
 
     con_query = {"state_code": user_state_code}
-    pending_contractors = db.contractor_kyc.count_documents({**con_query, "kyc_status": "UNDER_REVIEW"})
-    total_contractors = db.contractor_kyc.count_documents(con_query)
+
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        f_rf = executor.submit(lambda: list(db.state_transfers.find(st_filter).sort("created_at", -1)))
+        f_da = executor.submit(lambda: list(db.district_allocations.find(da_filter).sort("created_at", -1)))
+        f_db = executor.submit(lambda: list(db.district_allocations.aggregate(dist_pipeline)))
+        f_pc = executor.submit(lambda: db.contractor_kyc.count_documents({**con_query, "kyc_status": "UNDER_REVIEW"}))
+        f_tc = executor.submit(lambda: db.contractor_kyc.count_documents(con_query))
+
+        received_funds = f_rf.result()
+        district_allocations = f_da.result()
+        district_breakdown = f_db.result()
+        pending_contractors = f_pc.result()
+        total_contractors = f_tc.result()
+
+    total_received = sum(f.get("amount", 0) for f in received_funds)
+    total_allocated_to_districts = sum(d.get("amount", 0) for d in district_allocations)
+    remaining_state_balance = max(0, total_received - total_allocated_to_districts)
+    current_state_title = user_state_name or (received_funds[0].get("state_name") if received_funds else f"State ({user_state_code})")
 
     return {
         "success": True,

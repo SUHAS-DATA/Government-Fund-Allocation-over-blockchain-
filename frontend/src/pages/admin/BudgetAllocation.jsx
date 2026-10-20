@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { Coins, Plus, Send, ShieldCheck, ArrowRight, Calendar, Filter, TrendingUp, Layers } from 'lucide-react';
 import API from '../../services/api';
@@ -10,16 +10,18 @@ import FundAmountInput from '../../components/FundAmountInput';
 import { useRealtimeSync } from '../../context/RealtimeContext';
 import { useFinancialYear } from '../../context/FinancialYearContext';
 
-const BudgetAllocation = () => {
+const BudgetAllocation = ({ initialAllocations, initialDepartments, initialSchemes, initialFinancialYears } = {}) => {
   const { selectedFY, setSelectedFY } = useFinancialYear();
-  const [allocations, setAllocations] = useState([]);
-  const [financialYears, setFinancialYears] = useState([]);
-  const [departments, setDepartments] = useState([]);
-  const [schemes, setSchemes] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [allocations, setAllocations] = useState(initialAllocations || []);
+  const [financialYears, setFinancialYears] = useState(initialFinancialYears || []);
+  const [departments, setDepartments] = useState(initialDepartments || []);
+  const [schemes, setSchemes] = useState(initialSchemes || []);
+  const [loading, setLoading] = useState(!(initialAllocations && initialAllocations.length > 0));
   const [submitting, setSubmitting] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [modalError, setModalError] = useState('');
+
+  const isInitialMount = useRef(true);
 
   const [formData, setFormData] = useState({
     financial_year: selectedFY || '2026-27',
@@ -28,37 +30,36 @@ const BudgetAllocation = () => {
     amount: 10000000
   });
 
-  const loadData = (fyFilter = selectedFY, showSpinner = false) => {
+  const loadData = async (fyFilter = selectedFY, showSpinner = false) => {
     if (showSpinner) setLoading(true);
     const query = fyFilter && fyFilter !== 'ALL' ? `?fy=${fyFilter}` : '';
 
-    API.get(`/admin/allocations${query}`).then((res) => {
-      if (res.success) setAllocations(res.allocations || []);
-    }).finally(() => {
-      if (showSpinner) setLoading(false);
-    });
+    try {
+      const [allocRes, fyRes, deptRes, scRes] = await Promise.allSettled([
+        API.get(`/admin/allocations${query}`),
+        API.get('/admin/financial-years'),
+        API.get('/admin/departments'),
+        API.get(`/admin/schemes${query}`)
+      ]);
 
-    API.get('/admin/financial-years').then((res) => {
-      if (res.success && res.financial_years?.length > 0) {
-        setFinancialYears(res.financial_years);
-        const activeYear = res.financial_years.find(f => f.status === 'ACTIVE')?.year || res.financial_years[0].year;
+      if (allocRes.status === 'fulfilled' && allocRes.value?.success) {
+        setAllocations(allocRes.value.allocations || []);
+      }
+      if (fyRes.status === 'fulfilled' && fyRes.value?.success && fyRes.value.financial_years?.length > 0) {
+        setFinancialYears(fyRes.value.financial_years);
+        const activeYear = fyRes.value.financial_years.find(f => f.status === 'ACTIVE')?.year || fyRes.value.financial_years[0].year;
         setFormData((prev) => ({
           ...prev,
           financial_year: selectedFY && selectedFY !== 'ALL' ? selectedFY : (prev.financial_year || activeYear)
         }));
       }
-    });
-
-    API.get('/admin/departments').then((res) => {
-      if (res.success) setDepartments(res.departments || []);
-    });
-
-    const schemesQuery = fyFilter && fyFilter !== 'ALL' ? `?fy=${fyFilter}` : '';
-    API.get(`/admin/schemes${schemesQuery}`).then((res) => {
-      if (res.success && res.schemes?.length > 0) {
-        setSchemes(res.schemes);
+      if (deptRes.status === 'fulfilled' && deptRes.value?.success) {
+        setDepartments(deptRes.value.departments || []);
+      }
+      if (scRes.status === 'fulfilled' && scRes.value?.success && scRes.value.schemes?.length > 0) {
+        setSchemes(scRes.value.schemes);
         setFormData((prev) => {
-          const match = res.schemes.find(s => s.name === prev.scheme_name) || res.schemes[0];
+          const match = scRes.value.schemes.find(s => s.name === prev.scheme_name) || scRes.value.schemes[0];
           const rem = match ? Math.max(0, (match.target_budget || 0) - (match.allocated_amount || 0)) : 0;
           return {
             ...prev,
@@ -68,10 +69,20 @@ const BudgetAllocation = () => {
           };
         });
       }
-    });
+    } catch (err) {
+      console.error('Error loading budget allocation telemetry:', err);
+    } finally {
+      if (showSpinner) setLoading(false);
+    }
   };
 
   useEffect(() => {
+    if (isInitialMount.current && initialAllocations && initialAllocations.length > 0) {
+      isInitialMount.current = false;
+      setLoading(false);
+      return;
+    }
+    isInitialMount.current = false;
     loadData(selectedFY, true);
     setFormData((prev) => ({
       ...prev,
@@ -79,7 +90,7 @@ const BudgetAllocation = () => {
     }));
   }, [selectedFY]);
 
-  useRealtimeSync(() => loadData(selectedFY, false), { interval: 6000 });
+  useRealtimeSync(() => loadData(selectedFY, false), { interval: 18000 });
 
   const handleAllocate = async (e) => {
     e.preventDefault();

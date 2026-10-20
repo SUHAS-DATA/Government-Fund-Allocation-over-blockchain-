@@ -6,7 +6,8 @@ from typing import Optional
 from fastapi import APIRouter, Request, Depends, status, Query
 from fastapi.responses import JSONResponse
 from bson import ObjectId
-from database import db, serialize_doc
+from concurrent.futures import ThreadPoolExecutor
+from database import db, serialize_doc, invalidate_active_financial_year_cache
 from auth_middleware import require_roles
 import blockchain_service as bcs
 
@@ -45,43 +46,92 @@ async def dashboard(
 ):
     selected_fy = fy
     
-    # 1. Fetch active and all financial years
+    # 1. Fetch active and all financial years (eliminate redundant find_one round trips)
     all_fys = list(db.financial_years.find().sort("year", -1))
-    active_fy_doc = db.financial_years.find_one({"status": "ACTIVE"}) or (all_fys[0] if all_fys else None)
+    active_fy_doc = next((f for f in all_fys if f.get("status") == "ACTIVE"), None) or (all_fys[0] if all_fys else None)
     
     target_fy_year = selected_fy if selected_fy else (active_fy_doc.get("year") if active_fy_doc else "2026-27")
-    target_fy_doc = db.financial_years.find_one({"year": target_fy_year}) or active_fy_doc
+    target_fy_doc = next((f for f in all_fys if f.get("year") == target_fy_year), None) or active_fy_doc
 
-    # 2. Compute FY-specific metrics
-    fy_pipeline = [
-        {"$match": {"financial_year": target_fy_year}},
-        {"$group": {"_id": None, "total": {"$sum": "$amount"}, "disbursed": {"$sum": "$disbursed_amount"}, "count": {"$sum": 1}}}
-    ]
-    fy_stats = list(db.budget_allocations.aggregate(fy_pipeline))
-    fy_allocated = fy_stats[0]["total"] if fy_stats else 0.0
-    fy_disbursed = fy_stats[0]["disbursed"] if fy_stats else 0.0
-    fy_allocations_count = fy_stats[0]["count"] if fy_stats else 0
+    # 2. Execute independent metrics queries concurrently via bounded ThreadPoolExecutor
+    def _get_fy_stats():
+        fy_pipeline = [
+            {"$match": {"financial_year": target_fy_year}},
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}, "disbursed": {"$sum": "$disbursed_amount"}, "count": {"$sum": 1}}}
+        ]
+        res = list(db.budget_allocations.aggregate(fy_pipeline))
+        return res[0] if res else {"total": 0.0, "disbursed": 0.0, "count": 0}
+
+    def _get_lifetime_stats():
+        total_budget_pipeline = [
+            {"$group": {"_id": None, "total": {"$sum": "$amount"}, "disbursed": {"$sum": "$disbursed_amount"}}}
+        ]
+        res = list(db.budget_allocations.aggregate(total_budget_pipeline))
+        return res[0] if res else {"total": 0.0, "disbursed": 0.0}
+
+    def _get_schemes_count():
+        try:
+            return db.schemes.estimated_document_count()
+        except Exception:
+            return db.schemes.count_documents({})
+
+    def _get_states_count():
+        try:
+            return db.states.estimated_document_count()
+        except Exception:
+            return db.states.count_documents({})
+
+    def _get_districts_count():
+        try:
+            return db.districts.estimated_document_count()
+        except Exception:
+            return db.districts.count_documents({})
+
+    def _get_projects_count():
+        try:
+            return db.projects.estimated_document_count()
+        except Exception:
+            return db.projects.count_documents({})
+
+    def _get_fraud_count():
+        return db.fraud_reports.count_documents({"status": "OPEN"})
+
+    def _get_recent_transfers():
+        return list(db.state_transfers.find({"financial_year": target_fy_year}).sort("created_at", -1).limit(5))
+
+    def _get_recent_allocations():
+        return list(db.budget_allocations.find({"financial_year": target_fy_year}).sort("created_at", -1).limit(5))
+
+    with ThreadPoolExecutor(max_workers=6) as executor:
+        f_fy = executor.submit(_get_fy_stats)
+        f_life = executor.submit(_get_lifetime_stats)
+        f_schemes = executor.submit(_get_schemes_count)
+        f_states = executor.submit(_get_states_count)
+        f_districts = executor.submit(_get_districts_count)
+        f_projects = executor.submit(_get_projects_count)
+        f_fraud = executor.submit(_get_fraud_count)
+        f_trfs = executor.submit(_get_recent_transfers)
+        f_allocs = executor.submit(_get_recent_allocations)
+
+        fy_stat = f_fy.result()
+        life_stat = f_life.result()
+        schemes_count = f_schemes.result()
+        states_count = f_states.result()
+        districts_count = f_districts.result()
+        projects_count = f_projects.result()
+        open_fraud_alerts = f_fraud.result()
+        recent_transfers = f_trfs.result()
+        recent_allocations = f_allocs.result()
+
+    fy_allocated = fy_stat.get("total", 0.0)
+    fy_disbursed = fy_stat.get("disbursed", 0.0)
+    fy_allocations_count = fy_stat.get("count", 0)
 
     sanctioned_ceiling = float(target_fy_doc.get("total_budget", 5000000000.0)) if target_fy_doc else 5000000000.0
     remaining_unallocated = max(0.0, sanctioned_ceiling - fy_allocated)
 
-    # 3. Overall / Lifetime stats
-    total_budget_pipeline = [
-        {"$group": {"_id": None, "total": {"$sum": "$amount"}, "disbursed": {"$sum": "$disbursed_amount"}}}
-    ]
-    budget_stats = list(db.budget_allocations.aggregate(total_budget_pipeline))
-    lifetime_allocated = budget_stats[0]["total"] if budget_stats else 0.0
-    lifetime_disbursed = budget_stats[0]["disbursed"] if budget_stats else 0.0
-
-    schemes_count = db.schemes.count_documents({})
-    states_count = db.states.count_documents({})
-    districts_count = db.districts.count_documents({})
-    projects_count = db.projects.count_documents({})
-    open_fraud_alerts = db.fraud_reports.count_documents({"status": "OPEN"})
-
-    # Recent transfers and allocations isolated to target financial year
-    recent_transfers = list(db.state_transfers.find({"financial_year": target_fy_year}).sort("created_at", -1).limit(5))
-    recent_allocations = list(db.budget_allocations.find({"financial_year": target_fy_year}).sort("created_at", -1).limit(5))
+    lifetime_allocated = life_stat.get("total", 0.0)
+    lifetime_disbursed = life_stat.get("disbursed", 0.0)
 
     return {
         "success": True,
@@ -154,6 +204,7 @@ async def create_financial_year(
     status_val = data.get("status", "ACTIVE")
     if status_val == "ACTIVE":
         db.financial_years.update_many({"year": {"$ne": year}}, {"$set": {"status": "CLOSED"}})
+        invalidate_active_financial_year_cache()
 
     parts = year.split('-')
     start_year = parts[0]
@@ -170,6 +221,8 @@ async def create_financial_year(
         "created_at": datetime.now(timezone.utc)
     }
     db.financial_years.update_one({"year": year}, {"$set": doc}, upsert=True)
+    if status_val == "ACTIVE":
+        invalidate_active_financial_year_cache()
     return {"success": True, "message": f"Financial year {year} saved successfully", "financial_year": serialize_doc(doc)}
 
 @router.put("/financial-years/{year}/activate")
@@ -186,6 +239,7 @@ async def activate_financial_year(
 
     db.financial_years.update_many({"year": {"$ne": year}}, {"$set": {"status": "CLOSED"}})
     db.financial_years.update_one({"year": year}, {"$set": {"status": "ACTIVE", "updated_at": datetime.now(timezone.utc)}})
+    invalidate_active_financial_year_cache()
     
     return {"success": True, "message": f"Financial year {year} is now ACTIVE."}
 
@@ -713,12 +767,15 @@ async def admin_blockchain_explorer(
     connected = bcs.is_blockchain_connected()
     account = bcs.get_account()
     contract = bcs.get_contract()
+    default_cid = bcs.contract_chain_id or (11155111 if bcs.is_cloud_render else 1337)
     chain_id = None
     if connected:
         try:
-            chain_id = bcs.w3.eth.chain_id
+            chain_id = bcs.get_cached_chain_id() or bcs.w3.eth.chain_id
         except Exception:
-            chain_id = 1337
+            chain_id = default_cid
+    else:
+        chain_id = int(os.getenv("CHAIN_ID")) if os.getenv("CHAIN_ID") else default_cid
 
     tx_count = db.blockchain_transactions.count_documents({})
     txs = [] if summary_only else list(db.blockchain_transactions.find().sort("timestamp", -1).limit(200))
@@ -727,7 +784,7 @@ async def admin_blockchain_explorer(
         "total_count": tx_count,
         "status": {
             "connected": connected,
-            "rpc_url": bcs.RPC_URL,
+            "rpc_url": bcs.mask_rpc_url(bcs.RPC_URL) if bcs.RPC_URL else "NOT_CONFIGURED",
             "chain_id": chain_id,
             "wallet_address": account.address if account else None,
             "contract_address": bcs.contract_address,

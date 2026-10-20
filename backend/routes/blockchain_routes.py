@@ -12,25 +12,18 @@ blockchain_bp = router
 @router.get("/status")
 async def get_status():
     enabled = bcs.is_blockchain_enabled()
-    connected = bcs.is_blockchain_connected() if enabled else False
+    connected = bcs.is_blockchain_connected(force_refresh=False) if enabled else False
     account = bcs.get_account() if enabled else None
     contract = bcs.get_contract() if enabled else None
-    chain_id = None
+    default_cid = bcs.contract_chain_id or (11155111 if bcs.is_cloud_render else 1337)
     if connected:
-        try:
-            chain_id = bcs.w3.eth.chain_id
-        except Exception:
-            chain_id = int(os.getenv("CHAIN_ID", 1337))
+        chain_id = bcs.get_cached_chain_id(force_refresh=False) or (int(os.getenv("CHAIN_ID")) if os.getenv("CHAIN_ID") else default_cid)
     else:
-        chain_id = int(os.getenv("CHAIN_ID", 1337))
+        chain_id = int(os.getenv("CHAIN_ID")) if os.getenv("CHAIN_ID") else default_cid
 
     contract_deployed = False
     if connected and contract and bcs.contract_address:
-        try:
-            code = bcs.w3.eth.get_code(bcs.contract_address)
-            contract_deployed = len(code) > 2
-        except Exception:
-            contract_deployed = False
+        contract_deployed = bcs.is_contract_deployed(bcs.contract_address, force_refresh=False)
 
     return {
         "success": True,

@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 import uvicorn
 
 # Database & Blockchain
-from database import db, init_indexes
+from database import db, init_indexes, init_db
 from seed_data import seed
 import blockchain_service as bcs
 from realtime_manager import realtime_manager
@@ -90,9 +90,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logging.warning(f"Could not bind event loop to realtime_manager: {e}")
     try:
-        init_indexes()
+        init_db()
     except Exception as e:
-        logging.warning(f"Index initialization warning: {e}")
+        logging.warning(f"Database initialization warning: {e}")
     try:
         seed()
     except Exception as e:
