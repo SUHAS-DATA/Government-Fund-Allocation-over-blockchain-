@@ -293,7 +293,7 @@ async def login(request: Request):
         user.get("state_code"),
         user.get("state_name"),
         user.get("district_name"),
-        user.get("officer_id"),
+        user.get("officer_id") or user.get("contractor_id"),
         user.get("username")
     )
     user_data = serialize_doc(user)

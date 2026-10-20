@@ -59,18 +59,8 @@ def check_evidence_access(proj: dict, user: dict) -> bool:
         return bool(user_dist and user_dist == proj_dist)
 
     if role == "CONTRACTOR":
-        u_id = str(user.get("user_id", ""))
-        u_email = str(user.get("email", "")).lower()
-        u_officer = str(user.get("officer_id") or user.get("contractor_id") or "")
-        
-        proj_cid = str(proj.get("contractor_id", ""))
-        proj_cemail = str(proj.get("contractor_email", "")).lower()
-
-        if proj_cid and proj_cid in [u_id, u_email, u_officer]:
-            return True
-        if proj_cemail and proj_cemail == u_email:
-            return True
-        return False
+        from routes.contractor_routes import verify_contractor_project_ownership
+        return verify_contractor_project_ownership(proj, user)
 
     return False
 
@@ -130,15 +120,22 @@ async def get_evidence_file(
     # Locate physical file
     file_path = ev.get("file_path") or ev.get("filePath")
     if not file_path or not os.path.exists(file_path):
+        candidates = []
+        if file_path:
+            candidates.append(os.path.basename(file_path))
         fname = ev.get("file_name") or ev.get("fileName")
         if fname:
-            alt_path = os.path.join(UPLOAD_FOLDER, fname)
+            candidates.append(fname)
+
+        for c in candidates:
+            alt_path = os.path.join(UPLOAD_FOLDER, c)
             if os.path.exists(alt_path):
                 file_path = alt_path
-            else:
-                alt_ev_path = os.path.join(UPLOAD_FOLDER, "evidence", fname)
-                if os.path.exists(alt_ev_path):
-                    file_path = alt_ev_path
+                break
+            alt_ev_path = os.path.join(UPLOAD_FOLDER, "evidence", c)
+            if os.path.exists(alt_ev_path):
+                file_path = alt_ev_path
+                break
 
     if not file_path or not os.path.exists(file_path):
         raise HTTPException(

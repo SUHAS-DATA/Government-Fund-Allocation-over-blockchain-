@@ -1149,6 +1149,56 @@ def record_contractor_transfer_onchain(transfer_id, project_id, district_name, c
 
     return generate_cryptographic_ledger_receipt(role="DISTRICT", op_name="transferToContractor", target_address=rec_addr_checksum)
 
+def check_project_escrow_exists_onchain(project_id: str) -> bool:
+    """
+    Authoritatively checks whether a ProjectEscrow exists on-chain for the canonical project_id.
+    Returns True if projectEscrows[project_id].exists == True, False otherwise.
+    """
+    if not is_blockchain_enabled():
+        return False
+    contract = get_contract()
+    if not contract or not w3 or not w3.is_connected():
+        return False
+    try:
+        escrow = contract.functions.projectEscrows(str(project_id)).call()
+        # ProjectEscrow struct tuple:
+        # [projectId, name, contractor, totalBudget, releasedAmount, milestoneCount, isFrozen, freezeReason, createdTimestamp, exists]
+        if escrow and len(escrow) >= 10:
+            return bool(escrow[9])
+        return False
+    except Exception as e:
+        bc_logger.debug(f"Error querying on-chain project escrow for {project_id}: {e}")
+        return False
+
+def get_project_escrow_onchain(project_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Retrieves the authoritative on-chain ProjectEscrow struct details.
+    """
+    if not is_blockchain_enabled():
+        return None
+    contract = get_contract()
+    if not contract or not w3 or not w3.is_connected():
+        return None
+    try:
+        escrow = contract.functions.projectEscrows(str(project_id)).call()
+        if escrow and len(escrow) >= 10 and escrow[9]:  # exists
+            return {
+                "project_id": escrow[0],
+                "name": escrow[1],
+                "contractor": escrow[2],
+                "total_budget": escrow[3],
+                "released_amount": escrow[4],
+                "milestone_count": escrow[5],
+                "is_frozen": escrow[6],
+                "freeze_reason": escrow[7],
+                "created_timestamp": escrow[8],
+                "exists": True
+            }
+        return None
+    except Exception as e:
+        bc_logger.debug(f"Error retrieving on-chain project escrow for {project_id}: {e}")
+        return None
+
 def create_project_escrow_onchain(project_id, project_name, contractor_address, total_budget):
     contract = get_contract()
     c_addr = contractor_address if contractor_address and w3.is_address(contractor_address) else WALLET_REGISTRY["CONTRACTOR"]["address"]
@@ -1156,57 +1206,92 @@ def create_project_escrow_onchain(project_id, project_name, contractor_address, 
         try:
             return execute_contract_transaction(
                 contract.functions.createProjectEscrow(
-                    project_id, project_name, w3.to_checksum_address(c_addr), int(total_budget)
+                    str(project_id), str(project_name), w3.to_checksum_address(c_addr), int(total_budget)
                 ),
                 role="DISTRICT"
             )
-        except Exception:
-            pass
+        except Exception as e:
+            if "reverted" in str(e).lower() or is_cloud_render:
+                raise
+            bc_logger.warning(f"Live contract call createProjectEscrow failed: {e}. Using ledger engine.")
     return generate_cryptographic_ledger_receipt(role="DISTRICT", op_name="createProjectEscrow", target_address=c_addr)
 
 def set_project_milestones_onchain(project_id, milestone_amounts):
     contract = get_contract()
     amounts = [int(a) for a in milestone_amounts]
     if contract and w3 and w3.is_connected():
+        if not check_project_escrow_exists_onchain(project_id):
+            err_msg = (
+                f"Cannot configure milestones on-chain: Project escrow does not exist for '{project_id}'. "
+                "Initialize project escrow before setting milestones."
+            )
+            bc_logger.warning(err_msg)
+            if is_cloud_render:
+                raise ValueError(err_msg)
+            return generate_cryptographic_ledger_receipt(role="DISTRICT", op_name="setMilestones")
         try:
             return execute_contract_transaction(
-                contract.functions.setMilestones(project_id, amounts),
+                contract.functions.setMilestones(str(project_id), amounts),
                 role="DISTRICT"
             )
-        except Exception:
-            pass
+        except Exception as e:
+            if "reverted" in str(e).lower() or is_cloud_render:
+                raise
+            bc_logger.warning(f"Live contract call setMilestones failed: {e}. Using ledger engine.")
     return generate_cryptographic_ledger_receipt(role="DISTRICT", op_name="setMilestones")
 
 def submit_milestone_progress_onchain(project_id, milestone_index, proof_hash, percentage):
     contract = get_contract()
     if contract and w3 and w3.is_connected():
+        if not check_project_escrow_exists_onchain(project_id):
+            err_msg = (
+                f"Cannot submit milestone progress on-chain: Project escrow does not exist for '{project_id}'. "
+                "Initialize project escrow before submitting progress."
+            )
+            bc_logger.warning(err_msg)
+            if is_cloud_render:
+                raise ValueError(err_msg)
+            return generate_cryptographic_ledger_receipt(role="CONTRACTOR", op_name="submitMilestoneProgress")
         try:
             return execute_contract_transaction(
-                contract.functions.submitMilestoneProgress(project_id, int(milestone_index), proof_hash, int(percentage)),
+                contract.functions.submitMilestoneProgress(str(project_id), int(milestone_index), proof_hash, int(percentage)),
                 role="CONTRACTOR"
             )
-        except Exception:
-            pass
+        except Exception as e:
+            if "reverted" in str(e).lower() or is_cloud_render:
+                raise
+            bc_logger.warning(f"Live contract call submitMilestoneProgress failed: {e}. Using ledger engine.")
     return generate_cryptographic_ledger_receipt(role="CONTRACTOR", op_name="submitMilestoneProgress")
 
 def release_milestone_payment_onchain(project_id, milestone_index):
     contract = get_contract()
     if contract and w3 and w3.is_connected():
+        # Pre-flight check: Escrow MUST exist on-chain before calling releaseMilestonePayment
+        if not check_project_escrow_exists_onchain(project_id):
+            err_msg = (
+                f"Cannot release milestone payment: Project escrow does not exist on-chain for project '{project_id}'. "
+                "The project escrow must be initialized by the District before releasing milestone payments."
+            )
+            bc_logger.error(f"[ESCROW_PREFLIGHT_ERROR] {err_msg}")
+            raise ValueError(err_msg)
+
         try:
             res = execute_contract_transaction(
-                contract.functions.releaseMilestonePayment(project_id, int(milestone_index)),
+                contract.functions.releaseMilestonePayment(str(project_id), int(milestone_index)),
                 role="DISTRICT"
             )
             if res:
                 try:
-                    escrow = contract.functions.projectEscrows(project_id).call()
+                    escrow = contract.functions.projectEscrows(str(project_id)).call()
                     con_addr = escrow[2] if len(escrow) > 2 else CONTRACTOR_ADDR
                     send_native_eth_transfer("DISTRICT", con_addr, amount_eth=0.05)
                 except Exception:
                     send_native_eth_transfer("DISTRICT", CONTRACTOR_ADDR, amount_eth=0.05)
                 return res
-        except Exception:
-            pass
+        except Exception as e:
+            if "reverted" in str(e).lower() or is_cloud_render:
+                raise
+            bc_logger.warning(f"Live contract call releaseMilestonePayment failed: {e}. Using ledger engine.")
     return generate_cryptographic_ledger_receipt(role="DISTRICT", op_name="releaseMilestonePayment", target_address=CONTRACTOR_ADDR)
 
 def anchor_document_hash_onchain(doc_id, doc_hash, doc_type, entity_id, role="DISTRICT"):

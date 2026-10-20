@@ -256,6 +256,17 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+
+  // Automatically remove Content-Type header when sending FormData
+  // so the browser / runtime computes 'multipart/form-data; boundary=...'
+  const isFormData = config.data && (
+    (typeof FormData !== 'undefined' && config.data instanceof FormData) ||
+    (typeof config.data.append === 'function')
+  );
+  if (isFormData || (config.headers && config.headers['Content-Type'] === 'multipart/form-data')) {
+    delete config.headers['Content-Type'];
+  }
+
   return config;
 }, (error) => {
   return Promise.reject(error);

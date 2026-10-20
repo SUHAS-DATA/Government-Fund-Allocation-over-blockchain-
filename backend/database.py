@@ -297,6 +297,64 @@ def compute_project_progress(proj, milestones=None):
         
     return min(100, max(0, int(round(total_weighted_progress))))
 
+def reconcile_project_released_amount(proj: dict, milestones: list = None, exclude_milestone_index: int = None) -> float:
+    """
+    Calculate and reconcile the accurate project released_amount based on funded milestones.
+    Prevents double-counting across milestone submissions/verifications and auto-heals historical budget drift.
+    """
+    if not proj:
+        return 0.0
+
+    project_id = proj.get("project_id")
+    if not project_id:
+        return float(proj.get("released_amount", 0.0))
+
+    if milestones is None:
+        milestones = list(db.milestones.find({"project_id": project_id}))
+
+    if not milestones:
+        return float(proj.get("released_amount", 0.0))
+
+    actual_released = 0.0
+    for m in milestones:
+        if exclude_milestone_index is not None and m.get("milestone_index") == exclude_milestone_index:
+            continue
+
+        is_funded = bool(
+            m.get("funds_transferred_at")
+            or m.get("transfer_tx_hash")
+            or m.get("funds_approved_at")
+            or m.get("source_account_id")
+            or m.get("blockchainTxHash")
+            or m.get("status") in ["FUNDS_TRANSFERRED", "COMPLETED", "RELEASED"]
+            or m.get("phase_status") in ["FUNDS_TRANSFERRED", "COMPLETED", "RELEASED"]
+        )
+        if is_funded:
+            actual_released += float(m.get("amount", 0.0))
+
+    total_budget = float(proj.get("total_budget", 0.0))
+    if total_budget > 0:
+        actual_released = min(total_budget, actual_released)
+
+    # Heal stored released_amount in database if it has drifted
+    stored_released = float(proj.get("released_amount", 0.0))
+    if exclude_milestone_index is None:
+        if abs(stored_released - actual_released) > 0.01:
+            db.projects.update_one(
+                {"project_id": project_id},
+                {"$set": {"released_amount": actual_released}}
+            )
+            proj["released_amount"] = actual_released
+    else:
+        if stored_released > actual_released:
+            db.projects.update_one(
+                {"project_id": project_id},
+                {"$set": {"released_amount": actual_released}}
+            )
+            proj["released_amount"] = actual_released
+
+    return actual_released
+
 _active_fy_cache = {"year": None, "expires_at": 0}
 
 def get_active_financial_year(force_refresh: bool = False) -> str:

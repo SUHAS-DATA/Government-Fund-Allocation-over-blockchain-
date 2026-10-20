@@ -5,6 +5,7 @@ import {
   Plus,
   UserCheck,
   Lock,
+  Shield,
   ShieldCheck,
   CheckCircle2,
   Clock,
@@ -92,6 +93,8 @@ const ProjectsManagement = () => {
 
   const [assignContractorId, setAssignContractorId] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [submittingEscrow, setSubmittingEscrow] = useState('');
 
   const normalizeScheme = (s) => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
 
@@ -287,6 +290,27 @@ const ProjectsManagement = () => {
     }
   };
 
+  // Deploy Smart Contract Escrow on Ethereum
+  const handleCreateEscrow = async (p) => {
+    const projId = p.project_id;
+    setSubmittingEscrow(projId);
+    setActionSuccess('');
+    setActionError('');
+    try {
+      const res = await API.post(`/district/projects/${projId}/create-escrow`);
+      if (res.success) {
+        setActionSuccess(`Smart contract escrow deployed on Ethereum for ${projId}! Tx: ${res.blockchain?.tx_hash || 'Confirmed'}`);
+        loadData();
+      } else {
+        setActionError(res.message || 'Failed to deploy smart contract escrow');
+      }
+    } catch (err) {
+      setActionError(err.message || 'Failed to deploy smart contract escrow');
+    } finally {
+      setSubmittingEscrow('');
+    }
+  };
+
   const openProjectDetails = async (p) => {
     const res = await API.get(`/district/projects/${p.project_id}`);
     if (res.success) {
@@ -397,6 +421,19 @@ const ProjectsManagement = () => {
             >
               <UserCheck size={12} />
               <span>Assign Contractor</span>
+            </button>
+          )}
+
+          {r.contractor_name && !r.escrow_onchain && (
+            <button
+              className="btn btn-outline btn-sm"
+              onClick={() => handleCreateEscrow(r)}
+              disabled={submittingEscrow === r.project_id}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', borderColor: '#2563EB', color: '#1D4ED8' }}
+              title="Deploy smart contract escrow on Ethereum before releasing funds"
+            >
+              <Shield size={12} />
+              <span>{submittingEscrow === r.project_id ? 'Deploying...' : 'Deploy Escrow'}</span>
             </button>
           )}
 
@@ -1334,6 +1371,68 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
         </div>
       )}
 
+      {/* Escrow Deployment Status Banner */}
+      <div style={{
+        background: projData.escrow_onchain ? 'rgba(5, 150, 105, 0.08)' : 'rgba(217, 119, 6, 0.08)',
+        border: `1.5px solid ${projData.escrow_onchain ? 'var(--color-success-border)' : 'var(--color-warning-border)'}`,
+        borderRadius: 'var(--radius-sm)',
+        padding: '12px 16px',
+        marginBottom: '16px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: '12px',
+        flexWrap: 'wrap'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <ShieldCheck size={22} color={projData.escrow_onchain ? 'var(--color-success)' : 'var(--color-warning)'} />
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: '800', color: projData.escrow_onchain ? 'var(--color-success)' : 'var(--color-warning)' }}>
+              {projData.escrow_onchain ? 'Smart Contract Escrow Active on Ethereum' : 'Smart Contract Escrow Pending Deployment'}
+            </div>
+            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+              {projData.escrow_onchain
+                ? 'On-chain escrow is funded and verifiable on Ethereum Sepolia.'
+                : 'Project escrow must be deployed on-chain before milestone releases can be disbursed.'}
+            </div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {projData.escrow_tx_hash && (
+            <BlockchainBadge txHash={projData.escrow_tx_hash} />
+          )}
+          {!projData.escrow_onchain && projData.contractor_name && (
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={async () => {
+                setSubmitting(true);
+                setActionMsg('');
+                setActionError('');
+                try {
+                  const res = await API.post(`/district/projects/${projData.project_id}/create-escrow`);
+                  if (res.success) {
+                    setActionMsg(`Smart contract escrow deployed on Ethereum! Tx: ${res.blockchain?.tx_hash || 'Confirmed'}`);
+                    loadDetails();
+                    onRefresh();
+                  } else {
+                    setActionError(res.message || 'Failed to deploy escrow');
+                  }
+                } catch (e) {
+                  setActionError(e.message || 'Failed to deploy escrow');
+                } finally {
+                  setSubmitting(false);
+                }
+              }}
+              disabled={submitting}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              <Shield size={14} />
+              <span>{submitting ? 'Deploying...' : 'Deploy Escrow On-Chain'}</span>
+            </button>
+          )}
+        </div>
+      </div>
+
       {actionMsg && (
         <div style={{
           background: 'var(--color-success-bg)',
@@ -1435,7 +1534,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
                 {/* Work Evidence Inspection & Verification Deliverables */}
                 {(() => {
                   const mEvidence = (details?.evidence || []).filter(
-                    (e) => e.milestone_index === m.milestone_index || e.milestoneId === m._id || e.milestoneId === `MS-${project.project_id}-${m.milestone_index + 1}`
+                    (e) => Number(e.milestone_index) === Number(m.milestone_index) || e.milestoneId === m._id || e.milestoneId === `MS-${project.project_id}-${m.milestone_index + 1}`
                   );
 
                   if (mEvidence.length > 0) {

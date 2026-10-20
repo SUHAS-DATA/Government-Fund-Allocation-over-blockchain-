@@ -9,7 +9,8 @@ from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Request, Depends, status, Query
 from fastapi.responses import JSONResponse
-from database import db, serialize_doc, compute_project_progress, get_active_financial_year
+from bson import ObjectId
+from database import db, serialize_doc, compute_project_progress, get_active_financial_year, reconcile_project_released_amount
 from auth_middleware import require_roles
 import blockchain_service as bcs
 from realtime_manager import realtime_manager
@@ -21,7 +22,12 @@ contractor_bp = router
 UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-ALLOWED_EVIDENCE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".pdf", ".doc", ".docx"}
+ALLOWED_EVIDENCE_EXTENSIONS = {
+    ".jpg", ".jpeg", ".png", ".webp",
+    ".pdf", ".doc", ".docx",
+    ".mp4", ".webm", ".avi", ".mov",
+    ".txt", ".csv", ".xlsx", ".xls"
+}
 MAX_EVIDENCE_FILE_SIZE = 25 * 1024 * 1024  # 25 MB
 
 def sanitize_filename(filename: str) -> str:
@@ -33,39 +39,112 @@ def generate_doc_id(doc_type):
     return f"DOC-{doc_type}-{rand_suffix}"
 
 def get_contractor_identifiers(current_user: dict):
-    """Extract all non-empty matching IDs for the logged-in contractor"""
+    """
+    Extract primary IDs for the logged-in contractor.
+    Enriches with canonical contractor_id from db.users if missing in JWT.
+    """
     user_id = str(current_user.get("user_id") or "").strip()
     email = str(current_user.get("email") or "").strip().lower()
     officer_id = str(current_user.get("officer_id") or current_user.get("contractor_id") or "").strip()
+
+    if not officer_id and (user_id or email):
+        user = None
+        if user_id and ObjectId.is_valid(user_id):
+            user = db.users.find_one({"_id": ObjectId(user_id)})
+        if not user and email:
+            user = db.users.find_one({"email": email})
+        if user:
+            officer_id = str(user.get("contractor_id") or "")
+            if not email and user.get("email"):
+                email = user["email"].lower()
+            if not user_id:
+                user_id = str(user["_id"])
+
     return user_id, email, officer_id
 
-def verify_contractor_project_ownership(proj, current_user: dict):
+def get_all_contractor_ids(current_user: dict) -> list:
+    """
+    Return all valid identifier aliases for the authenticated contractor.
+    Covers MongoDB user ObjectId, canonical business code (e.g. CON-KA-APEX),
+    verified email, and linked KYC document ObjectId.
+    """
+    ids = set()
+    user_id, email, officer_id = get_contractor_identifiers(current_user)
+    if user_id:
+        ids.add(user_id)
+    if email:
+        ids.add(email)
+    if officer_id:
+        ids.add(officer_id)
+
+    # Resolve from users collection
+    user = None
+    if user_id and ObjectId.is_valid(user_id):
+        user = db.users.find_one({"_id": ObjectId(user_id)})
+    if not user and email:
+        user = db.users.find_one({"email": email})
+    if user:
+        ids.add(str(user["_id"]))
+        if user.get("email"):
+            ids.add(user["email"].lower())
+        if user.get("contractor_id"):
+            ids.add(user["contractor_id"])
+
+    # Resolve from contractor_kyc
+    kyc_queries = []
+    if user_id:
+        kyc_queries.append({"user_id": user_id})
+    if email:
+        kyc_queries.append({"email": email})
+    if user and user.get("contractor_id"):
+        kyc_queries.append({"contractor_id": user["contractor_id"]})
+    if officer_id:
+        kyc_queries.append({"contractor_id": officer_id})
+
+    if kyc_queries:
+        kyc = db.contractor_kyc.find_one({"$or": kyc_queries})
+        if kyc:
+            ids.add(str(kyc["_id"]))
+            if kyc.get("contractor_id"):
+                ids.add(kyc["contractor_id"])
+            if kyc.get("user_id"):
+                ids.add(str(kyc["user_id"]))
+            if kyc.get("email"):
+                ids.add(kyc["email"].lower())
+
+    return [i for i in ids if i]
+
+def verify_contractor_project_ownership(proj, current_user: dict) -> bool:
     """Verify that the project is assigned to the authenticated contractor"""
     if not proj:
         return False
-    user_id, email, officer_id = get_contractor_identifiers(current_user)
-    valid_ids = [i for i in [user_id, email, officer_id] if i]
+    valid_ids = get_all_contractor_ids(current_user)
     if not valid_ids:
         return False
 
     proj_cid = str(proj.get("contractor_id") or "").strip()
+    proj_canon_cid = str(proj.get("canonical_contractor_id") or "").strip()
     proj_email = str(proj.get("contractor_email") or "").strip().lower()
 
     if proj_cid and proj_cid in valid_ids:
         return True
-    if proj_email and email and proj_email == email:
+    if proj_canon_cid and proj_canon_cid in valid_ids:
+        return True
+    if proj_email and proj_email in valid_ids:
         return True
     return False
 
-def build_contractor_project_query(current_user: dict):
-    user_id, email, officer_id = get_contractor_identifiers(current_user)
-    cids = [i for i in [user_id, email, officer_id] if i]
-    if not cids:
+def build_contractor_project_query(current_user: dict) -> dict:
+    valid_ids = get_all_contractor_ids(current_user)
+    if not valid_ids:
         return {"_id": None}  # match nothing if unauthenticated/invalid contractor profile
-    or_clauses = [{"contractor_id": {"$in": cids}}]
-    if email:
-        or_clauses.append({"contractor_email": email})
-    return {"$or": or_clauses}
+    return {
+        "$or": [
+            {"contractor_id": {"$in": valid_ids}},
+            {"canonical_contractor_id": {"$in": valid_ids}},
+            {"contractor_email": {"$in": valid_ids}}
+        ]
+    }
 
 @router.get("/dashboard")
 async def dashboard(
@@ -88,17 +167,43 @@ async def dashboard(
     
     target_fy = fy or get_active_financial_year()
     base_query = build_contractor_project_query(current_user)
-    fy_query = {"$and": [base_query, {"financial_year": target_fy}]}
+
+    # 1. FY filtered projects for overview metrics
+    if target_fy and target_fy.upper() != "ALL":
+        fy_query = {"$and": [base_query, {"financial_year": target_fy}]}
+    else:
+        fy_query = base_query
     projects = list(db.projects.find(fy_query).sort("created_at", -1))
 
-    total_value = sum(p.get("total_budget", 0) for p in projects if p.get("status") not in ["REJECTED_BY_CONTRACTOR"])
-    total_received = sum(p.get("released_amount", 0) for p in projects)
-    pending_assignments = [
-        p for p in projects 
-        if (p.get("status") in ["ASSIGNED", "PENDING_ACCEPTANCE"] or p.get("assignment_status") != "ACCEPTED" or not p.get("phases_configured")) and p.get("status") not in ["COMPLETED", "REJECTED_BY_CONTRACTOR"]
-    ]
+    # 2. All pending assignments requiring contractor action (NEVER hidden by FY filter!)
+    pending_query = {
+        "$and": [
+            base_query,
+            {
+                "$or": [
+                    {"status": {"$in": ["ASSIGNED", "PENDING_ACCEPTANCE"]}},
+                    {"assignment_status": {"$ne": "ACCEPTED"}},
+                    {"phases_configured": {"$ne": True}}
+                ]
+            },
+            {"status": {"$nin": ["COMPLETED", "CLOSED", "REJECTED_BY_CONTRACTOR"]}}
+        ]
+    }
+    pending_assignments = list(db.projects.find(pending_query).sort("created_at", -1))
 
-    proj_ids = [str(p.get("project_id")) for p in projects if p.get("project_id")]
+    # Merge pending into display projects so contractor immediately sees all awards
+    seen_ids = set()
+    display_projects = []
+    for p in pending_assignments + projects:
+        pid = p.get("project_id")
+        if pid and pid not in seen_ids:
+            seen_ids.add(pid)
+            display_projects.append(p)
+
+    total_value = sum(p.get("total_budget", 0) for p in display_projects if p.get("status") not in ["REJECTED_BY_CONTRACTOR"])
+    total_received = sum(p.get("released_amount", 0) for p in display_projects)
+
+    proj_ids = [str(p.get("project_id")) for p in display_projects if p.get("project_id")]
     pay_query = {
         "operation_type": "MILESTONE_PAYMENT_RELEASE",
         "$or": [
@@ -119,13 +224,13 @@ async def dashboard(
         "metrics": {
             "total_contract_value": total_value,
             "total_payments_received": total_received,
-            "assigned_projects_count": len(projects),
+            "assigned_projects_count": len(display_projects),
             "pending_assignments_count": len(pending_assignments),
-            "active_projects_count": len([p for p in projects if p.get("status") in ["IN_PROGRESS", "ACCEPTED", "ESCROW_FUNDED"]]),
-            "completed_projects_count": len([p for p in projects if p.get("status") == "COMPLETED"]),
+            "active_projects_count": len([p for p in display_projects if p.get("status") in ["IN_PROGRESS", "ACCEPTED", "ESCROW_FUNDED"]]),
+            "completed_projects_count": len([p for p in display_projects if p.get("status") == "COMPLETED"]),
             "kyc_status": kyc.get("kyc_status") if kyc else "APPROVED"
         },
-        "assigned_projects": serialize_doc(projects[:10]),
+        "assigned_projects": serialize_doc(display_projects[:10]),
         "pending_assignments": serialize_doc(pending_assignments),
         "recent_payments": serialize_doc(recent_payments)
     }
@@ -157,20 +262,42 @@ async def kyc_submit(
     user_id, email, _ = get_contractor_identifiers(current_user)
     form = await request.form()
 
-    company_name = form.get("company_name", current_user["name"])
+    company_name = form.get("company_name", current_user.get("name", ""))
     gst_number = str(form.get("gst_number", "")).strip().upper()
     pan_number = str(form.get("pan_number", "")).strip().upper()
     license_number = str(form.get("license_number", "")).strip()
     experience_years = int(form.get("experience_years", 5))
 
-    if not gst_number or not pan_number or not license_number:
+    existing_kyc = None
+    if user_id or email:
+        existing_kyc = db.contractor_kyc.find_one({"$or": [q for q in [{"user_id": user_id}, {"email": email}] if q.get("user_id") or q.get("email")]})
+
+    if existing_kyc:
+        if not gst_number:
+            gst_number = existing_kyc.get("gst_number", "")
+        if not pan_number:
+            pan_number = existing_kyc.get("pan_number", "")
+        if not license_number:
+            license_number = existing_kyc.get("license_number", "")
+        if not company_name:
+            company_name = existing_kyc.get("company_name", current_user.get("name", ""))
+
+    if not gst_number or not pan_number:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content={"success": False, "message": "GSTIN, PAN, and PWD license numbers are required"}
+            content={"success": False, "message": "GSTIN and PAN numbers are required"}
         )
 
     doc_keys = [("gst_document", "GST"), ("pan_document", "PAN"), ("license_document", "PWD_LICENSE")]
+    
+    # Also support general statutory document upload from ContractorKYC.jsx
+    statutory_file = form.get("file") or form.get("document")
+    if statutory_file and hasattr(statutory_file, "filename") and statutory_file.filename:
+        st_type = str(form.get("doc_type") or "STATUTORY_CREDENTIAL").strip().upper()
+        doc_keys.append(("file" if form.get("file") else "document", st_type))
+
     anchored_docs = []
+    file_path_map = {}
 
     for form_key, doc_type in doc_keys:
         file = form.get(form_key)
@@ -183,6 +310,15 @@ async def kyc_submit(
 
             sha256_digest = bcs.calculate_sha256(save_path)
             doc_id = generate_doc_id(doc_type)
+
+            if form_key in ["gst_document", "pan_document", "license_document"]:
+                file_path_map[form_key] = save_path
+            elif form_key in ["file", "document"]:
+                raw_type = str(form.get("doc_type") or "").strip().lower()
+                if raw_type in ["gst_document", "pan_document", "license_document", "tax_returns", "bank_statement"]:
+                    file_path_map[raw_type] = save_path
+                else:
+                    file_path_map["statutory_document"] = save_path
 
             tx_hash = None
             try:
@@ -212,12 +348,13 @@ async def kyc_submit(
         "company_name": company_name,
         "gst_number": gst_number,
         "pan_number": pan_number,
-        "license_number": license_number,
+        "license_number": license_number or "PWD-REG-VERIFIED",
         "experience_years": experience_years,
         "kyc_status": "APPROVED",
-        "updated_at": datetime.now(timezone.utc)
+        "updated_at": datetime.now(timezone.utc),
+        **file_path_map
     }
-    db.contractor_kyc.update_one({"user_id": user_id}, {"$set": kyc_update}, upsert=True)
+    db.contractor_kyc.update_one({"$or": [{"user_id": user_id}, {"email": email}]}, {"$set": kyc_update}, upsert=True)
 
     return {
         "success": True,
@@ -231,8 +368,23 @@ async def get_my_projects(
     fy: Optional[str] = Query(None),
     current_user: dict = Depends(require_roles(["CONTRACTOR"]))
 ):
-    target_fy = fy or get_active_financial_year()
-    query = {"$and": [build_contractor_project_query(current_user), {"financial_year": target_fy}]}
+    base_query = build_contractor_project_query(current_user)
+    if fy and fy.upper() != "ALL":
+        query = {
+            "$and": [
+                base_query,
+                {
+                    "$or": [
+                        {"financial_year": fy},
+                        {"status": {"$in": ["ASSIGNED", "PENDING_ACCEPTANCE"]}},
+                        {"assignment_status": {"$in": ["ASSIGNED", "PENDING_ACCEPTANCE"]}}
+                    ]
+                }
+            ]
+        }
+    else:
+        query = base_query
+
     projects = list(db.projects.find(query).sort("created_at", -1))
     
     for p in projects:
@@ -240,7 +392,7 @@ async def get_my_projects(
         phases = list(db.milestones.find({"project_id": p_id}).sort("milestone_index", 1))
         p["phases"] = serialize_doc(phases)
 
-    return {"success": True, "financial_year": target_fy, "projects": serialize_doc(projects)}
+    return {"success": True, "financial_year": fy or get_active_financial_year(), "projects": serialize_doc(projects)}
 
 @router.get("/projects/{project_id}")
 async def get_contractor_project_details(
@@ -264,6 +416,12 @@ async def get_contractor_project_details(
         )
 
     milestones = list(db.milestones.find({"project_id": project_id}).sort("milestone_index", 1))
+    reconcile_project_released_amount(proj, milestones=milestones)
+    calc_prog = compute_project_progress(proj, milestones=milestones)
+    if proj.get("progress_percentage") != calc_prog:
+        db.projects.update_one({"project_id": project_id}, {"$set": {"progress_percentage": calc_prog}})
+        proj["progress_percentage"] = calc_prog
+
     documents = list(db.documents.find({"entity_id": project_id}).sort("uploaded_at", -1))
     evidence = list(db.evidence.find({"$or": [{"project_id": project_id}, {"projectId": project_id}]}).sort("uploaded_at", -1))
     qr_doc = db.qr_codes.find_one({"project_id": project_id})
@@ -385,7 +543,10 @@ async def accept_project(
 
     try:
         amounts_list = [int(p1_amount), int(p2_amount), int(p3_amount)]
-        bcs.set_project_milestones_onchain(project_id, amounts_list)
+        if proj.get("escrow_onchain") or bcs.check_project_escrow_exists_onchain(project_id):
+            bcs.set_project_milestones_onchain(project_id, amounts_list)
+        else:
+            print(f"Notice: On-chain escrow not yet initialized for {project_id}. Milestones will sync upon escrow deployment.")
     except Exception as e:
         print(f"Warning syncing on-chain milestones: {e}")
 
@@ -685,13 +846,31 @@ async def handle_milestone_progress_submission(project_id: str, milestone_index:
         )
 
     form = {}
-    try:
-        form = await request.form()
-    except Exception:
+    content_type = request.headers.get("content-type", "")
+    if "multipart/form-data" in content_type:
+        try:
+            form = await request.form()
+        except Exception as e:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"success": False, "message": f"Malformed multipart form data: {str(e)}"}
+            )
+    elif "application/json" in content_type:
         try:
             form = await request.json()
+        except Exception as e:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={"success": False, "message": f"Malformed JSON request: {str(e)}"}
+            )
+    else:
+        try:
+            form = await request.form()
         except Exception:
-            pass
+            try:
+                form = await request.json()
+            except Exception:
+                form = {}
 
     if milestone_index is None:
         milestone_index = int(form.get("milestone_index", 0))
@@ -701,6 +880,12 @@ async def handle_milestone_progress_submission(project_id: str, milestone_index:
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,
             content={"success": False, "message": f"Phase #{milestone_index + 1} not found"}
+        )
+
+    if phase.get("status") in ["COMPLETED", "RELEASED"] or phase.get("phase_status") in ["COMPLETED", "RELEASED"]:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": f"Phase #{milestone_index + 1} has already been verified and completed."}
         )
 
     if milestone_index > 0:
@@ -734,12 +919,31 @@ async def handle_milestone_progress_submission(project_id: str, milestone_index:
         ("other_doc_file", "QUALITY_TEST_CERTIFICATE")
     ]
 
+    contractor_id_canonical = (
+        proj.get("canonical_contractor_id") or 
+        proj.get("contractor_id") or 
+        str(current_user.get("contractor_id") or current_user.get("user_id", ""))
+    )
+
     for form_key, doc_type in file_categories:
         file_obj = form.get(form_key)
         if file_obj and hasattr(file_obj, "filename") and file_obj.filename:
-            fname = sanitize_filename(f"{project_id}_PHASE{milestone_index + 1}_{doc_type}_{file_obj.filename}")
-            save_path = os.path.join(UPLOAD_FOLDER, fname)
+            orig_filename = file_obj.filename
+            _, ext = os.path.splitext(orig_filename.lower())
+            if ext not in ALLOWED_EVIDENCE_EXTENSIONS:
+                return JSONResponse(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    content={"success": False, "message": f"Unsupported file type '{ext}' for {form_key}. Allowed formats: JPG, PNG, WEBP, PDF, DOC, DOCX, MP4, WEBM, AVI, MOV."}
+                )
             content = await file_obj.read()
+            if len(content) > MAX_EVIDENCE_FILE_SIZE:
+                return JSONResponse(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    content={"success": False, "message": f"File '{orig_filename}' exceeds 25 MB limit ({len(content) / (1024 * 1024):.1f} MB)."}
+                )
+
+            fname = sanitize_filename(f"{project_id}_PHASE{milestone_index + 1}_{doc_type}_{orig_filename}")
+            save_path = os.path.join(UPLOAD_FOLDER, fname)
             with open(save_path, "wb") as f:
                 f.write(content)
             
@@ -762,6 +966,7 @@ async def handle_milestone_progress_submission(project_id: str, milestone_index:
                 "doc_type": doc_type,
                 "entity_id": project_id,
                 "milestone_index": milestone_index,
+                "contractor_id": contractor_id_canonical,
                 "uploaded_at": datetime.now(timezone.utc)
             }
             db.documents.insert_one(doc_rec)
@@ -779,9 +984,10 @@ async def handle_milestone_progress_submission(project_id: str, milestone_index:
                 "milestone_id": f"MS-{project_id}-{milestone_index + 1}",
                 "milestoneId": f"MS-{project_id}-{milestone_index + 1}",
                 "milestone_index": milestone_index,
-                "contractor_id": str(current_user.get("user_id", "")),
-                "contractorId": str(current_user.get("user_id", "")),
+                "contractor_id": contractor_id_canonical,
+                "contractorId": contractor_id_canonical,
                 "contractor_name": proj.get("contractor_name") or current_user.get("name"),
+                "submitted_by_user_id": str(current_user.get("user_id", "")),
                 "project_name": proj.get("name"),
                 "district_name": proj.get("district_name"),
                 "file_name": getattr(file_obj, "filename", fname) or fname,
@@ -1015,6 +1221,12 @@ async def upload_work_evidence(
             content={"success": False, "message": f"Milestone #{milestone_index + 1} not found"}
         )
 
+    if milestone.get("status") in ["COMPLETED", "RELEASED"] or milestone.get("phase_status") in ["COMPLETED", "RELEASED"]:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": f"Phase #{milestone_index + 1} has already been verified and completed."}
+        )
+
     try:
         form = await request.form()
     except Exception as e:
@@ -1086,7 +1298,11 @@ async def upload_work_evidence(
 
     contract_id = proj.get("contract_id") or f"CTR-{project_id}"
     milestone_id = str(milestone.get("_id")) or f"MS-{project_id}-{milestone_index + 1}"
-    contractor_id = str(current_user.get("user_id", ""))
+    contractor_id_canonical = (
+        proj.get("canonical_contractor_id") or 
+        proj.get("contractor_id") or 
+        str(current_user.get("contractor_id") or current_user.get("user_id", ""))
+    )
     now_utc = datetime.now(timezone.utc)
 
     evidence_doc = {
@@ -1099,9 +1315,10 @@ async def upload_work_evidence(
         "milestone_id": milestone_id,
         "milestoneId": milestone_id,
         "milestone_index": milestone_index,
-        "contractor_id": contractor_id,
-        "contractorId": contractor_id,
+        "contractor_id": contractor_id_canonical,
+        "contractorId": contractor_id_canonical,
         "contractor_name": proj.get("contractor_name") or current_user.get("name"),
+        "submitted_by_user_id": str(current_user.get("user_id", "")),
         "project_name": proj.get("name"),
         "district_name": proj.get("district_name"),
         "file_name": orig_filename,
@@ -1135,6 +1352,7 @@ async def upload_work_evidence(
         "doc_type": "WORK_EVIDENCE",
         "entity_id": project_id,
         "milestone_index": milestone_index,
+        "contractor_id": contractor_id_canonical,
         "uploaded_at": now_utc
     })
 

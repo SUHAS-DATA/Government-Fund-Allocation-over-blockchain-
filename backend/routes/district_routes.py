@@ -8,7 +8,7 @@ from pymongo import ReturnDocument
 from fastapi import APIRouter, Request, Depends, status, Query
 from fastapi.responses import JSONResponse
 from bson import ObjectId
-from database import db, serialize_doc, compute_project_progress, get_active_financial_year
+from database import db, serialize_doc, compute_project_progress, get_active_financial_year, reconcile_project_released_amount
 from auth_middleware import require_roles
 import blockchain_service as bcs
 import qr_service
@@ -260,8 +260,12 @@ async def get_contractors(
             db.contractor_kyc.update_one({"_id": c["_id"]}, {"$set": {"state_code": c_state_code, "state_name": c_state_name}})
 
         if user:
+            c["user_id"] = str(user["_id"])
+            if user.get("contractor_id"):
+                c["contractor_id"] = user.get("contractor_id")
             c["email"] = user.get("email", c.get("email"))
             c["contact_name"] = user.get("name", c.get("company_name"))
+            c["company_name"] = c.get("company_name") or user.get("company_name") or user.get("name")
             c["wallet_address"] = user.get("wallet_address", c.get("wallet_address", "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"))
             if not c_state_name and user.get("state_name"):
                 c["state_name"] = user.get("state_name")
@@ -703,6 +707,14 @@ async def get_project_details(
         )
 
     milestones = list(db.milestones.find({"project_id": project_id}).sort("milestone_index", 1))
+    
+    # Auto-reconcile and heal released_amount and physical progress
+    reconcile_project_released_amount(proj, milestones=milestones)
+    calc_prog = compute_project_progress(proj, milestones=milestones)
+    if proj.get("progress_percentage") != calc_prog:
+        db.projects.update_one({"project_id": project_id}, {"$set": {"progress_percentage": calc_prog}})
+        proj["progress_percentage"] = calc_prog
+
     documents = list(db.documents.find({"entity_id": project_id}).sort("uploaded_at", -1))
     evidence = list(db.evidence.find({"$or": [{"project_id": project_id}, {"projectId": project_id}]}).sort("uploaded_at", -1))
     qr_doc = db.qr_codes.find_one({"project_id": project_id})
@@ -736,6 +748,17 @@ async def assign_contractor(
             content={"success": False, "message": err_msg}
         )
 
+    # Check project status to prevent corrupting active or completed workflows
+    curr_status = proj.get("status")
+    if curr_status in ["IN_PROGRESS", "ACCEPTED", "ESCROW_FUNDED", "COMPLETED", "CLOSED"]:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "success": False,
+                "message": f"Cannot reassign project in '{curr_status}' state. Project is already accepted and in execution."
+            }
+        )
+
     try:
         data = await request.json()
     except Exception:
@@ -748,29 +771,62 @@ async def assign_contractor(
             content={"success": False, "message": "Contractor ID is required"}
         )
 
-    query = {
-        "$or": [
-            {"user_id": str(contractor_user_id)},
-            {"contractor_id": str(contractor_user_id)},
-            {"email": str(contractor_user_id).lower()}
-        ]
-    }
-    if ObjectId.is_valid(str(contractor_user_id)):
-        query["$or"].append({"_id": ObjectId(contractor_user_id)})
+    # 1. Robust Multi-Collection Contractor Identity Resolution
+    # Resolves user and kyc documents whether frontend passes user ObjectId, KYC ObjectId, contractor code, or email
+    cid_str = str(contractor_user_id).strip()
+    kyc = None
+    user = None
 
-    kyc = db.contractor_kyc.find_one(query)
-    user_query = {
-        "$or": [
-            {"contractor_id": str(contractor_user_id)},
-            {"email": str(contractor_user_id).lower()},
-            {"username": str(contractor_user_id).lower()}
-        ]
-    }
-    if ObjectId.is_valid(str(contractor_user_id)):
-        user_query["$or"].append({"_id": ObjectId(contractor_user_id)})
-    user = db.users.find_one(user_query)
+    if ObjectId.is_valid(cid_str):
+        kyc = db.contractor_kyc.find_one({"_id": ObjectId(cid_str)})
+        user = db.users.find_one({"_id": ObjectId(cid_str)})
 
-    # 1. State Isolation Check: Contractor must be in the same state as the project
+    if not kyc:
+        kyc = db.contractor_kyc.find_one({
+            "$or": [
+                {"user_id": cid_str},
+                {"contractor_id": cid_str},
+                {"email": cid_str.lower()}
+            ]
+        })
+
+    # Link from KYC to User if user was not found directly by input ID
+    if not user and kyc:
+        uid = kyc.get("user_id")
+        if uid and ObjectId.is_valid(str(uid)):
+            user = db.users.find_one({"_id": ObjectId(uid)})
+        if not user and kyc.get("email"):
+            user = db.users.find_one({"email": kyc.get("email").lower()})
+        if not user and kyc.get("contractor_id"):
+            user = db.users.find_one({"contractor_id": kyc.get("contractor_id")})
+
+    # Fallback lookup in users table
+    if not user:
+        user = db.users.find_one({
+            "$or": [
+                {"contractor_id": cid_str},
+                {"email": cid_str.lower()},
+                {"username": cid_str.lower()}
+            ]
+        })
+
+    # Link from User to KYC if KYC was not found directly
+    if not kyc and user:
+        kyc = db.contractor_kyc.find_one({
+            "$or": [
+                {"user_id": str(user["_id"])},
+                {"contractor_id": user.get("contractor_id")},
+                {"email": user.get("email", "").lower()}
+            ]
+        })
+
+    if not user and not kyc:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"success": False, "message": f"Contractor '{contractor_user_id}' not found in registered accounts or KYC directory."}
+        )
+
+    # 2. State Isolation Check: Contractor must be in the same state as the project
     con_state = (kyc.get("state_code") if kyc else None) or (user.get("state_code") if user else None) or ""
     proj_state = (proj.get("state_code") or current_user.get("state_code") or "").strip().upper()
 
@@ -783,7 +839,7 @@ async def assign_contractor(
             }
         )
 
-    # 2. State Department Approval Check: Contractor must be verified by State Dept
+    # 3. State Department Approval Check: Contractor must be verified by State Dept
     kyc_status = (kyc.get("kyc_status") if kyc else None) or (user.get("kyc_status") if user else "UNDER_REVIEW")
     if kyc_status != "APPROVED":
         return JSONResponse(
@@ -794,10 +850,20 @@ async def assign_contractor(
             }
         )
 
-    company_name = (kyc.get("company_name") if kyc else None) or (user.get("company_name") if user else None) or (user.get("name") if user else None) or "Apex Infrastructure Contractors Pvt Ltd"
-    contractor_email = user.get("email") if user else "contractor@buildcorp.in"
-    contractor_assigned_id = str(user["_id"]) if user else str(contractor_user_id)
+    # 4. Authoritative Contractor Metadata & Canonical Identifiers
+    company_name = (kyc.get("company_name") if kyc else None) or (user.get("company_name") if user else None) or (user.get("name") if user else None) or "Registered Contractor"
+    contractor_email = (user.get("email") if user else None) or (kyc.get("email") if kyc else None) or "contractor@buildcorp.in"
+    contractor_assigned_id = str(user["_id"]) if user else (str(kyc.get("user_id")) if kyc and kyc.get("user_id") else str(contractor_user_id))
+    canonical_cid = (user.get("contractor_id") if user else None) or (kyc.get("contractor_id") if kyc else None) or f"CON-{proj_state}-{contractor_assigned_id[-4:].upper()}"
     contractor_wallet = (kyc.get("wallet_address") if kyc else None) or (user.get("wallet_address") if user else None) or "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
+
+    # Idempotency: If already assigned to this exact contractor awaiting acceptance
+    if curr_status == "ASSIGNED" and (proj.get("contractor_id") == contractor_assigned_id or proj.get("canonical_contractor_id") == canonical_cid):
+        return {
+            "success": True,
+            "message": f"Project {project_id} is already assigned to '{company_name}'. Awaiting contractor acceptance.",
+            "already_assigned": True
+        }
 
     bank_details = {
         "bank_name": (kyc.get("bank_name") if kyc else None) or (user.get("bank_name") if user else None) or "State Bank of India",
@@ -811,20 +877,27 @@ async def assign_contractor(
     }
 
     contract_id = proj.get("contract_id") or qr_service.generate_contract_id(project_id)
+    assigning_district = proj.get("district_name") or current_user.get("district_name") or "District"
 
+    # 5. Persist complete assignment schema linking project to contractor and district
     db.projects.update_one(
         {"project_id": project_id},
         {"$set": {
             "contract_id": contract_id,
             "contract_status": "PENDING_ACCEPTANCE",
+            "assignment_status": "ASSIGNED",
             "contractor_id": contractor_assigned_id,
+            "canonical_contractor_id": canonical_cid,
             "contractor_email": contractor_email,
             "contractor_name": company_name,
             "contractor_wallet": contractor_wallet,
             "contractor_bank_account": bank_details,
             "bank_account_status": "ACTIVE",
             "status": "ASSIGNED",
-            "assigned_at": datetime.now(timezone.utc)
+            "assigned_at": datetime.now(timezone.utc),
+            "assigned_by_district": assigning_district,
+            "assigned_district": assigning_district,
+            "assigned_by_user": current_user.get("name") or current_user.get("email")
         }}
     )
 
@@ -861,38 +934,92 @@ async def create_escrow(
             content={"success": False, "message": err_msg}
         )
 
-    if proj.get("escrow_onchain"):
+    if not proj.get("contractor_name") and not proj.get("contractor_id"):
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content={"success": False, "message": "Smart contract escrow already created on Ethereum"}
+            content={"success": False, "message": "Cannot create escrow: Contractor has not been assigned to this project yet."}
         )
+
+    # Check if escrow already exists on-chain
+    if bcs.check_project_escrow_exists_onchain(project_id):
+        db.projects.update_one(
+            {"project_id": project_id},
+            {"$set": {
+                "escrow_onchain": True,
+                "status": "ESCROW_FUNDED" if proj.get("status") in ["CREATED", "ASSIGNED"] else proj.get("status")
+            }}
+        )
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Smart contract escrow already created and active on Ethereum."}
+        )
+
+    # Authoritative resolution of contractor wallet address
+    contractor_wallet = proj.get("contractor_wallet")
+    is_valid_addr = contractor_wallet and bcs.w3.is_address(contractor_wallet) and contractor_wallet.lower() != "0x70997970c51812dc3a010c7d01b50e0d17dc79c8"
+    if not is_valid_addr:
+        c_id = proj.get("contractor_id")
+        kyc = db.contractor_kyc.find_one({
+            "$or": [{"user_id": str(c_id)}, {"contractor_id": str(c_id)}, {"email": proj.get("contractor_email")}]
+        })
+        if kyc and kyc.get("wallet_address") and bcs.w3.is_address(kyc.get("wallet_address")):
+            contractor_wallet = kyc.get("wallet_address")
+        else:
+            u_query = [{"email": proj.get("contractor_email")}]
+            if ObjectId.is_valid(str(c_id)):
+                u_query.append({"_id": ObjectId(str(c_id))})
+            u = db.users.find_one({"$or": u_query})
+            if u and u.get("wallet_address") and bcs.w3.is_address(u.get("wallet_address")):
+                contractor_wallet = u.get("wallet_address")
+            else:
+                contractor_wallet = bcs.get_entity_wallet("CONTRACTOR", proj.get("contractor_name"))
 
     tx_hash = None
     block_num = None
     try:
-        contractor_wallet = "0x70997970C51812dc3A010C7d01b50e0d17dc79C8"
         tx_receipt = bcs.create_project_escrow_onchain(
             project_id,
             proj.get("name"),
             contractor_wallet,
             proj.get("total_budget")
         )
-        if tx_receipt:
+        if tx_receipt and tx_receipt.get("tx_hash"):
             tx_hash = tx_receipt["tx_hash"]
-            block_num = tx_receipt["block_number"]
+            block_num = tx_receipt.get("block_number")
+        else:
+            raise Exception("Blockchain transaction failed to return a valid transaction hash.")
     except Exception as e:
-        print(f"Warning deploying smart contract escrow: {e}")
+        print(f"Error deploying smart contract escrow on blockchain: {e}")
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={
+                "success": False,
+                "message": f"Failed to initialize smart contract escrow on blockchain: {str(e)}"
+            }
+        )
 
+    now_utc = datetime.now(timezone.utc)
+    new_status = "ESCROW_FUNDED" if proj.get("status") in ["CREATED", "ASSIGNED"] else proj.get("status")
     db.projects.update_one(
         {"project_id": project_id},
         {"$set": {
             "escrow_onchain": True,
+            "contractor_wallet": contractor_wallet,
             "escrow_tx_hash": tx_hash,
             "escrow_block": block_num,
-            "status": "ESCROW_FUNDED",
-            "escrow_created_at": datetime.now(timezone.utc)
+            "status": new_status,
+            "escrow_created_at": now_utc
         }}
     )
+
+    # Sync existing milestones on-chain if they exist
+    existing_milestones = list(db.milestones.find({"project_id": project_id}).sort("milestone_index", 1))
+    if existing_milestones:
+        amounts_list = [int(float(m.get("amount", 0))) for m in existing_milestones]
+        try:
+            bcs.set_project_milestones_onchain(project_id, amounts_list)
+        except Exception as e:
+            print(f"Warning syncing existing milestones on-chain after escrow creation: {e}")
 
     if tx_hash:
         from_dist = bcs.get_entity_wallet("DISTRICT", proj.get("district_name"))
@@ -911,12 +1038,14 @@ async def create_escrow(
             "flow_stage": f"4. {dist_title} District -> Project Escrow Lock",
             "amount": proj.get("total_budget"),
             "details": f"Project Escrow Lock: {dist_title} Agency -> Smart Contract Escrow for {proj.get('name')}",
-            "timestamp": datetime.now(timezone.utc)
+            "timestamp": now_utc
         })
 
     return {
         "success": True,
         "message": f"Smart contract escrow deployed on Ethereum for {project_id}",
+        "escrow_onchain": True,
+        "contractor_wallet": contractor_wallet,
         "blockchain": {
             "tx_hash": tx_hash,
             "block_number": block_num
@@ -1128,6 +1257,9 @@ async def verify_phase_fund_request(
                 }
             )
 
+    # Reconcile project released_amount before reservation to self-heal any prior drift
+    reconcile_project_released_amount(proj, exclude_milestone_index=milestone_index)
+
     # Atomic Reservation: Conditionally reserve amount only if released_amount + allocated_amount <= total_budget
     reserved_proj = db.projects.find_one_and_update(
         {
@@ -1168,26 +1300,52 @@ async def verify_phase_fund_request(
     from_dist = bcs.get_entity_wallet("DISTRICT", proj.get("district_name"))
     to_contractor = bank_acc.get("wallet_address") or bcs.get_entity_wallet("CONTRACTOR", proj.get("contractor_name"))
 
+    # Pre-flight check: Escrow must be initialized on-chain before releasing milestone payments
+    if not proj.get("escrow_onchain") and bcs.w3 and bcs.w3.is_connected():
+        if not bcs.check_project_escrow_exists_onchain(project_id):
+            # Roll back reservation atomically
+            db.projects.update_one(
+                {"project_id": project_id},
+                {"$inc": {"released_amount": -allocated_amount}}
+            )
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "success": False,
+                    "message": f"Cannot disburse funds: Project escrow has not been initialized on-chain for '{project_id}'. "
+                               f"Please initialize the smart contract escrow before releasing milestone payments."
+                }
+            )
+        else:
+            db.projects.update_one({"project_id": project_id}, {"$set": {"escrow_onchain": True}})
+
     try:
         tx_receipt = bcs.release_milestone_payment_onchain(project_id, milestone_index)
         if tx_receipt and tx_receipt.get("tx_hash"):
             tx_hash = tx_receipt["tx_hash"]
-            block_num = tx_receipt["block_number"]
+            block_num = tx_receipt.get("block_number")
             from_dist = tx_receipt.get("from_address", from_dist)
         else:
             raise Exception("Blockchain transaction failed to return a valid transaction hash.")
-    except Exception as e:
+    except (ValueError, Exception) as e:
         print(f"Error executing bank transfer transaction on blockchain: {e}")
         # Roll back reservation atomically
         db.projects.update_one(
             {"project_id": project_id},
             {"$inc": {"released_amount": -allocated_amount}}
         )
+        is_escrow_err = "escrow does not exist" in str(e).lower()
+        status_code = status.HTTP_400_BAD_REQUEST if (isinstance(e, ValueError) or is_escrow_err) else status.HTTP_500_INTERNAL_SERVER_ERROR
+        msg = (
+            f"Cannot disburse funds: Project escrow has not been initialized on-chain for '{project_id}'. "
+            f"Please initialize the smart contract escrow before releasing milestone payments."
+            if is_escrow_err else f"Blockchain Transaction Failed: {str(e)}. Funds were not disbursed."
+        )
         return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            status_code=status_code,
             content={
                 "success": False,
-                "message": f"Blockchain Transaction Failed: {str(e)}. Funds were not disbursed."
+                "message": msg
             }
         )
 
@@ -1376,6 +1534,9 @@ async def transfer_to_contractor(
                     "is_duplicate": True
                 }
             )
+
+    # Reconcile project released_amount before reservation to self-heal any prior drift
+    reconcile_project_released_amount(proj)
 
     # Atomic Reservation: Conditionally reserve amount only if released_amount + amount <= total_budget
     reserved_proj = db.projects.find_one_and_update(
@@ -1766,9 +1927,8 @@ async def handle_milestone_verification(project_id: str, milestone_index: int, r
             }}
         )
 
-    was_already_funded = (milestone.get("status") == "FUNDS_TRANSFERRED" or milestone.get("phase_status") == "FUNDS_TRANSFERRED")
-    cur_released = float(proj.get("released_amount", 0.0))
-    new_released_total = cur_released if was_already_funded else min(float(proj.get("total_budget", 0.0)), cur_released + milestone_amount)
+    # Reconcile authoritative released amount across all funded milestones (idempotent, prevents double-counting)
+    new_released_total = reconcile_project_released_amount(proj)
     is_final_phase = (milestone_index >= 2)
     calc_prog = compute_project_progress(proj)
 
@@ -1825,6 +1985,7 @@ async def handle_milestone_verification(project_id: str, milestone_index: int, r
     }
 
 @router.post("/projects/{project_id}/phases/{milestone_index}/verify")
+@router.post("/projects/{project_id}/phases/{milestone_index}/verify-milestone")
 async def verify_milestone_and_release(
     project_id: str,
     milestone_index: int,

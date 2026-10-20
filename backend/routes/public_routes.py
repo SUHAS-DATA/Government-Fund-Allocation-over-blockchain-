@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from fastapi import APIRouter, Request, status, Query, Response
 from fastapi.responses import JSONResponse
-from database import db, serialize_doc, compute_project_progress, get_active_financial_year
+from database import db, serialize_doc, compute_project_progress, get_active_financial_year, reconcile_project_released_amount
 import qr_service
 
 router = APIRouter()
@@ -76,18 +76,27 @@ async def get_public_stats(fy: Optional[str] = Query(None)):
 
 @router.get("/financial-years")
 async def get_public_financial_years():
+    active_year = get_active_financial_year()
     try:
         fys = list(db.financial_years.find().sort("year", -1))
         if fys:
-            return {"success": True, "financial_years": serialize_doc(fys)}
+            for f in fys:
+                f["is_current"] = (f.get("status") == "ACTIVE" or f.get("year") == active_year)
+            return {
+                "success": True,
+                "financial_years": serialize_doc(fys),
+                "active_financial_year": active_year
+            }
     except Exception as e:
         pass
     return {
         "success": True,
         "financial_years": [
-            {"year": "2026-27", "is_current": True, "description": "National Financial Year 2026-27"},
+            {"year": active_year or "2027-28", "is_current": True, "description": f"National Financial Year {active_year or '2027-28'}"},
+            {"year": "2026-27", "is_current": False, "description": "National Financial Year 2026-27"},
             {"year": "2025-26", "is_current": False, "description": "National Financial Year 2025-26"}
-        ]
+        ],
+        "active_financial_year": active_year or "2027-28"
     }
 
 @router.get("/hierarchy")
@@ -320,6 +329,7 @@ async def get_public_projects(
     projects = list(db.projects.find(query).sort("created_at", -1))
     sanitized_projects = []
     for p in projects:
+        reconcile_project_released_amount(p)
         calc_prog = compute_project_progress(p)
         if p.get("progress_percentage") != calc_prog:
             p["progress_percentage"] = calc_prog
@@ -348,7 +358,8 @@ async def get_public_project_detail(project_id: str):
     documents = list(db.documents.find({"entity_id": project_id}).sort("uploaded_at", -1))
     transactions = list(db.blockchain_transactions.find({"entity_id": project_id}).sort("timestamp", -1))
 
-    # Compute and persist real-time progress
+    # Compute and persist real-time progress and reconciled budget
+    reconcile_project_released_amount(proj, milestones)
     calc_prog = compute_project_progress(proj, milestones)
     proj["progress_percentage"] = calc_prog
     if proj.get("progress_percentage") != calc_prog:

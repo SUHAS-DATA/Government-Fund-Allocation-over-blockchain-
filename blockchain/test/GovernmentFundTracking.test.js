@@ -254,6 +254,31 @@ describe("GovernmentFundTracking Smart Contract", function () {
       ).to.be.revertedWith("Caller is not authorized to create project escrow");
     });
 
+    it("reverts with 'Project escrow does not exist' when releaseMilestonePayment is called before escrow creation", async function () {
+      await expect(
+        contract.connect(district).releaseMilestonePayment("PRJ-NONEXISTENT", 0)
+      ).to.be.revertedWith("Project escrow does not exist");
+    });
+
+    it("reverts with 'Project escrow does not exist' when setMilestones is called before escrow creation", async function () {
+      await expect(
+        contract.connect(district).setMilestones("PRJ-NONEXISTENT", [100000])
+      ).to.be.revertedWith("Project escrow does not exist");
+    });
+
+    it("reverts with 'Project escrow does not exist' when submitMilestoneProgress is called before escrow creation", async function () {
+      await expect(
+        contract.connect(contractor).submitMilestoneProgress("PRJ-NONEXISTENT", 0, "0x" + "1".repeat(64), 50)
+      ).to.be.revertedWith("Project escrow does not exist");
+    });
+
+    it("reverts with 'Project escrow already exists' when attempting duplicate escrow creation", async function () {
+      await contract.connect(district).createProjectEscrow(projectId, "Road", contractor.address, totalBudget);
+      await expect(
+        contract.connect(district).createProjectEscrow(projectId, "Duplicate Road", contractor.address, totalBudget)
+      ).to.be.revertedWith("Project escrow already exists");
+    });
+
     it("allows setting milestones and verifies milestone budget boundary", async function () {
       await contract.connect(district).createProjectEscrow(projectId, "Road", contractor.address, totalBudget);
 

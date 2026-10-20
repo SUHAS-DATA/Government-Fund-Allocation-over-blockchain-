@@ -79,9 +79,7 @@ const ContractorKYC = () => {
     }
 
     try {
-      const res = await API.post('/contractor/kyc-submit', data, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      const res = await API.post('/contractor/kyc-submit', data);
       if (res.success) {
         setSuccessMsg('KYC credentials and cryptographic SHA-256 digest submitted successfully.');
         loadKyc();

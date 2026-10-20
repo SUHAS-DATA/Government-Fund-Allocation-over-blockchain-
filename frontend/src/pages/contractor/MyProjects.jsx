@@ -35,6 +35,7 @@ import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import { useRealtimeSync } from '../../context/RealtimeContext';
 import { useFinancialYear } from '../../context/FinancialYearContext';
+import FinancialYearSelector from '../../components/FinancialYearSelector';
 
 const MyProjects = () => {
   const { selectedFY } = useFinancialYear();
@@ -255,9 +256,7 @@ const MyProjects = () => {
     if (otherDocFile) data.append('other_doc_file', otherDocFile);
 
     try {
-      const res = await API.post(`/contractor/projects/${selectedProject.project_id}/phases/${activePhaseIndex}/submit-milestone`, data, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      const res = await API.post(`/contractor/projects/${selectedProject.project_id}/phases/${activePhaseIndex}/submit-milestone`, data);
       if (res.success) {
         setActionSuccess(`Work proof (Material Bills, Photos, Videos, Docs) verified and submitted to District Officer!`);
         setShowProgressModal(false);
@@ -291,9 +290,7 @@ const MyProjects = () => {
     formData.append('description', evidenceDescription);
 
     try {
-      const res = await API.post(`/contractor/projects/${selectedProject.project_id}/milestones/${evidencePhaseIndex}/evidence`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      const res = await API.post(`/contractor/projects/${selectedProject.project_id}/milestones/${evidencePhaseIndex}/evidence`, formData);
       if (res.success) {
         setActionSuccess(`Work evidence submitted successfully! Evidence Status: Pending Verification.`);
         setShowEvidenceModal(false);
@@ -378,7 +375,7 @@ const MyProjects = () => {
 
   return (
     <div>
-      <div className="page-header">
+      <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
         <div>
           <h1 className="page-title">
             <FolderKanban size={24} color="#C2410C" />
@@ -387,6 +384,9 @@ const MyProjects = () => {
           <p className="page-subtitle">
             Accept project assignments, request phase funds, receive payments, and upload work proof.
           </p>
+        </div>
+        <div>
+          <FinancialYearSelector />
         </div>
       </div>
 
@@ -761,7 +761,7 @@ const MyProjects = () => {
                     {/* Phase Work Evidence Deliverables (Contractor -> District Verification) */}
                     {(() => {
                       const pEvidence = (projectDetails?.evidence || []).filter(
-                        (e) => e.milestone_index === phase.milestone_index || e.milestoneId === phase._id || e.milestoneId === `MS-${selectedProject.project_id}-${phase.milestone_index + 1}`
+                        (e) => Number(e.milestone_index) === Number(phase.milestone_index) || e.milestoneId === phase._id || e.milestoneId === `MS-${selectedProject.project_id}-${phase.milestone_index + 1}`
                       );
                       if (pEvidence.length === 0) return null;
 

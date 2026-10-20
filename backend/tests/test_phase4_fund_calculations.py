@@ -1,6 +1,7 @@
 import os
 import sys
 import uuid
+from datetime import datetime, timezone
 import pytest
 from unittest.mock import patch
 from fastapi.testclient import TestClient
@@ -534,3 +535,209 @@ def test_blockchain_reverted_receipt_raises_exception():
             bcs.execute_contract_transaction(mock_func, role="SUPER_ADMIN")
         
         assert "reverted" in str(excinfo.value).lower()
+
+def test_sequential_phases_and_verification_reconciliation_prevent_insufficient_budget():
+    """
+    Regression test for:
+    Phase #1 (30 Lakh) advance transferred -> contractor submits work evidence ->
+    District Officer verifies Phase #1 -> released_amount MUST NOT double count.
+    Contractor requests Phase #2 (40 Lakh) -> District Officer approves -> MUST SUCCEED
+    without 'Insufficient available project budget' error.
+    """
+    dist_headers = get_test_headers("DISTRICT", district_name="Belagavi", state_code="KA")
+    con_headers = get_test_headers("CONTRACTOR", user_id="test_contractor_user", state_code="KA", district_name="Belagavi")
+    fy = get_active_financial_year()
+    proj_id = f"PRJ-TEST-P2-{uuid.uuid4().hex[:6].upper()}"
+
+    db.projects.insert_one({
+        "project_id": proj_id,
+        "name": "Phase 2 Disbursal Test Project",
+        "financial_year": fy,
+        "total_budget": 10000000.0,  # 1.00 Cr
+        "released_amount": 0.0,
+        "status": "ACCEPTED",
+        "district_name": "Belagavi",
+        "state_code": "KA",
+        "contractor_id": "test_contractor_user",
+        "contractor_name": "Test Infrastructure Ltd",
+        "contractor_wallet": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        "created_at": datetime.now(timezone.utc)
+    })
+
+    # 3 Phases: 30%, 40%, 30%
+    db.milestones.insert_many([
+        {
+            "project_id": proj_id,
+            "milestone_index": 0,
+            "phase_number": 1,
+            "title": "Phase 1: Foundation (30%)",
+            "amount": 3000000.0,
+            "percentage_share": 30,
+            "status": "FUND_REQUESTED",
+            "phase_status": "FUND_REQUESTED",
+            "progress_percentage": 0
+        },
+        {
+            "project_id": proj_id,
+            "milestone_index": 1,
+            "phase_number": 2,
+            "title": "Phase 2: Core Civil (40%)",
+            "amount": 4000000.0,
+            "percentage_share": 40,
+            "status": "LOCKED",
+            "phase_status": "LOCKED",
+            "progress_percentage": 0
+        },
+        {
+            "project_id": proj_id,
+            "milestone_index": 2,
+            "phase_number": 3,
+            "title": "Phase 3: Final Handover (30%)",
+            "amount": 3000000.0,
+            "percentage_share": 30,
+            "status": "LOCKED",
+            "phase_status": "LOCKED",
+            "progress_percentage": 0
+        }
+    ])
+
+    with patch("blockchain_service.release_milestone_payment_onchain") as mock_bc:
+        mock_bc.side_effect = lambda *args, **kwargs: {"tx_hash": f"0x{uuid.uuid4().hex}{uuid.uuid4().hex}", "block_number": 501}
+
+        # Step 1: District Officer approves Phase #1 fund request
+        res1 = client.post(
+            f"/api/district/projects/{proj_id}/phases/0/verify-fund-request",
+            json={"action": "APPROVE"},
+            headers=dist_headers
+        )
+        assert res1.status_code == 200, res1.text
+        assert res1.json().get("success") is True
+
+        p1 = db.projects.find_one({"project_id": proj_id})
+        assert p1["released_amount"] == 3000000.0
+
+        # Step 2: Contractor submits work progress for Phase #1 (transitioning milestone status to SUBMITTED)
+        res_sub = client.post(
+            f"/api/contractor/projects/{proj_id}/phases/0/submit-milestone",
+            data={"percentage": "100", "notes": "Foundation completed"},
+            headers=con_headers
+        )
+        assert res_sub.status_code == 200, res_sub.text
+        m0 = db.milestones.find_one({"project_id": proj_id, "milestone_index": 0})
+        assert m0["status"] == "SUBMITTED"
+
+        # Step 3: District Officer verifies completion of Phase #1
+        res_v = client.post(
+            f"/api/district/projects/{proj_id}/phases/0/verify",
+            json={"action": "APPROVE"},
+            headers=dist_headers
+        )
+        assert res_v.status_code == 200, res_v.text
+
+        # released_amount MUST remain 3000000.0, NOT 6000000.0!
+        p_after_v = db.projects.find_one({"project_id": proj_id})
+        assert p_after_v["released_amount"] == 3000000.0
+
+        # Step 4: Contractor requests funds for Phase #2 (40 Lakh)
+        res_req2 = client.post(
+            f"/api/contractor/projects/{proj_id}/phases/1/request-funds",
+            json={"requested_amount": 4000000.0, "notes": "Phase 2 mobilization advance"},
+            headers=con_headers
+        )
+        assert res_req2.status_code == 200, res_req2.text
+        m1 = db.milestones.find_one({"project_id": proj_id, "milestone_index": 1})
+        assert m1["status"] == "FUND_REQUESTED"
+
+        # Step 5: District Officer approves Phase #2 fund request
+        # This MUST succeed and NOT throw "Insufficient available project budget"!
+        res_approve2 = client.post(
+            f"/api/district/projects/{proj_id}/phases/1/verify-fund-request",
+            json={"action": "APPROVE"},
+            headers=dist_headers
+        )
+        assert res_approve2.status_code == 200, res_approve2.text
+        assert res_approve2.json().get("success") is True
+
+        p_final = db.projects.find_one({"project_id": proj_id})
+        # released_amount is now 30 Lakh + 40 Lakh = 70 Lakh!
+        assert p_final["released_amount"] == 7000000.0
+
+
+def test_reconcile_heals_historical_released_amount_drift():
+    """
+    Verifies that if db.projects.released_amount has historically drifted (e.g. 10,000,000.0
+    when only Phase #1 was funded), accessing project details or approving Phase #2 auto-heals
+    the released_amount to 3,000,000.0 and allows Phase #2 disbursal.
+    """
+    dist_headers = get_test_headers("DISTRICT", district_name="Belagavi", state_code="KA")
+    fy = get_active_financial_year()
+    proj_id = f"PRJ-TEST-DRIFT-{uuid.uuid4().hex[:6].upper()}"
+
+    # Insert project with corrupted released_amount (1 Cr instead of 30 Lakh)
+    db.projects.insert_one({
+        "project_id": proj_id,
+        "name": "Drift Auto-Heal Test Project",
+        "financial_year": fy,
+        "total_budget": 10000000.0,
+        "released_amount": 10000000.0,  # Corrupted released_amount!
+        "status": "IN_PROGRESS",
+        "district_name": "Belagavi",
+        "state_code": "KA",
+        "contractor_id": "test_contractor_user",
+        "contractor_name": "Test Infrastructure Ltd",
+        "contractor_wallet": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        "created_at": datetime.now(timezone.utc)
+    })
+
+    db.milestones.insert_many([
+        {
+            "project_id": proj_id,
+            "milestone_index": 0,
+            "phase_number": 1,
+            "title": "Phase 1: Foundation (30%)",
+            "amount": 3000000.0,
+            "status": "COMPLETED",
+            "phase_status": "COMPLETED",
+            "funds_transferred_at": datetime.now(timezone.utc),
+            "transfer_tx_hash": "0xmocktx001"
+        },
+        {
+            "project_id": proj_id,
+            "milestone_index": 1,
+            "phase_number": 2,
+            "title": "Phase 2: Core Civil (40%)",
+            "amount": 4000000.0,
+            "status": "FUND_REQUESTED",
+            "phase_status": "FUND_REQUESTED"
+        },
+        {
+            "project_id": proj_id,
+            "milestone_index": 2,
+            "phase_number": 3,
+            "title": "Phase 3: Final Handover (30%)",
+            "amount": 3000000.0,
+            "status": "LOCKED",
+            "phase_status": "LOCKED"
+        }
+    ])
+
+    # 1. Fetching project details auto-heals released_amount in DB
+    res_details = client.get(f"/api/district/projects/{proj_id}", headers=dist_headers)
+    assert res_details.status_code == 200
+    assert res_details.json()["project"]["released_amount"] == 3000000.0
+
+    p_in_db = db.projects.find_one({"project_id": proj_id})
+    assert p_in_db["released_amount"] == 3000000.0
+
+    # 2. Approving Phase #2 now succeeds smoothly without budget error
+    res_approve = client.post(
+        f"/api/district/projects/{proj_id}/phases/1/verify-fund-request",
+        json={"action": "APPROVE"},
+        headers=dist_headers
+    )
+    assert res_approve.status_code == 200
+    assert res_approve.json().get("success") is True
+
+    p_after = db.projects.find_one({"project_id": proj_id})
+    assert p_after["released_amount"] == 7000000.0
+
