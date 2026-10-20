@@ -1,6 +1,8 @@
 import os
 import time
+import logging
 from pymongo import MongoClient, ASCENDING, DESCENDING
+from pymongo.errors import OperationFailure
 from bson import ObjectId
 from datetime import datetime
 from dotenv import load_dotenv
@@ -36,187 +38,184 @@ def _sanitize_mongo_uri(uri: str) -> str:
 client = MongoClient(_sanitize_mongo_uri(MONGO_URI), serverSelectionTimeoutMS=5000, connect=False)
 db = client[DB_NAME]
 
+def safe_create_index(collection, keys, **kwargs):
+    """
+    Safely creates an index on a MongoDB collection with verified conflict handling.
+    - If the index does not exist, creates it.
+    - If an IndexKeySpecsConflict / IndexOptionsConflict (code 85/86) occurs:
+      Inspects existing collection indexes. If an existing index covers the identical
+      key specification and exactly matches the requested uniqueness, sparse behavior,
+      and other index options, it verifies compatibility and gracefully preserves the
+      existing on-disk index without dropping, altering, or failing.
+    - Strictly does not suppress a conflict merely because a similarly keyed index exists;
+      it verifies exact key specification, uniqueness, sparse behavior, and option compatibility.
+    - Strictly does not drop, recreate, or modify existing production indexes.
+    """
+    try:
+        return collection.create_index(keys, **kwargs)
+    except OperationFailure as e:
+        is_conflict = (
+            getattr(e, "code", None) in (85, 86)
+            or "IndexOptionsConflict" in str(e)
+            or "IndexKeySpecsConflict" in str(e)
+            or "already exists with different options" in str(e)
+        )
+        if is_conflict:
+            try:
+                existing_indexes = collection.index_information()
+                norm_requested = [(k, int(v)) for k, v in keys]
+                req_unique = bool(kwargs.get("unique", False))
+                req_sparse = bool(kwargs.get("sparse", False))
+
+                for idx_name, idx_spec in existing_indexes.items():
+                    existing_keys = [(k, int(v)) for k, v in idx_spec.get("key", [])]
+                    if existing_keys == norm_requested:
+                        existing_unique = bool(idx_spec.get("unique", False))
+                        existing_sparse = bool(idx_spec.get("sparse", False))
+
+                        # Verify exact uniqueness and sparse compatibility
+                        if req_unique != existing_unique:
+                            continue
+                        if req_sparse != existing_sparse:
+                            continue
+
+                        # Verify other optional constraints if specified
+                        if "expireAfterSeconds" in kwargs:
+                            if idx_spec.get("expireAfterSeconds") != kwargs["expireAfterSeconds"]:
+                                continue
+                        if "partialFilterExpression" in kwargs:
+                            if idx_spec.get("partialFilterExpression") != kwargs["partialFilterExpression"]:
+                                continue
+
+                        logging.info(
+                            f"[DB_INDEX] Preserving verified existing index '{idx_name}' "
+                            f"on collection '{collection.name}' for keys {keys} "
+                            f"(unique={existing_unique}, sparse={existing_sparse})"
+                        )
+                        return idx_name
+            except Exception as check_err:
+                logging.debug(f"[DB_INDEX] Index compatibility check error on {collection.name}: {check_err}")
+
+        print(f"Warning initializing {collection.name} index: {e}")
+        return None
+    except Exception as e:
+        print(f"Warning initializing {collection.name} index: {e}")
+        return None
+
 def init_indexes():
     """Create essential MongoDB indexes with safe conflict handling"""
     # 1. Users collection
-    try:
-        db.users.create_index([("email", ASCENDING)], unique=True)
-    except Exception as e:
-        print(f"Warning initializing users index: {e}")
+    safe_create_index(db.users, [("email", ASCENDING)], unique=True)
 
     # 2. Financial Years collection
-    try:
-        db.financial_years.create_index([("year", ASCENDING)], unique=True, sparse=True)
-    except Exception as e:
-        print(f"Warning initializing financial_years index: {e}")
+    safe_create_index(db.financial_years, [("year", ASCENDING)], unique=True, sparse=True)
 
-    # 3. Departments collection
-    try:
-        db.departments.create_index([("code", ASCENDING)], unique=True)
-    except Exception as e:
-        print(f"Warning initializing departments index: {e}")
+    # 3. Departments collection (Restored sparse=True to match existing production schema)
+    safe_create_index(db.departments, [("code", ASCENDING)], unique=True, sparse=True)
 
-    # 4. States collection
-    try:
-        db.states.create_index([("code", ASCENDING)], unique=True)
-    except Exception as e:
-        print(f"Warning initializing states index: {e}")
+    # 4. States collection (Restored sparse=True to match existing production schema)
+    safe_create_index(db.states, [("code", ASCENDING)], unique=True, sparse=True)
 
-    # 5. Schemes collection
-    try:
-        db.schemes.create_index([("code", ASCENDING)], unique=True)
-    except Exception as e:
-        print(f"Warning initializing schemes index: {e}")
+    # 5. Schemes collection (Restored sparse=True to match existing production schema)
+    safe_create_index(db.schemes, [("code", ASCENDING)], unique=True, sparse=True)
 
-    # 6. Budget Allocations collection
-    try:
-        db.budget_allocations.create_index([("allocation_id", ASCENDING)], unique=True)
-        db.budget_allocations.create_index([("financial_year", ASCENDING), ("status", ASCENDING)])
-        db.budget_allocations.create_index([("financial_year", ASCENDING), ("created_at", DESCENDING)])
-        db.budget_allocations.create_index([("state_code", ASCENDING)])
-    except Exception as e:
-        print(f"Warning initializing budget_allocations index: {e}")
+    # 6. Budget Allocations collection (Restored sparse=True to match existing production schema)
+    safe_create_index(db.budget_allocations, [("allocation_id", ASCENDING)], unique=True, sparse=True)
+    safe_create_index(db.budget_allocations, [("financial_year", ASCENDING), ("status", ASCENDING)])
+    safe_create_index(db.budget_allocations, [("financial_year", ASCENDING), ("created_at", DESCENDING)])
+    safe_create_index(db.budget_allocations, [("state_code", ASCENDING)])
 
-    # 7. State Transfers collection
-    try:
-        db.state_transfers.create_index([("transfer_id", ASCENDING)], unique=True)
-        db.state_transfers.create_index([("financial_year", ASCENDING), ("state_code", ASCENDING)])
-        db.state_transfers.create_index([("financial_year", ASCENDING), ("created_at", DESCENDING)])
-        db.state_transfers.create_index([("state_code", ASCENDING), ("financial_year", ASCENDING), ("created_at", DESCENDING)])
-        db.state_transfers.create_index([("state_code", ASCENDING), ("status", ASCENDING)])
-        db.state_transfers.create_index([("created_at", DESCENDING)])
-    except Exception as e:
-        print(f"Warning initializing state_transfers index: {e}")
+    # 7. State Transfers collection (Restored sparse=True to match existing production schema)
+    safe_create_index(db.state_transfers, [("transfer_id", ASCENDING)], unique=True, sparse=True)
+    safe_create_index(db.state_transfers, [("financial_year", ASCENDING), ("state_code", ASCENDING)])
+    safe_create_index(db.state_transfers, [("financial_year", ASCENDING), ("created_at", DESCENDING)])
+    safe_create_index(db.state_transfers, [("state_code", ASCENDING), ("financial_year", ASCENDING), ("created_at", DESCENDING)])
+    safe_create_index(db.state_transfers, [("state_code", ASCENDING), ("status", ASCENDING)])
+    safe_create_index(db.state_transfers, [("created_at", DESCENDING)])
 
-    # 8. District Allocations collection
-    try:
-        db.district_allocations.create_index([("district_alloc_id", ASCENDING)], unique=True)
-        db.district_allocations.create_index([("financial_year", ASCENDING), ("state_code", ASCENDING), ("district_name", ASCENDING)])
-        db.district_allocations.create_index([("district_name", ASCENDING), ("financial_year", ASCENDING), ("created_at", DESCENDING)])
-        db.district_allocations.create_index([("state_code", ASCENDING), ("financial_year", ASCENDING), ("created_at", DESCENDING)])
-        db.district_allocations.create_index([("district_name", ASCENDING), ("status", ASCENDING)])
-        db.district_allocations.create_index([("state_code", ASCENDING)])
-    except Exception as e:
-        print(f"Warning initializing district_allocations index: {e}")
+    # 8. District Allocations collection (Restored sparse=True to match existing production schema)
+    safe_create_index(db.district_allocations, [("district_alloc_id", ASCENDING)], unique=True, sparse=True)
+    safe_create_index(db.district_allocations, [("financial_year", ASCENDING), ("state_code", ASCENDING), ("district_name", ASCENDING)])
+    safe_create_index(db.district_allocations, [("district_name", ASCENDING), ("financial_year", ASCENDING), ("created_at", DESCENDING)])
+    safe_create_index(db.district_allocations, [("state_code", ASCENDING), ("financial_year", ASCENDING), ("created_at", DESCENDING)])
+    safe_create_index(db.district_allocations, [("district_name", ASCENDING), ("status", ASCENDING)])
+    safe_create_index(db.district_allocations, [("state_code", ASCENDING)])
 
-    # 9. Projects collection
-    try:
-        db.projects.create_index([("project_id", ASCENDING)], unique=True)
-        db.projects.create_index([("financial_year", ASCENDING), ("district_name", ASCENDING)])
-        db.projects.create_index([("district_name", ASCENDING), ("status", ASCENDING)])
-        db.projects.create_index([("state_code", ASCENDING), ("status", ASCENDING)])
-        db.projects.create_index([("contractor_id", ASCENDING), ("status", ASCENDING)])
-        db.projects.create_index([("created_at", DESCENDING)])
-    except Exception as e:
-        print(f"Warning initializing projects index: {e}")
+    # 9. Projects collection (Restored sparse=True to match existing production schema)
+    safe_create_index(db.projects, [("project_id", ASCENDING)], unique=True, sparse=True)
+    safe_create_index(db.projects, [("financial_year", ASCENDING), ("district_name", ASCENDING)])
+    safe_create_index(db.projects, [("district_name", ASCENDING), ("status", ASCENDING)])
+    safe_create_index(db.projects, [("state_code", ASCENDING), ("status", ASCENDING)])
+    safe_create_index(db.projects, [("contractor_id", ASCENDING), ("status", ASCENDING)])
+    safe_create_index(db.projects, [("created_at", DESCENDING)])
 
     # 9b. Milestones collection
-    try:
-        db.milestones.create_index([("milestone_id", ASCENDING)], unique=True, sparse=True)
-        db.milestones.create_index([("project_id", ASCENDING)])
-    except Exception as e:
-        print(f"Warning initializing milestones index: {e}")
+    safe_create_index(db.milestones, [("milestone_id", ASCENDING)], unique=True, sparse=True)
+    safe_create_index(db.milestones, [("project_id", ASCENDING)])
 
     # 9c. Contractor KYC collection
-    try:
-        db.contractor_kyc.create_index([("contractor_id", ASCENDING)])
-        db.contractor_kyc.create_index([("state_code", ASCENDING), ("kyc_status", ASCENDING)])
-    except Exception as e:
-        print(f"Warning initializing contractor_kyc index: {e}")
+    safe_create_index(db.contractor_kyc, [("contractor_id", ASCENDING)])
+    safe_create_index(db.contractor_kyc, [("state_code", ASCENDING), ("kyc_status", ASCENDING)])
 
     # 9d. Notifications collection
-    try:
-        db.notifications.create_index([("recipient_user_id", ASCENDING), ("read", ASCENDING), ("created_at", DESCENDING)])
-        db.notifications.create_index([("role", ASCENDING), ("created_at", DESCENDING)])
-    except Exception as e:
-        print(f"Warning initializing notifications index: {e}")
+    safe_create_index(db.notifications, [("recipient_user_id", ASCENDING), ("read", ASCENDING), ("created_at", DESCENDING)])
+    safe_create_index(db.notifications, [("role", ASCENDING), ("created_at", DESCENDING)])
 
-    # 10. Documents collection
-    try:
-        db.documents.create_index([("document_id", ASCENDING)], unique=True)
-        db.documents.create_index([("sha256_hash", ASCENDING)])
-    except Exception as e:
-        print(f"Warning initializing documents index: {e}")
+    # 10. Documents collection (Restored sparse=True to match existing production schema)
+    safe_create_index(db.documents, [("document_id", ASCENDING)], unique=True, sparse=True)
+    safe_create_index(db.documents, [("sha256_hash", ASCENDING)])
 
     # 11. Complaints / Grievances collection
-    try:
-        try:
-            db.complaints.drop_index("ref_id_1")
-        except Exception:
-            pass
-        db.complaints.create_index([("reference_id", ASCENDING)], unique=True, sparse=True)
-    except Exception as e:
-        print(f"Warning initializing complaints index: {e}")
+    safe_create_index(db.complaints, [("reference_id", ASCENDING)], unique=True, sparse=True)
 
     # 12. Blockchain Transactions collection
-    try:
-        db.blockchain_transactions.create_index([("tx_hash", ASCENDING)], unique=True, sparse=True)
-        db.blockchain_transactions.create_index([("timestamp", DESCENDING)])
-    except Exception as e:
-        pass
+    safe_create_index(db.blockchain_transactions, [("tx_hash", ASCENDING)], unique=True, sparse=True)
+    safe_create_index(db.blockchain_transactions, [("timestamp", DESCENDING)])
 
     # 13. QR Codes collection
-    try:
-        db.qr_codes.create_index([("qr_id", ASCENDING)], unique=True, sparse=True)
-        db.qr_codes.create_index([("project_id", ASCENDING)], unique=True, sparse=True)
-        db.qr_codes.create_index([("contract_id", ASCENDING)], sparse=True)
-        db.qr_codes.create_index([("status", ASCENDING)])
-    except Exception as e:
-        print(f"Warning initializing qr_codes index: {e}")
+    safe_create_index(db.qr_codes, [("qr_id", ASCENDING)], unique=True, sparse=True)
+    safe_create_index(db.qr_codes, [("project_id", ASCENDING)], unique=True, sparse=True)
+    safe_create_index(db.qr_codes, [("contract_id", ASCENDING)], sparse=True)
+    safe_create_index(db.qr_codes, [("status", ASCENDING)])
 
     # 14. Evidence collection
-    try:
-        db.evidence.create_index([("evidence_id", ASCENDING)], unique=True, sparse=True)
-        db.evidence.create_index([("evidenceId", ASCENDING)], unique=True, sparse=True)
-        db.evidence.create_index([("project_id", ASCENDING), ("milestone_index", ASCENDING)])
-        db.evidence.create_index([("projectId", ASCENDING), ("milestoneId", ASCENDING)])
-        db.evidence.create_index([("contractor_id", ASCENDING)])
-        db.evidence.create_index([("district_name", ASCENDING)])
-        db.evidence.create_index([("status", ASCENDING)])
-        db.evidence.create_index([("uploaded_at", DESCENDING)])
-    except Exception as e:
-        print(f"Warning initializing evidence index: {e}")
+    safe_create_index(db.evidence, [("evidence_id", ASCENDING)], unique=True, sparse=True)
+    safe_create_index(db.evidence, [("evidenceId", ASCENDING)], unique=True, sparse=True)
+    safe_create_index(db.evidence, [("project_id", ASCENDING), ("milestone_index", ASCENDING)])
+    safe_create_index(db.evidence, [("projectId", ASCENDING), ("milestoneId", ASCENDING)])
+    safe_create_index(db.evidence, [("contractor_id", ASCENDING)])
+    safe_create_index(db.evidence, [("district_name", ASCENDING)])
+    safe_create_index(db.evidence, [("status", ASCENDING)])
+    safe_create_index(db.evidence, [("uploaded_at", DESCENDING)])
 
     # 15. Bank Accounts collection
-    try:
-        db.bank_accounts.create_index([("account_id", ASCENDING)], unique=True, sparse=True)
-        db.bank_accounts.create_index([("entity_id", ASCENDING)])
-        db.bank_accounts.create_index([("entity_type", ASCENDING)])
-        db.bank_accounts.create_index([("state_code", ASCENDING)])
-        db.bank_accounts.create_index([("district_name", ASCENDING)])
-        db.bank_accounts.create_index([("contractor_id", ASCENDING)])
-    except Exception as e:
-        print(f"Warning initializing bank_accounts index: {e}")
+    safe_create_index(db.bank_accounts, [("account_id", ASCENDING)], unique=True, sparse=True)
+    safe_create_index(db.bank_accounts, [("entity_id", ASCENDING)])
+    safe_create_index(db.bank_accounts, [("entity_type", ASCENDING)])
+    safe_create_index(db.bank_accounts, [("state_code", ASCENDING)])
+    safe_create_index(db.bank_accounts, [("district_name", ASCENDING)])
+    safe_create_index(db.bank_accounts, [("contractor_id", ASCENDING)])
 
     # 16. Financial Transactions collection
-    try:
-        db.financial_transactions.create_index([("transaction_id", ASCENDING)], unique=True, sparse=True)
-        db.financial_transactions.create_index([("transaction_type", ASCENDING)])
-        db.financial_transactions.create_index([("transaction_type", ASCENDING), ("financial_year", ASCENDING), ("created_at", DESCENDING)])
-        db.financial_transactions.create_index([("source_account_id", ASCENDING)])
-        db.financial_transactions.create_index([("destination_account_id", ASCENDING)])
-        db.financial_transactions.create_index([("related_project_id", ASCENDING)])
-        db.financial_transactions.create_index([("related_allocation_id", ASCENDING)])
-        db.financial_transactions.create_index([("blockchain_tx_hash", ASCENDING)])
-        db.financial_transactions.create_index([("created_at", DESCENDING)])
-    except Exception as e:
-        print(f"Warning initializing financial_transactions index: {e}")
+    safe_create_index(db.financial_transactions, [("transaction_id", ASCENDING)], unique=True, sparse=True)
+    safe_create_index(db.financial_transactions, [("transaction_type", ASCENDING)])
+    safe_create_index(db.financial_transactions, [("transaction_type", ASCENDING), ("financial_year", ASCENDING), ("created_at", DESCENDING)])
+    safe_create_index(db.financial_transactions, [("source_account_id", ASCENDING)])
+    safe_create_index(db.financial_transactions, [("destination_account_id", ASCENDING)])
+    safe_create_index(db.financial_transactions, [("related_project_id", ASCENDING)])
+    safe_create_index(db.financial_transactions, [("related_allocation_id", ASCENDING)])
+    safe_create_index(db.financial_transactions, [("blockchain_tx_hash", ASCENDING)])
+    safe_create_index(db.financial_transactions, [("created_at", DESCENDING)])
 
     # 17. Audit Logs collection
-    try:
-        db.audit_logs.create_index([("timestamp", DESCENDING)])
-        db.audit_logs.create_index([("financial_year", ASCENDING), ("timestamp", DESCENDING)])
-        db.audit_logs.create_index([("action", ASCENDING), ("timestamp", DESCENDING)])
-        db.audit_logs.create_index([("target_id", ASCENDING)])
-    except Exception as e:
-        print(f"Warning initializing audit_logs index: {e}")
+    safe_create_index(db.audit_logs, [("timestamp", DESCENDING)])
+    safe_create_index(db.audit_logs, [("financial_year", ASCENDING), ("timestamp", DESCENDING)])
+    safe_create_index(db.audit_logs, [("action", ASCENDING), ("timestamp", DESCENDING)])
+    safe_create_index(db.audit_logs, [("target_id", ASCENDING)])
 
     # 18. Fraud Reports collection
-    try:
-        db.fraud_reports.create_index([("status", ASCENDING)])
-        db.fraud_reports.create_index([("created_at", DESCENDING)])
-    except Exception as e:
-        print(f"Warning initializing fraud_reports index: {e}")
+    safe_create_index(db.fraud_reports, [("status", ASCENDING)])
+    safe_create_index(db.fraud_reports, [("created_at", DESCENDING)])
 
     # Auto-seed standard Central, State, and District bank accounts
     try:

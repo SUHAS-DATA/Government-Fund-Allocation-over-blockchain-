@@ -328,8 +328,10 @@ def test_transaction_verification_updates_mongodb_and_logs_audit():
 def test_reconciliation_detects_match_and_amount_discrepancy():
     """Reconciliation flags MATCHED records and identifies AMOUNT_MISMATCH discrepancies."""
     fy = get_active_financial_year()
-    alloc_matched = f"ALC-REC-MATCH-{uuid.uuid4().hex[:4]}"
-    alloc_mismatch = f"ALC-REC-MISMATCH-{uuid.uuid4().hex[:4]}"
+    alloc_matched = f"ALC-REC-MATCH-{uuid.uuid4().hex[:8]}"
+    alloc_mismatch = f"ALC-REC-MISMATCH-{uuid.uuid4().hex[:8]}"
+
+    db.budget_allocations.delete_many({"allocation_id": {"$in": [alloc_matched, alloc_mismatch]}})
 
     db.budget_allocations.insert_one({
         "allocation_id": alloc_matched,
