@@ -280,95 +280,44 @@ const TransferToState = () => {
       </div>
 
       {/* Blockchain Deployment Status Indicator */}
-      {connectionDetails.isLocalTarget ? (
-        <div
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '10px',
+          padding: '10px 16px',
+          borderRadius: '10px',
+          backgroundColor: '#EFF6FF',
+          border: '1px solid #BFDBFE',
+          marginBottom: '20px',
+          fontSize: '12px',
+          color: '#1E40AF'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Cloud size={16} color="#2563EB" />
+          <span>
+            <strong>Production Cloud Backend — Ethereum Sepolia:</strong> Connected to Sepolia Testnet (Chain ID 11155111) • On-Chain Contract: <code>{blockchainStatus?.contract_address ? `${blockchainStatus.contract_address.substring(0, 10)}...${blockchainStatus.contract_address.substring(38)}` : '0x103cdC...19c6'}</code> • Decentralized on-chain ledger active.
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowApiModal(true)}
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '10px',
-            padding: '10px 16px',
-            borderRadius: '10px',
-            backgroundColor: blockchainStatus?.connected ? '#ECFDF5' : '#FFFBEB',
-            border: blockchainStatus?.connected ? '1px solid #A7F3D0' : '1px solid #FDE68A',
-            marginBottom: '20px',
-            fontSize: '12px',
-            color: blockchainStatus?.connected ? '#065F46' : '#92400E'
+            background: 'transparent',
+            border: 'none',
+            color: '#1D4ED8',
+            fontSize: '11px',
+            fontWeight: '700',
+            cursor: 'pointer',
+            textDecoration: 'underline'
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span
-              style={{
-                width: '10px',
-                height: '10px',
-                borderRadius: '50%',
-                backgroundColor: blockchainStatus?.connected ? '#10B981' : '#F59E0B',
-                boxShadow: blockchainStatus?.connected ? '0 0 6px #10B981' : '0 0 6px #F59E0B'
-              }}
-            />
-            <span style={{ fontWeight: '700' }}>
-              {blockchainStatus?.connected
-                ? `Connected to Local Ganache (127.0.0.1:7545, Chain ID: ${blockchainStatus?.chain_id || '1337'}) • Real-time On-Chain Mining Active`
-                : 'Local Ganache RPC Offline: Please ensure Ganache is running with workspace "RSSS" on port 7545'}
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowApiModal(true)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: blockchainStatus?.connected ? '#047857' : '#B45309',
-              fontSize: '11px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              textDecoration: 'underline'
-            }}
-          >
-            Network Settings
-          </button>
-        </div>
-      ) : (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '10px',
-            padding: '10px 16px',
-            borderRadius: '10px',
-            backgroundColor: '#EFF6FF',
-            border: '1px solid #BFDBFE',
-            marginBottom: '20px',
-            fontSize: '12px',
-            color: '#1E40AF'
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Cloud size={16} color="#2563EB" />
-            <span>
-              <strong>Hosted Blockchain Network:</strong> Connected to Ethereum Sepolia Testnet (Chain ID 11155111) • On-Chain Contract: <code>{blockchainStatus?.contract_address ? `${blockchainStatus.contract_address.substring(0, 10)}...${blockchainStatus.contract_address.substring(38)}` : '0x103cdC...19c6'}</code> • Decentralized on-chain ledger active.
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setShowApiModal(true)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#1D4ED8',
-              fontSize: '11px',
-              fontWeight: '700',
-              cursor: 'pointer',
-              textDecoration: 'underline'
-            }}
-          >
-            Network Settings
-          </button>
-        </div>
-      )}
+          Network Settings
+        </button>
+      </div>
 
       {successResult ? (
         <div className="card" style={{ textAlign: 'center', padding: '36px' }}>
@@ -733,6 +682,7 @@ const TransferToState = () => {
       {/* API & Blockchain Network Connection Modal */}
       <ApiConnectionModal
         isOpen={showApiModal}
+        portal="FINANCE"
         onClose={() => setShowApiModal(false)}
       />
     </div>

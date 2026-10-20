@@ -365,7 +365,7 @@ const FinanceDashboard = () => {
                   <span>Finance System Online • Payment Operations</span>
                 </div>
                 <FinancialYearSelector />
-                <ApiConnectionPill onOpenModal={() => setShowApiModal(true)} />
+                <ApiConnectionPill portal="FINANCE" onOpenModal={() => setShowApiModal(true)} />
                 <ThemeToggle />
               </div>
 
@@ -874,7 +874,7 @@ const FinanceDashboard = () => {
         )}
 
         {/* API & Blockchain Network Connection Modal */}
-        <ApiConnectionModal isOpen={showApiModal} onClose={() => setShowApiModal(false)} />
+        <ApiConnectionModal isOpen={showApiModal} portal="FINANCE" onClose={() => setShowApiModal(false)} />
       </div>
     </div>
   );

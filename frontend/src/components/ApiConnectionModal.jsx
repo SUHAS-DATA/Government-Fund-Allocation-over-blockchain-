@@ -22,8 +22,19 @@ import {
   DEFAULT_LOCAL_BACKEND,
   DEFAULT_CLOUD_BACKEND
 } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
-export const ApiConnectionModal = ({ isOpen, onClose }) => {
+export const ApiConnectionModal = ({ isOpen, onClose, portal = null, isFinanceView = false }) => {
+  let authUser = null;
+  try {
+    const auth = useAuth();
+    authUser = auth?.user;
+  } catch (e) {
+    authUser = null;
+  }
+
+  const isFinance = portal === 'FINANCE' || isFinanceView || authUser?.role === 'FINANCE';
+
   const [details, setDetails] = useState(getApiConnectionDetails());
   const [selectedTarget, setSelectedTarget] = useState(details.currentHost);
   const [customInput, setCustomInput] = useState('');
@@ -33,17 +44,29 @@ export const ApiConnectionModal = ({ isOpen, onClose }) => {
 
   useEffect(() => {
     if (isOpen) {
-      const current = getApiConnectionDetails();
-      setDetails(current);
-      setSelectedTarget(current.currentHost);
-      if (current.mode === 'CUSTOM') {
-        setCustomInput(current.currentHost);
+      if (isFinance) {
+        // Enforce production cloud backend for Finance Department
+        const current = getApiConnectionDetails();
+        if (current.isLocalTarget || current.mode === 'CUSTOM') {
+          resetApiHost();
+        }
+        const updated = getApiConnectionDetails();
+        setDetails(updated);
+        setSelectedTarget(DEFAULT_CLOUD_BACKEND);
+        setSavedSuccess(false);
+        runHealthCheck(DEFAULT_CLOUD_BACKEND);
+      } else {
+        const current = getApiConnectionDetails();
+        setDetails(current);
+        setSelectedTarget(current.currentHost);
+        if (current.mode === 'CUSTOM') {
+          setCustomInput(current.currentHost);
+        }
+        setSavedSuccess(false);
+        runHealthCheck(current.currentHost);
       }
-      setSavedSuccess(false);
-      // Run quick auto-ping when opened
-      runHealthCheck(current.currentHost);
     }
-  }, [isOpen]);
+  }, [isOpen, isFinance]);
 
   if (!isOpen) return null;
 
@@ -83,8 +106,8 @@ export const ApiConnectionModal = ({ isOpen, onClose }) => {
     setTimeout(() => setSavedSuccess(false), 2500);
   };
 
-  const isLocalSelected = selectedTarget === DEFAULT_LOCAL_BACKEND || selectedTarget.includes('127.0.0.1') || selectedTarget.includes('localhost');
-  const isCloudSelected = selectedTarget === DEFAULT_CLOUD_BACKEND || selectedTarget.includes('onrender.com');
+  const isLocalSelected = !isFinance && (selectedTarget === DEFAULT_LOCAL_BACKEND || selectedTarget.includes('127.0.0.1') || selectedTarget.includes('localhost'));
+  const isCloudSelected = isFinance || selectedTarget === DEFAULT_CLOUD_BACKEND || selectedTarget.includes('onrender.com');
 
   return (
     <div
@@ -139,12 +162,12 @@ export const ApiConnectionModal = ({ isOpen, onClose }) => {
                 width: '42px',
                 height: '42px',
                 borderRadius: '10px',
-                background: 'rgba(16, 185, 129, 0.15)',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
+                background: isFinance ? 'rgba(2, 132, 199, 0.2)' : 'rgba(16, 185, 129, 0.15)',
+                border: isFinance ? '1px solid rgba(2, 132, 199, 0.4)' : '1px solid rgba(16, 185, 129, 0.3)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: '#10B981'
+                color: isFinance ? '#38BDF8' : '#10B981'
               }}
             >
               <Cpu size={22} />
@@ -156,7 +179,9 @@ export const ApiConnectionModal = ({ isOpen, onClose }) => {
                 </h2>
               </div>
               <p style={{ margin: '3px 0 0', fontSize: '12px', color: '#94A3B8' }}>
-                Safely route transactions between the deployed Vercel frontend and your local Ganache blockchain
+                {isFinance
+                  ? 'Production Cloud Backend — Connected to Ethereum Sepolia Testnet (Chain ID 11155111)'
+                  : 'Safely route transactions between the deployed Vercel frontend and your local Ganache blockchain'}
               </p>
             </div>
           </div>
@@ -197,8 +222,8 @@ export const ApiConnectionModal = ({ isOpen, onClose }) => {
             style={{
               padding: '16px 20px',
               borderRadius: '12px',
-              border: details.isLocalTarget ? '1px solid #A7F3D0' : '1px solid #BAE6FD',
-              backgroundColor: details.isLocalTarget ? '#ECFDF5' : '#F0F9FF',
+              border: (isFinance || !details.isLocalTarget) ? '1px solid #BAE6FD' : '1px solid #A7F3D0',
+              backgroundColor: (isFinance || !details.isLocalTarget) ? '#F0F9FF' : '#ECFDF5',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -207,29 +232,29 @@ export const ApiConnectionModal = ({ isOpen, onClose }) => {
             }}
           >
             <div>
-              <div style={{ fontSize: '11px', fontWeight: '800', color: details.isLocalTarget ? '#065F46' : '#0369A1', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <div style={{ fontSize: '11px', fontWeight: '800', color: (isFinance || !details.isLocalTarget) ? '#0369A1' : '#065F46', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 CURRENT ACTIVE CONNECTION
               </div>
               <div style={{ fontSize: '15px', fontWeight: '800', color: '#0F172A', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span>{details.currentBaseUrl}</span>
+                <span>{isFinance ? `${DEFAULT_CLOUD_BACKEND}/api` : details.currentBaseUrl}</span>
                 <span
                   style={{
                     fontSize: '11px',
                     fontWeight: '700',
                     padding: '2px 8px',
                     borderRadius: '12px',
-                    backgroundColor: details.isLocalTarget ? '#10B981' : '#0284C7',
+                    backgroundColor: (isFinance || !details.isLocalTarget) ? '#0284C7' : '#10B981',
                     color: '#FFFFFF'
                   }}
                 >
-                  {details.isLocalTarget ? 'LOCAL GANACHE TARGET' : 'CLOUD BACKEND'}
+                  {isFinance ? 'PRODUCTION CLOUD (SEPOLIA)' : (details.isLocalTarget ? 'LOCAL GANACHE TARGET' : 'CLOUD BACKEND')}
                 </span>
               </div>
             </div>
 
             <button
               type="button"
-              onClick={() => runHealthCheck(details.currentHost)}
+              onClick={() => runHealthCheck(isFinance ? DEFAULT_CLOUD_BACKEND : details.currentHost)}
               disabled={testing}
               style={{
                 background: '#FFFFFF',
@@ -276,10 +301,10 @@ export const ApiConnectionModal = ({ isOpen, onClose }) => {
                     <strong>Blockchain Connected:</strong> {testResult.data.blockchain.connected ? '✅ Yes' : '❌ Disconnected'}
                   </div>
                   <div>
-                    <strong>Chain ID:</strong> {testResult.data.blockchain.chain_id || '1337'}
+                    <strong>Chain ID:</strong> {testResult.data.blockchain.chain_id || (isFinance ? '11155111' : '1337')}
                   </div>
                   <div style={{ gridColumn: '1 / -1' }}>
-                    <strong>Contract Address:</strong> <code style={{ fontSize: '11px', background: 'rgba(0,0,0,0.05)', padding: '2px 4px', borderRadius: '4px' }}>{testResult.data.blockchain.contract_address}</code>
+                    <strong>Contract Address:</strong> <code style={{ fontSize: '11px', background: 'rgba(0,0,0,0.05)', padding: '2px 4px', borderRadius: '4px' }}>{testResult.data.blockchain.contract_address || (isFinance ? '0x103cdC78636491B20deadC5574755Bbd64B119c6' : '')}</code>
                   </div>
                   <div style={{ gridColumn: '1 / -1' }}>
                     <strong>Contract Deployed:</strong> {testResult.data.blockchain.contract_deployed ? '✅ Verified on-chain' : '❌ Not deployed'}
@@ -289,109 +314,37 @@ export const ApiConnectionModal = ({ isOpen, onClose }) => {
 
               {!testResult.success && testResult.hint && (
                 <div style={{ marginTop: '8px', fontSize: '12px', color: '#7F1D1D', background: '#FEE2E2', padding: '8px 10px', borderRadius: '6px' }}>
-                  <strong>Advisory:</strong> {testResult.hint}
+                  <strong>Advisory:</strong> {isFinance ? 'Unable to reach the deployed production backend. Please verify network connectivity.' : testResult.hint}
                 </div>
               )}
             </div>
           )}
 
-          {/* Connection Mode Selection */}
+          {/* Connection Target Card */}
           <div>
             <label style={{ fontSize: '12px', fontWeight: '800', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '10px', display: 'block' }}>
-              Select Connection Target
+              Connection Target
             </label>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              
-              {/* Option 1: Local Backend (Ganache) */}
+            {isFinance ? (
+              /* Finance Department: Enforced Production Cloud Backend (Sepolia) */
               <div
-                onClick={() => {
-                  setSelectedTarget(DEFAULT_LOCAL_BACKEND);
-                  runHealthCheck(DEFAULT_LOCAL_BACKEND);
-                }}
                 style={{
-                  border: isLocalSelected ? '2px solid #059669' : '1px solid #CBD5E1',
-                  backgroundColor: isLocalSelected ? '#F0FDF4' : '#FFFFFF',
+                  border: '2px solid #0284C7',
+                  backgroundColor: '#F0F9FF',
                   borderRadius: '12px',
-                  padding: '16px',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
+                  padding: '18px',
+                  boxShadow: '0 1px 3px rgba(2, 132, 199, 0.1)'
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <div
                       style={{
-                        width: '36px',
-                        height: '36px',
-                        borderRadius: '8px',
-                        backgroundColor: '#ECFDF5',
-                        border: '1px solid #A7F3D0',
-                        color: '#059669',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                    >
-                      <Laptop size={20} />
-                    </div>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '14px', fontWeight: '800', color: '#0F172A' }}>
-                          Local Backend (Localhost / Ganache)
-                        </span>
-                        <span style={{ fontSize: '10px', fontWeight: '800', padding: '1px 6px', borderRadius: '10px', background: '#D1FAE5', color: '#065F46' }}>
-                          RECOMMENDED FOR GANACHE
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '12px', fontFamily: 'monospace', color: '#059669', fontWeight: '700', marginTop: '2px' }}>
-                        {DEFAULT_LOCAL_BACKEND}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      width: '20px',
-                      height: '20px',
-                      borderRadius: '50%',
-                      border: isLocalSelected ? '6px solid #059669' : '2px solid #CBD5E1',
-                      backgroundColor: '#FFFFFF'
-                    }}
-                  />
-                </div>
-
-                <div style={{ marginTop: '10px', fontSize: '12px', color: '#475569', lineHeight: '1.5', paddingLeft: '48px' }}>
-                  Connects directly to your local FastAPI backend running on your computer. All transactions are signed locally and sent to your Ganache instance (Chain ID 1337). No private keys or Ganache RPC ports are exposed over the public internet.
-                  <div style={{ marginTop: '6px', fontSize: '11px', color: '#047857', fontWeight: '600' }}>
-                    • Prerequisite: Ensure <code>python app.py</code> is running in your local backend terminal.
-                  </div>
-                </div>
-              </div>
-
-              {/* Option 2: Cloud Backend (Render Default) */}
-              <div
-                onClick={() => {
-                  setSelectedTarget(DEFAULT_CLOUD_BACKEND);
-                  runHealthCheck(DEFAULT_CLOUD_BACKEND);
-                }}
-                style={{
-                  border: isCloudSelected && !isLocalSelected ? '2px solid #0284C7' : '1px solid #CBD5E1',
-                  backgroundColor: isCloudSelected && !isLocalSelected ? '#F0F9FF' : '#FFFFFF',
-                  borderRadius: '12px',
-                  padding: '16px',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease'
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div
-                      style={{
-                        width: '36px',
-                        height: '36px',
-                        borderRadius: '8px',
-                        backgroundColor: '#F0F9FF',
+                        width: '40px',
+                        height: '40px',
+                        borderRadius: '10px',
+                        backgroundColor: '#E0F2FE',
                         border: '1px solid #BAE6FD',
                         color: '#0284C7',
                         display: 'flex',
@@ -399,18 +352,18 @@ export const ApiConnectionModal = ({ isOpen, onClose }) => {
                         justifyContent: 'center'
                       }}
                     >
-                      <Cloud size={20} />
+                      <Cloud size={22} />
                     </div>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontSize: '14px', fontWeight: '800', color: '#0F172A' }}>
-                          Deployed Cloud Backend (Render Default)
+                        <span style={{ fontSize: '15px', fontWeight: '800', color: '#0F172A' }}>
+                          Production Cloud Backend — Ethereum Sepolia
                         </span>
-                        <span style={{ fontSize: '10px', fontWeight: '800', padding: '1px 6px', borderRadius: '10px', background: '#E0F2FE', color: '#0369A1' }}>
-                          DEFAULT
+                        <span style={{ fontSize: '10px', fontWeight: '800', padding: '2px 8px', borderRadius: '10px', background: '#BAE6FD', color: '#0369A1' }}>
+                          ENFORCED FOR FINANCE
                         </span>
                       </div>
-                      <div style={{ fontSize: '12px', fontFamily: 'monospace', color: '#0284C7', fontWeight: '700', marginTop: '2px' }}>
+                      <div style={{ fontSize: '13px', fontFamily: 'monospace', color: '#0284C7', fontWeight: '700', marginTop: '3px' }}>
                         {DEFAULT_CLOUD_BACKEND}
                       </div>
                     </div>
@@ -418,44 +371,204 @@ export const ApiConnectionModal = ({ isOpen, onClose }) => {
 
                   <div
                     style={{
-                      width: '20px',
-                      height: '20px',
+                      width: '22px',
+                      height: '22px',
                       borderRadius: '50%',
-                      border: isCloudSelected && !isLocalSelected ? '6px solid #0284C7' : '2px solid #CBD5E1',
+                      border: '6px solid #0284C7',
                       backgroundColor: '#FFFFFF'
                     }}
                   />
                 </div>
 
-                <div style={{ marginTop: '10px', fontSize: '12px', color: '#475569', lineHeight: '1.5', paddingLeft: '48px' }}>
-                  The default production cloud backend hosted on Render. Connects to Ethereum Sepolia Testnet (Chain ID 11155111) for decentralized on-chain ledger tracking.
+                <div style={{ marginTop: '12px', fontSize: '12px', color: '#334155', lineHeight: '1.6', paddingLeft: '52px' }}>
+                  The Finance Department portal is configured exclusively for the production cloud backend hosted on Render. All central-to-state fund disbursals are signed and recorded live on the decentralized Ethereum Sepolia smart contract with immutable cryptographic verification.
+
+                  <div style={{ marginTop: '10px', display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '11px', color: '#0369A1', fontWeight: '600' }}>
+                    <span>• Blockchain: <strong>Ethereum Sepolia</strong></span>
+                    <span>• Chain ID: <strong>11155111</strong></span>
+                    <span>• Contract: <strong>0x103cdC...19c6</strong></span>
+                  </div>
                 </div>
               </div>
+            ) : (
+              /* Non-Finance Portals: Preserved Local Ganache vs Cloud Selector */
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
 
-            </div>
+                {/* Option 1: Local Backend (Ganache) */}
+                <div
+                  onClick={() => {
+                    setSelectedTarget(DEFAULT_LOCAL_BACKEND);
+                    runHealthCheck(DEFAULT_LOCAL_BACKEND);
+                  }}
+                  style={{
+                    border: isLocalSelected ? '2px solid #059669' : '1px solid #CBD5E1',
+                    backgroundColor: isLocalSelected ? '#F0FDF4' : '#FFFFFF',
+                    borderRadius: '12px',
+                    padding: '16px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div
+                        style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '8px',
+                          backgroundColor: '#ECFDF5',
+                          border: '1px solid #A7F3D0',
+                          color: '#059669',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        <Laptop size={20} />
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '14px', fontWeight: '800', color: '#0F172A' }}>
+                            Local Backend (Localhost / Ganache)
+                          </span>
+                          <span style={{ fontSize: '10px', fontWeight: '800', padding: '1px 6px', borderRadius: '10px', background: '#D1FAE5', color: '#065F46' }}>
+                            RECOMMENDED FOR GANACHE
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '12px', fontFamily: 'monospace', color: '#059669', fontWeight: '700', marginTop: '2px' }}>
+                          {DEFAULT_LOCAL_BACKEND}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        borderRadius: '50%',
+                        border: isLocalSelected ? '6px solid #059669' : '2px solid #CBD5E1',
+                        backgroundColor: '#FFFFFF'
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ marginTop: '10px', fontSize: '12px', color: '#475569', lineHeight: '1.5', paddingLeft: '48px' }}>
+                    Connects directly to your local FastAPI backend running on your computer. All transactions are signed locally and sent to your Ganache instance (Chain ID 1337). No private keys or Ganache RPC ports are exposed over the public internet.
+                    <div style={{ marginTop: '6px', fontSize: '11px', color: '#047857', fontWeight: '600' }}>
+                      • Prerequisite: Ensure <code>python app.py</code> is running in your local backend terminal.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Option 2: Cloud Backend (Render Default) */}
+                <div
+                  onClick={() => {
+                    setSelectedTarget(DEFAULT_CLOUD_BACKEND);
+                    runHealthCheck(DEFAULT_CLOUD_BACKEND);
+                  }}
+                  style={{
+                    border: isCloudSelected && !isLocalSelected ? '2px solid #0284C7' : '1px solid #CBD5E1',
+                    backgroundColor: isCloudSelected && !isLocalSelected ? '#F0F9FF' : '#FFFFFF',
+                    borderRadius: '12px',
+                    padding: '16px',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div
+                        style={{
+                          width: '36px',
+                          height: '36px',
+                          borderRadius: '8px',
+                          backgroundColor: '#F0F9FF',
+                          border: '1px solid #BAE6FD',
+                          color: '#0284C7',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                      >
+                        <Cloud size={20} />
+                      </div>
+                      <div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ fontSize: '14px', fontWeight: '800', color: '#0F172A' }}>
+                            Deployed Cloud Backend (Render Default)
+                          </span>
+                          <span style={{ fontSize: '10px', fontWeight: '800', padding: '1px 6px', borderRadius: '10px', background: '#E0F2FE', color: '#0369A1' }}>
+                            DEFAULT
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '12px', fontFamily: 'monospace', color: '#0284C7', fontWeight: '700', marginTop: '2px' }}>
+                          {DEFAULT_CLOUD_BACKEND}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        width: '20px',
+                        height: '20px',
+                        borderRadius: '50%',
+                        border: isCloudSelected && !isLocalSelected ? '6px solid #0284C7' : '2px solid #CBD5E1',
+                        backgroundColor: '#FFFFFF'
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ marginTop: '10px', fontSize: '12px', color: '#475569', lineHeight: '1.5', paddingLeft: '48px' }}>
+                    The default production cloud backend hosted on Render. Connects to Ethereum Sepolia Testnet (Chain ID 11155111) for decentralized on-chain ledger tracking.
+                  </div>
+                </div>
+
+              </div>
+            )}
           </div>
 
-          {/* Browser Local Network / Security Note */}
-          <div
-            style={{
-              padding: '12px 16px',
-              backgroundColor: '#FFFBEB',
-              border: '1px solid #FDE68A',
-              borderRadius: '10px',
-              display: 'flex',
-              gap: '12px',
-              alignItems: 'flex-start'
-            }}
-          >
-            <Info size={18} color="#D97706" style={{ flexShrink: 0, marginTop: '2px' }} />
-            <div style={{ fontSize: '12px', color: '#92400E', lineHeight: '1.5' }}>
-              <strong>Browser Local Network Policy (When on Vercel):</strong>
-              <br />
-              Modern browsers allow web applications to communicate with local services on <code>127.0.0.1</code> via W3C Secure Contexts.
-              Our local backend includes standard <code>Access-Control-Allow-Private-Network: true</code> headers.
-              If your browser blocks local requests, click the <strong>tune/lock icon</strong> in the browser URL bar $\rightarrow$ <strong>Site settings</strong> $\rightarrow$ set <strong>Insecure content</strong> to <strong>Allow</strong>.
+          {/* Context Advisory / Security Note */}
+          {isFinance ? (
+            /* Finance Security Note */
+            <div
+              style={{
+                padding: '12px 16px',
+                backgroundColor: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                borderRadius: '10px',
+                display: 'flex',
+                gap: '12px',
+                alignItems: 'flex-start'
+              }}
+            >
+              <ShieldCheck size={18} color="#0284C7" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ fontSize: '12px', color: '#334155', lineHeight: '1.5' }}>
+                <strong>Finance Security Policy:</strong> Localhost and Ganache connections are disabled for the Finance Department. All disbursals are authenticated through the central treasury service and verified on the Ethereum Sepolia public blockchain.
+              </div>
             </div>
-          </div>
+          ) : (
+            /* Browser Local Network / Security Note (Non-Finance / Local Dev) */
+            <div
+              style={{
+                padding: '12px 16px',
+                backgroundColor: '#FFFBEB',
+                border: '1px solid #FDE68A',
+                borderRadius: '10px',
+                display: 'flex',
+                gap: '12px',
+                alignItems: 'flex-start'
+              }}
+            >
+              <Info size={18} color="#D97706" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div style={{ fontSize: '12px', color: '#92400E', lineHeight: '1.5' }}>
+                <strong>Browser Local Network Policy (When on Vercel):</strong>
+                <br />
+                Modern browsers allow web applications to communicate with local services on <code>127.0.0.1</code> via W3C Secure Contexts.
+                Our local backend includes standard <code>Access-Control-Allow-Private-Network: true</code> headers.
+                If your browser blocks local requests, click the <strong>tune/lock icon</strong> in the browser URL bar → <strong>Site settings</strong> → set <strong>Insecure content</strong> to <strong>Allow</strong>.
+              </div>
+            </div>
+          )}
 
         </div>
 
@@ -513,27 +626,52 @@ export const ApiConnectionModal = ({ isOpen, onClose }) => {
               Close
             </button>
 
-            <button
-              type="button"
-              onClick={() => handleApply(selectedTarget)}
-              style={{
-                background: '#059669',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '8px 20px',
-                fontSize: '13px',
-                fontWeight: '800',
-                color: '#FFFFFF',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)'
-              }}
-            >
-              <Zap size={14} />
-              <span>Apply & Use {isLocalSelected ? 'Local Backend' : 'Cloud Backend'}</span>
-            </button>
+            {isFinance ? (
+              <button
+                type="button"
+                onClick={() => runHealthCheck(DEFAULT_CLOUD_BACKEND)}
+                disabled={testing}
+                style={{
+                  background: '#0284C7',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '8px 20px',
+                  fontSize: '13px',
+                  fontWeight: '800',
+                  color: '#FFFFFF',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 4px rgba(2, 132, 199, 0.2)'
+                }}
+              >
+                <RefreshCw size={14} className={testing ? 'spin' : ''} />
+                <span>{testing ? 'Testing...' : 'Test & Verify Sepolia'}</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleApply(selectedTarget)}
+                style={{
+                  background: '#059669',
+                  border: 'none',
+                  borderRadius: '8px',
+                  padding: '8px 20px',
+                  fontSize: '13px',
+                  fontWeight: '800',
+                  color: '#FFFFFF',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  boxShadow: '0 2px 4px rgba(5, 150, 105, 0.2)'
+                }}
+              >
+                <Zap size={14} />
+                <span>Apply & Use {isLocalSelected ? 'Local Backend' : 'Cloud Backend'}</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -542,7 +680,16 @@ export const ApiConnectionModal = ({ isOpen, onClose }) => {
   );
 };
 
-export const ApiConnectionPill = ({ style = {}, onOpenModal = () => {} }) => {
+export const ApiConnectionPill = ({ style = {}, onOpenModal = () => {}, portal = null }) => {
+  let authUser = null;
+  try {
+    const auth = useAuth();
+    authUser = auth?.user;
+  } catch (e) {
+    authUser = null;
+  }
+
+  const isFinance = portal === 'FINANCE' || authUser?.role === 'FINANCE';
   const [details, setDetails] = useState(getApiConnectionDetails());
 
   useEffect(() => {
@@ -553,13 +700,13 @@ export const ApiConnectionPill = ({ style = {}, onOpenModal = () => {} }) => {
     return () => window.removeEventListener('govtfund_api_host_changed', handleUpdate);
   }, []);
 
-  const isLocal = details.isLocalTarget;
+  const isLocal = !isFinance && details.isLocalTarget;
 
   return (
     <button
       type="button"
       onClick={onOpenModal}
-      title={`Active API: ${details.currentBaseUrl} (Click to change backend)`}
+      title={isFinance ? 'Active API: Production Cloud Backend (Sepolia)' : `Active API: ${details.currentBaseUrl} (Click to change backend)`}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
@@ -583,7 +730,7 @@ export const ApiConnectionPill = ({ style = {}, onOpenModal = () => {} }) => {
       }}
     >
       {isLocal ? <Laptop size={13} color="#059669" /> : <Cloud size={13} color="#0284C7" />}
-      <span>{isLocal ? 'LOCAL (127.0.0.1:5000)' : 'CLOUD API'}</span>
+      <span>{isFinance ? 'CLOUD API (Sepolia)' : (isLocal ? 'LOCAL (127.0.0.1:5000)' : 'CLOUD API')}</span>
     </button>
   );
 };
