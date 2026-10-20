@@ -416,8 +416,10 @@ def test_phase_fund_request_duplicate_and_completion_consistency():
         "progress_percentage": 0
     })
 
-    with patch("blockchain_service.release_milestone_payment_onchain") as mock_bc:
-        mock_bc.side_effect = lambda *args, **kwargs: {"tx_hash": f"0x{uuid.uuid4().hex}{uuid.uuid4().hex}", "block_number": 401}
+    with patch("blockchain_service.record_contractor_transfer_onchain") as mock_trf, \
+         patch("blockchain_service.release_milestone_payment_onchain") as mock_bc:
+        mock_trf.side_effect = lambda *args, **kwargs: {"tx_hash": f"0x{uuid.uuid4().hex}{uuid.uuid4().hex}", "block_number": 401}
+        mock_bc.side_effect = lambda *args, **kwargs: {"tx_hash": f"0x{uuid.uuid4().hex}{uuid.uuid4().hex}", "block_number": 402}
 
         # Step 1: Approve fund request
         res1 = client.post(
@@ -601,8 +603,10 @@ def test_sequential_phases_and_verification_reconciliation_prevent_insufficient_
         }
     ])
 
-    with patch("blockchain_service.release_milestone_payment_onchain") as mock_bc:
-        mock_bc.side_effect = lambda *args, **kwargs: {"tx_hash": f"0x{uuid.uuid4().hex}{uuid.uuid4().hex}", "block_number": 501}
+    with patch("blockchain_service.record_contractor_transfer_onchain") as mock_trf, \
+         patch("blockchain_service.release_milestone_payment_onchain") as mock_bc:
+        mock_trf.side_effect = lambda *args, **kwargs: {"tx_hash": f"0x{uuid.uuid4().hex}{uuid.uuid4().hex}", "block_number": 501}
+        mock_bc.side_effect = lambda *args, **kwargs: {"tx_hash": f"0x{uuid.uuid4().hex}{uuid.uuid4().hex}", "block_number": 502}
 
         # Step 1: District Officer approves Phase #1 fund request
         res1 = client.post(
@@ -730,13 +734,15 @@ def test_reconcile_heals_historical_released_amount_drift():
     assert p_in_db["released_amount"] == 3000000.0
 
     # 2. Approving Phase #2 now succeeds smoothly without budget error
-    res_approve = client.post(
-        f"/api/district/projects/{proj_id}/phases/1/verify-fund-request",
-        json={"action": "APPROVE"},
-        headers=dist_headers
-    )
-    assert res_approve.status_code == 200
-    assert res_approve.json().get("success") is True
+    with patch("blockchain_service.record_contractor_transfer_onchain") as mock_trf:
+        mock_trf.side_effect = lambda *args, **kwargs: {"tx_hash": f"0x{uuid.uuid4().hex}{uuid.uuid4().hex}", "block_number": 601}
+        res_approve = client.post(
+            f"/api/district/projects/{proj_id}/phases/1/verify-fund-request",
+            json={"action": "APPROVE"},
+            headers=dist_headers
+        )
+        assert res_approve.status_code == 200
+        assert res_approve.json().get("success") is True
 
     p_after = db.projects.find_one({"project_id": proj_id})
     assert p_after["released_amount"] == 7000000.0

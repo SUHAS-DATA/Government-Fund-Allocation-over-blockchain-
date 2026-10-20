@@ -1110,7 +1110,10 @@ def record_district_allocation_onchain(dist_alloc_id, trf_id, district_name, amo
 
 def record_contractor_transfer_onchain(transfer_id, project_id, district_name, contractor_name, amount, receiver_address=None):
     rec_addr = receiver_address or get_entity_wallet("CONTRACTOR", contractor_name)
-    rec_addr_checksum = w3.to_checksum_address(rec_addr) if (w3 and w3.is_address(rec_addr)) else CONTRACTOR_ADDR
+    try:
+        rec_addr_checksum = w3.to_checksum_address(rec_addr) if (w3 and w3.is_address(rec_addr)) else (w3.to_checksum_address(CONTRACTOR_ADDR) if (w3 and CONTRACTOR_ADDR) else CONTRACTOR_ADDR)
+    except Exception:
+        rec_addr_checksum = CONTRACTOR_ADDR
 
     contract = get_contract()
     if contract and w3 and w3.is_connected():
@@ -1145,7 +1148,12 @@ def record_contractor_transfer_onchain(transfer_id, project_id, district_name, c
                 send_native_eth_transfer("DISTRICT", rec_addr_checksum, amount_eth=0.05)
                 return res
         except Exception as e:
+            if "reverted" in str(e).lower() or is_cloud_render:
+                raise
             bc_logger.warning(f"Live contract call failed: {e}. Using ledger engine.")
+
+    if is_cloud_render:
+        raise Exception(f"Cannot record contractor transfer {transfer_id} on-chain: Hosted blockchain is disconnected or offline.")
 
     return generate_cryptographic_ledger_receipt(role="DISTRICT", op_name="transferToContractor", target_address=rec_addr_checksum)
 

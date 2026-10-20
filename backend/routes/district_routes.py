@@ -1320,7 +1320,18 @@ async def verify_phase_fund_request(
             db.projects.update_one({"project_id": project_id}, {"$set": {"escrow_onchain": True}})
 
     try:
-        tx_receipt = bcs.release_milestone_payment_onchain(project_id, milestone_index)
+        rand_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        transfer_id = f"TRF-PHASE-{project_id}-P{milestone_index + 1}-{rand_suffix}"
+        district_dept = f"{proj.get('district_name', 'Bengaluru Urban')} District Implementing Agency"
+        contractor_dept = proj.get("contractor_name", "Contractor")
+        tx_receipt = bcs.record_contractor_transfer_onchain(
+            transfer_id=transfer_id,
+            project_id=project_id,
+            district_name=district_dept,
+            contractor_name=contractor_dept,
+            amount=allocated_amount,
+            receiver_address=to_contractor
+        )
         if tx_receipt and tx_receipt.get("tx_hash"):
             tx_hash = tx_receipt["tx_hash"]
             block_num = tx_receipt.get("block_number")
