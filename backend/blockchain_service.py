@@ -547,6 +547,26 @@ def get_blockchain_diagnostics(force_refresh: bool = False) -> dict:
                     "ready": False
                 }
                 warnings.append(str(wce))
+        elif r == "CONTRACTOR":
+            acc = get_account(r)
+            is_ready = bool(acc)
+            configured_con_addr = (os.getenv("CONTRACTOR_WALLET_ADDRESS") or "").strip()
+            roles_status[r] = {
+                "key_configured": bool(get_private_key_for_role(r)),
+                "wallet_derived": acc.address if acc else None,
+                "configured_address": configured_con_addr or (acc.address if acc else None),
+                "ready": is_ready,
+                "optional_for_fund_pipeline": True,
+                "fund_pipeline_role": "Recipient only (District signs Stage 3 transfer & milestone releases)",
+                "onchain_operation": "submitMilestoneProgress",
+                "onchain_milestone_submission_ready": is_ready
+            }
+            if not is_ready:
+                warnings.append(
+                    "Contractor signer key not configured: optional for three-stage fund-transfer pipeline "
+                    "(District signs releases; Contractor is recipient), but required for live on-chain submitMilestoneProgress() "
+                    "(milestone submissions fall back to cryptographic ledger)."
+                )
         else:
             acc = get_account(r)
             roles_status[r] = {
@@ -556,6 +576,11 @@ def get_blockchain_diagnostics(force_refresh: bool = False) -> dict:
             }
             if not roles_status[r]["ready"]:
                 warnings.append(f"Missing or invalid private key for role: {r}")
+
+    transfer_critical_warnings = [
+        w for w in warnings
+        if not w.startswith("Contractor signer key not configured: optional for three-stage fund-transfer pipeline")
+    ]
 
     return {
         "environment": env,
@@ -568,7 +593,7 @@ def get_blockchain_diagnostics(force_refresh: bool = False) -> dict:
         "contract_deployed": contract_deployed,
         "roles": roles_status,
         "warnings": warnings,
-        "status": "HEALTHY" if (connected and (chain_id_match or not active_chain_id) and contract_deployed and len(warnings) == 0) else "DEGRADED"
+        "status": "HEALTHY" if (connected and (chain_id_match or not active_chain_id) and contract_deployed and len(transfer_critical_warnings) == 0) else "DEGRADED"
     }
 
 class WalletConfigurationError(Exception):

@@ -110,39 +110,39 @@ def init_indexes():
     # 2. Financial Years collection
     safe_create_index(db.financial_years, [("year", ASCENDING)], unique=True, sparse=True)
 
-    # 3. Departments collection (Restored sparse=True to match existing production schema)
-    safe_create_index(db.departments, [("code", ASCENDING)], unique=True, sparse=True)
+    # 3. Departments collection (Aligned with MongoDB Atlas: unique and non-sparse)
+    safe_create_index(db.departments, [("code", ASCENDING)], unique=True)
 
-    # 4. States collection (Restored sparse=True to match existing production schema)
-    safe_create_index(db.states, [("code", ASCENDING)], unique=True, sparse=True)
+    # 4. States collection (Aligned with MongoDB Atlas: unique and non-sparse)
+    safe_create_index(db.states, [("code", ASCENDING)], unique=True)
 
-    # 5. Schemes collection (Restored sparse=True to match existing production schema)
-    safe_create_index(db.schemes, [("code", ASCENDING)], unique=True, sparse=True)
+    # 5. Schemes collection (Aligned with MongoDB Atlas: unique and non-sparse)
+    safe_create_index(db.schemes, [("code", ASCENDING)], unique=True)
 
-    # 6. Budget Allocations collection (Restored sparse=True to match existing production schema)
-    safe_create_index(db.budget_allocations, [("allocation_id", ASCENDING)], unique=True, sparse=True)
+    # 6. Budget Allocations collection (Aligned with MongoDB Atlas: unique and non-sparse)
+    safe_create_index(db.budget_allocations, [("allocation_id", ASCENDING)], unique=True)
     safe_create_index(db.budget_allocations, [("financial_year", ASCENDING), ("status", ASCENDING)])
     safe_create_index(db.budget_allocations, [("financial_year", ASCENDING), ("created_at", DESCENDING)])
     safe_create_index(db.budget_allocations, [("state_code", ASCENDING)])
 
-    # 7. State Transfers collection (Restored sparse=True to match existing production schema)
-    safe_create_index(db.state_transfers, [("transfer_id", ASCENDING)], unique=True, sparse=True)
+    # 7. State Transfers collection (Aligned with MongoDB Atlas: unique and non-sparse)
+    safe_create_index(db.state_transfers, [("transfer_id", ASCENDING)], unique=True)
     safe_create_index(db.state_transfers, [("financial_year", ASCENDING), ("state_code", ASCENDING)])
     safe_create_index(db.state_transfers, [("financial_year", ASCENDING), ("created_at", DESCENDING)])
     safe_create_index(db.state_transfers, [("state_code", ASCENDING), ("financial_year", ASCENDING), ("created_at", DESCENDING)])
     safe_create_index(db.state_transfers, [("state_code", ASCENDING), ("status", ASCENDING)])
     safe_create_index(db.state_transfers, [("created_at", DESCENDING)])
 
-    # 8. District Allocations collection (Restored sparse=True to match existing production schema)
-    safe_create_index(db.district_allocations, [("district_alloc_id", ASCENDING)], unique=True, sparse=True)
+    # 8. District Allocations collection (Aligned with MongoDB Atlas: unique and non-sparse)
+    safe_create_index(db.district_allocations, [("district_alloc_id", ASCENDING)], unique=True)
     safe_create_index(db.district_allocations, [("financial_year", ASCENDING), ("state_code", ASCENDING), ("district_name", ASCENDING)])
     safe_create_index(db.district_allocations, [("district_name", ASCENDING), ("financial_year", ASCENDING), ("created_at", DESCENDING)])
     safe_create_index(db.district_allocations, [("state_code", ASCENDING), ("financial_year", ASCENDING), ("created_at", DESCENDING)])
     safe_create_index(db.district_allocations, [("district_name", ASCENDING), ("status", ASCENDING)])
     safe_create_index(db.district_allocations, [("state_code", ASCENDING)])
 
-    # 9. Projects collection (Restored sparse=True to match existing production schema)
-    safe_create_index(db.projects, [("project_id", ASCENDING)], unique=True, sparse=True)
+    # 9. Projects collection (Aligned with MongoDB Atlas: unique and non-sparse)
+    safe_create_index(db.projects, [("project_id", ASCENDING)], unique=True)
     safe_create_index(db.projects, [("financial_year", ASCENDING), ("district_name", ASCENDING)])
     safe_create_index(db.projects, [("district_name", ASCENDING), ("status", ASCENDING)])
     safe_create_index(db.projects, [("state_code", ASCENDING), ("status", ASCENDING)])
@@ -161,15 +161,15 @@ def init_indexes():
     safe_create_index(db.notifications, [("recipient_user_id", ASCENDING), ("read", ASCENDING), ("created_at", DESCENDING)])
     safe_create_index(db.notifications, [("role", ASCENDING), ("created_at", DESCENDING)])
 
-    # 10. Documents collection (Restored sparse=True to match existing production schema)
-    safe_create_index(db.documents, [("document_id", ASCENDING)], unique=True, sparse=True)
+    # 10. Documents collection (Aligned with MongoDB Atlas: unique and non-sparse)
+    safe_create_index(db.documents, [("document_id", ASCENDING)], unique=True)
     safe_create_index(db.documents, [("sha256_hash", ASCENDING)])
 
     # 11. Complaints / Grievances collection
     safe_create_index(db.complaints, [("reference_id", ASCENDING)], unique=True, sparse=True)
 
-    # 12. Blockchain Transactions collection
-    safe_create_index(db.blockchain_transactions, [("tx_hash", ASCENDING)], unique=True, sparse=True)
+    # 12. Blockchain Transactions collection (Aligned with MongoDB Atlas: unique and non-sparse)
+    safe_create_index(db.blockchain_transactions, [("tx_hash", ASCENDING)], unique=True)
     safe_create_index(db.blockchain_transactions, [("timestamp", DESCENDING)])
 
     # 13. QR Codes collection

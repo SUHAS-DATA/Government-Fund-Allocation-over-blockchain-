@@ -94,22 +94,58 @@ def test_safe_create_index_detects_key_direction_mismatch():
     res = db_mod.safe_create_index(mock_col, [("code", ASCENDING)], unique=True, sparse=True)
     assert res is None
 
-def test_eight_primary_indexes_have_sparse_true():
-    """Verify that the 8 primary business collections define sparse=True and unique=True."""
-    # Read database.py source code to verify declarations
+def test_eight_primary_indexes_aligned_with_atlas_non_sparse():
+    """Verify that the 8 primary business collections define unique=True and omit sparse=True, matching Atlas."""
     import inspect
     source = inspect.getsource(db_mod.init_indexes)
 
-    required_sparse_declarations = [
-        "safe_create_index(db.departments, [(\"code\", ASCENDING)], unique=True, sparse=True)",
-        "safe_create_index(db.states, [(\"code\", ASCENDING)], unique=True, sparse=True)",
-        "safe_create_index(db.schemes, [(\"code\", ASCENDING)], unique=True, sparse=True)",
-        "safe_create_index(db.budget_allocations, [(\"allocation_id\", ASCENDING)], unique=True, sparse=True)",
-        "safe_create_index(db.state_transfers, [(\"transfer_id\", ASCENDING)], unique=True, sparse=True)",
-        "safe_create_index(db.district_allocations, [(\"district_alloc_id\", ASCENDING)], unique=True, sparse=True)",
-        "safe_create_index(db.projects, [(\"project_id\", ASCENDING)], unique=True, sparse=True)",
-        "safe_create_index(db.documents, [(\"document_id\", ASCENDING)], unique=True, sparse=True)",
+    required_atlas_declarations = [
+        "safe_create_index(db.departments, [(\"code\", ASCENDING)], unique=True)",
+        "safe_create_index(db.states, [(\"code\", ASCENDING)], unique=True)",
+        "safe_create_index(db.schemes, [(\"code\", ASCENDING)], unique=True)",
+        "safe_create_index(db.budget_allocations, [(\"allocation_id\", ASCENDING)], unique=True)",
+        "safe_create_index(db.state_transfers, [(\"transfer_id\", ASCENDING)], unique=True)",
+        "safe_create_index(db.district_allocations, [(\"district_alloc_id\", ASCENDING)], unique=True)",
+        "safe_create_index(db.projects, [(\"project_id\", ASCENDING)], unique=True)",
+        "safe_create_index(db.documents, [(\"document_id\", ASCENDING)], unique=True)",
     ]
 
-    for decl in required_sparse_declarations:
-        assert decl in source, f"Missing required sparse unique index declaration: {decl}"
+    for decl in required_atlas_declarations:
+        assert decl in source, f"Missing required Atlas-aligned index declaration: {decl}"
+
+def test_financial_years_declares_sparse_true():
+    """Verify financial_years maintains sparse=True to match Atlas schema."""
+    import inspect
+    source = inspect.getsource(db_mod.init_indexes)
+    assert 'safe_create_index(db.financial_years, [("year", ASCENDING)], unique=True, sparse=True)' in source
+
+def test_blockchain_transactions_aligned_with_atlas_non_sparse():
+    """Verify blockchain_transactions defines unique=True and omits sparse=True, matching Atlas."""
+    import inspect
+    source = inspect.getsource(db_mod.init_indexes)
+    assert 'safe_create_index(db.blockchain_transactions, [("tx_hash", ASCENDING)], unique=True)' in source
+
+def test_startup_init_indexes_executes_safely(monkeypatch):
+    """Verify that init_indexes() executes through all collections without unhandled exceptions."""
+    # Mock all collections on db
+    mock_db = MagicMock()
+    monkeypatch.setattr(db_mod, "db", mock_db)
+
+    # All collections return success on create_index
+    for col_attr in [
+        "users", "financial_years", "departments", "states", "schemes",
+        "budget_allocations", "state_transfers", "district_allocations",
+        "projects", "milestones", "contractor_kyc", "notifications",
+        "documents", "complaints", "blockchain_transactions", "qr_codes",
+        "evidence", "bank_accounts", "financial_transactions", "audit_logs",
+        "fraud_reports"
+    ]:
+        col = MagicMock()
+        col.name = col_attr
+        col.create_index.return_value = f"{col_attr}_idx"
+        setattr(mock_db, col_attr, col)
+
+    # Should execute without throwing any exception
+    db_mod.init_indexes()
+    assert mock_db.departments.create_index.call_count >= 1
+    assert mock_db.projects.create_index.call_count >= 1

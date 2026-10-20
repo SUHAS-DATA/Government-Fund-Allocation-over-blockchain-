@@ -439,3 +439,85 @@ def test_exact_production_target_addresses_matching():
         assert dist_signer["derived_address"] == target_district
         assert dist_signer["configured_address"] == target_district
         assert dist_signer["contract_role"] == "DISTRICT_ROLE"
+
+
+# ==============================================================================
+# 9. Contractor Diagnostics Classification Tests
+# ==============================================================================
+
+def test_contractor_diagnostics_optional_when_key_is_missing():
+    """Verify contractor is classified as optional for 3-stage fund transfers with clear diagnostic for submitMilestoneProgress."""
+    env = {
+        "ENABLE_BLOCKCHAIN": "true",
+        "CHAIN_ID": "11155111",
+        "BLOCKCHAIN_RPC_URL": "https://eth-sepolia.mock",
+        "FINANCE_PRIVATE_KEY": TEST_KEY_1,
+        "FINANCE_WALLET_ADDRESS": TEST_ADDR_1,
+        "STATE_PRIVATE_KEY": TEST_KEY_2,
+        "STATE_WALLET_ADDRESS": TEST_ADDR_2,
+        "DISTRICT_PRIVATE_KEY": TEST_KEY_3,
+        "DISTRICT_WALLET_ADDRESS": TEST_ADDR_3,
+        "CONTRACTOR_PRIVATE_KEY": "",
+        "CONTRACTOR_WALLET_ADDRESS": ""
+    }
+    with patch.dict(os.environ, env, clear=False), \
+         patch.object(bcs, "RPC_URL", "https://eth-sepolia.mock"), \
+         patch.object(bcs, "is_blockchain_connected", return_value=True), \
+         patch.object(bcs, "is_contract_deployed", return_value=True), \
+         patch.object(bcs, "get_cached_chain_id", return_value=11155111):
+        diag = bcs.get_blockchain_diagnostics()
+        contractor_info = diag.get("roles", {}).get("CONTRACTOR", {})
+
+        # Truthfully reports contractor signer not ready
+        assert contractor_info["ready"] is False
+        assert contractor_info["key_configured"] is False
+        # Truthfully classifies as optional for fund pipeline
+        assert contractor_info["optional_for_fund_pipeline"] is True
+        assert contractor_info["onchain_milestone_submission_ready"] is False
+        assert contractor_info["onchain_operation"] == "submitMilestoneProgress"
+
+        # Diagnostic warning is clearly informative without claiming transfer failure
+        warning_matches = [
+            w for w in diag["warnings"]
+            if "Contractor signer key not configured: optional for three-stage fund-transfer pipeline" in w
+        ]
+        assert len(warning_matches) == 1
+        assert "submitMilestoneProgress()" in warning_matches[0]
+
+        # Overall fund transfer status is HEALTHY because all 3 fund transfer stages are ready
+        assert diag["status"] == "HEALTHY"
+
+def test_contractor_diagnostics_when_key_is_configured():
+    """Verify contractor diagnostics reports fully ready when CONTRACTOR_PRIVATE_KEY is present."""
+    test_contractor_key = "0x" + "4" * 64
+    test_contractor_addr = Web3().eth.account.from_key(test_contractor_key).address
+
+    env = {
+        "ENABLE_BLOCKCHAIN": "true",
+        "CHAIN_ID": "11155111",
+        "BLOCKCHAIN_RPC_URL": "https://eth-sepolia.mock",
+        "FINANCE_PRIVATE_KEY": TEST_KEY_1,
+        "FINANCE_WALLET_ADDRESS": TEST_ADDR_1,
+        "STATE_PRIVATE_KEY": TEST_KEY_2,
+        "STATE_WALLET_ADDRESS": TEST_ADDR_2,
+        "DISTRICT_PRIVATE_KEY": TEST_KEY_3,
+        "DISTRICT_WALLET_ADDRESS": TEST_ADDR_3,
+        "CONTRACTOR_PRIVATE_KEY": test_contractor_key,
+        "CONTRACTOR_WALLET_ADDRESS": test_contractor_addr
+    }
+    with patch.dict(os.environ, env, clear=False), \
+         patch.object(bcs, "RPC_URL", "https://eth-sepolia.mock"), \
+         patch.object(bcs, "is_blockchain_connected", return_value=True), \
+         patch.object(bcs, "is_contract_deployed", return_value=True), \
+         patch.object(bcs, "get_cached_chain_id", return_value=11155111):
+        diag = bcs.get_blockchain_diagnostics()
+        contractor_info = diag.get("roles", {}).get("CONTRACTOR", {})
+
+        assert contractor_info["ready"] is True
+        assert contractor_info["key_configured"] is True
+        assert contractor_info["wallet_derived"] == test_contractor_addr
+        assert contractor_info["onchain_milestone_submission_ready"] is True
+
+        # No contractor warning present
+        con_warnings = [w for w in diag["warnings"] if "Contractor" in w]
+        assert len(con_warnings) == 0
