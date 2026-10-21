@@ -79,9 +79,6 @@ const TransferToState = () => {
 
   const formatTransferError = (rawMsg) => {
     if (!rawMsg) return 'Transfer failed';
-    if (typeof rawMsg === 'string' && (rawMsg.includes('timeout') || rawMsg.includes('ECONNABORTED'))) {
-      return 'The transfer request timed out while awaiting blockchain confirmation. Your transaction may have already completed on-chain. Please click "Check Transfer Status / Recover" below.';
-    }
     return rawMsg;
   };
 
@@ -241,8 +238,8 @@ const TransferToState = () => {
         setError(formatTransferError(res.message));
       }
     } catch (err) {
-      const isTimeout = err?.message && (err.message.includes('timeout') || err.message.includes('Network Error'));
-      if (isTimeout) {
+      const isNetworkOrDrop = Boolean(err?.isNetworkError || (err?.message && (err.message.includes('Network Error') || err.message.includes('timeout'))));
+      if (isNetworkOrDrop) {
         // Attempt immediate status recovery probe with same idempotency key
         try {
           setIsRecovering(true);

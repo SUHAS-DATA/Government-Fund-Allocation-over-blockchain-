@@ -151,8 +151,6 @@ const ContractorPortalPage = () => {
         setLoginKycStatus('UNDER_REVIEW');
         setLoginKycState(stateName);
         setLoginError(msg);
-      } else if (err?.isTimeout || msg.toLowerCase().includes('timeout')) {
-        setLoginError('Server response timed out (cloud service may be waking up). Please click Sign In again.');
       } else if (err?.isNetworkError || msg.toLowerCase().includes('network') || msg.toLowerCase().includes('failed to fetch')) {
         setLoginError('Unable to reach government backend servers. Please verify your internet connection or try again.');
       } else {

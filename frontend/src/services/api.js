@@ -208,7 +208,7 @@ export const testBackendHealth = async (targetHost = null) => {
     let hint = '';
 
     if (err.name === 'AbortError') {
-      hint = 'Connection timed out after 7s. Please verify the backend process is running.';
+      hint = 'Connection attempt was unreachable. Please verify the backend process is running.';
     } else if (typeof window !== 'undefined' && window.location.protocol === 'https:' && (host.startsWith('http://127.0.0.1') || host.startsWith('http://localhost'))) {
       hint = 'Browser security (Private Network Access / Mixed Content): If your browser blocks HTTPS to local HTTP, please ensure your local backend is running, or click the site settings lock icon in the address bar to permit local network requests.';
     } else if (err.message && err.message.toLowerCase().includes('failed to fetch')) {
@@ -299,14 +299,6 @@ api.interceptors.response.use(
       }
     }
 
-    const isTimeout = error.code === 'ECONNABORTED' || (error.message && error.message.toLowerCase().includes('timeout'));
-    if (isTimeout) {
-      return Promise.reject({
-        message: 'Server connection timed out. The backend service may be initializing or experiencing network delay. Please try again.',
-        isTimeout: true,
-      });
-    }
-
     if (error.response) {
       if (error.response.status === 401 && !window.location.href.includes('login') && window.location.pathname !== '/') {
         localStorage.removeItem('govtfund_token');
@@ -322,7 +314,7 @@ api.interceptors.response.use(
     }
 
     return Promise.reject({
-      message: error.message === 'Network Error'
+      message: error.message === 'Network Error' || error.code === 'ECONNABORTED'
         ? 'Unable to connect to government server. Please check your internet connection or verify backend availability.'
         : (error.message || 'Network connection failed'),
       isNetworkError: true,

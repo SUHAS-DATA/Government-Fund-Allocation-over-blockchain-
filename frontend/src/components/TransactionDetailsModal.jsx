@@ -108,7 +108,7 @@ const TransactionDetailsModal = ({ isOpen = true, onClose, transaction, autoVeri
         setVerifyError(errorMsg);
       }
     } catch (err) {
-      setVerifyError(err.message || 'Blockchain RPC network timeout during verification.');
+      setVerifyError(err.message || 'Verification request failed.');
     } finally {
       setVerifying(false);
     }

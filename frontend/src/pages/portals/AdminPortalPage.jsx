@@ -99,9 +99,7 @@ const AdminPortalPage = () => {
       }
     } catch (err) {
       const rawMsg = (typeof err === 'string' ? err : err?.message) || '';
-      if (err?.isTimeout || rawMsg.toLowerCase().includes('timeout')) {
-        setError('Server response timed out (cloud service may be waking up). Please click Sign In again.');
-      } else if (err?.isNetworkError || rawMsg.toLowerCase().includes('network') || rawMsg.toLowerCase().includes('failed to fetch')) {
+      if (err?.isNetworkError || rawMsg.toLowerCase().includes('network') || rawMsg.toLowerCase().includes('failed to fetch')) {
         setError('Unable to reach government backend servers. Please verify your internet connection or try again.');
       } else {
         setError(rawMsg || 'Authentication failed. Please verify credentials.');
