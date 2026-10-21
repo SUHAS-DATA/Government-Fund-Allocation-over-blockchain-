@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { FileText, ShieldCheck, CheckCircle2, XCircle, RefreshCw, Copy, Check, Lock } from 'lucide-react';
+import { FileText, ShieldCheck, CheckCircle2, XCircle, RefreshCw, Copy, Check, Lock, Eye, Download } from 'lucide-react';
 import { formatTxHash, copyToClipboard } from '../services/blockchain';
-import API from '../services/api';
+import API, { getApiBaseUrl } from '../services/api';
 
 const DocumentHashViewer = ({ document, showVerifyButton = true }) => {
   const [verifying, setVerifying] = useState(false);
@@ -9,6 +9,11 @@ const DocumentHashViewer = ({ document, showVerifyButton = true }) => {
   const [copied, setCopied] = useState(false);
 
   if (!document) return null;
+
+  const docId = document.document_id || document.documentId || document.id;
+  const token = typeof window !== 'undefined' ? (localStorage.getItem('govtfund_token') || '') : '';
+  const fileViewUrl = docId ? `${getApiBaseUrl()}/evidence/${docId}/file?token=${token}` : null;
+  const fileDownloadUrl = fileViewUrl ? `${fileViewUrl}&download=1` : null;
 
   const handleVerify = async () => {
     setVerifying(true);
@@ -70,7 +75,34 @@ const DocumentHashViewer = ({ document, showVerifyButton = true }) => {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {fileViewUrl && (
+            <a
+              href={fileViewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-secondary btn-sm"
+              style={{ fontSize: '11px', padding: '4px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+              title="View document"
+            >
+              <Eye size={12} />
+              <span>View</span>
+            </a>
+          )}
+
+          {fileDownloadUrl && (
+            <a
+              href={fileDownloadUrl}
+              download={document.file_name || 'document'}
+              className="btn btn-secondary btn-sm"
+              style={{ fontSize: '11px', padding: '4px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+              title="Download document"
+            >
+              <Download size={12} />
+              <span>Download</span>
+            </a>
+          )}
+
           {document.blockchain_tx_hash ? (
             <span className="badge badge-success">
               <ShieldCheck size={12} />

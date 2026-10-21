@@ -16,6 +16,7 @@ import blockchain_service as bcs
 import qr_service
 from realtime_manager import realtime_manager
 import bank_account_service as bas
+from audit_service import log_audit_event
 
 router = APIRouter()
 district_bp = router
@@ -1879,6 +1880,34 @@ async def handle_milestone_verification(project_id: str, milestone_index: int, r
             }}
         )
 
+        # Update matching records in db.documents
+        db.documents.update_many(
+            {"entity_id": project_id, "milestone_index": milestone_index},
+            {"$set": {
+                "status": "REJECTED",
+                "rejection_reason": remarks,
+                "rejected_at": datetime.now(timezone.utc),
+                "rejected_by": current_user["name"]
+            }}
+        )
+
+        # Authoritative audit log
+        log_audit_event(
+            event_type="MILESTONE_PROOF_VERIFICATION",
+            actor=current_user,
+            target_id=f"{project_id}-PHASE-{milestone_index + 1}",
+            target_type="PROJECT_MILESTONE",
+            amount=float(milestone.get("amount", 0.0)),
+            action="REJECT",
+            status="SUCCESS",
+            details=f"Phase #{milestone_index + 1} milestone work proof rejected: {remarks}",
+            extra_data={
+                "project_id": project_id,
+                "milestone_index": milestone_index,
+                "rejection_reason": remarks
+            }
+        )
+
         # Real-time WebSocket synchronization broadcast
         realtime_manager.trigger_broadcast("EVIDENCE_REJECTED", {
             "project_id": project_id,
@@ -1905,7 +1934,7 @@ async def handle_milestone_verification(project_id: str, milestone_index: int, r
 
         return {
             "success": True,
-            "message": f"Phase #{milestone_index + 1} submission rejected. Loop back to Execute Work triggered. Contractor notified to rectify and resubmit.",
+            "message": f"Phase #{milestone_index + 1} work proof rejected. Loop back to Execute Work triggered. Contractor notified to rectify and resubmit.",
             "rejection_reason": remarks
         }
 
@@ -1952,6 +1981,34 @@ async def handle_milestone_verification(project_id: str, milestone_index: int, r
             "rejection_reason": None,
             "rejectionReason": None
         }}
+    )
+
+    # Mark all documents for this milestone as VERIFIED
+    db.documents.update_many(
+        {"entity_id": project_id, "milestone_index": milestone_index},
+        {"$set": {
+            "status": "VERIFIED",
+            "verified_at": datetime.now(timezone.utc),
+            "verified_by": current_user["name"]
+        }}
+    )
+
+    # Authoritative audit log
+    log_audit_event(
+        event_type="MILESTONE_PROOF_VERIFICATION",
+        actor=current_user,
+        target_id=f"{project_id}-PHASE-{milestone_index + 1}",
+        target_type="PROJECT_MILESTONE",
+        amount=float(milestone.get("amount", 0.0)),
+        action="APPROVE",
+        status="SUCCESS",
+        details=f"Phase #{milestone_index + 1} milestone work proof verified and approved for project {project_id}",
+        blockchain_tx_hash=tx_hash,
+        blockchain_block=block_num,
+        extra_data={
+            "project_id": project_id,
+            "milestone_index": milestone_index
+        }
     )
 
     # Real-time WebSocket synchronization broadcast
@@ -2038,7 +2095,7 @@ async def handle_milestone_verification(project_id: str, milestone_index: int, r
 
     return {
         "success": True,
-        "message": f"Phase #{milestone_index + 1} verified and completed! {'Phase #' + str(milestone_index + 2) + ' is now unlocked.' if next_phase else 'Final project execution completed!'}",
+        "message": f"Phase #{milestone_index + 1} milestone work proof verified and approved successfully! {'Phase #' + str(milestone_index + 2) + ' is now unlocked.' if next_phase else 'Final project execution completed!'}",
         "next_phase_unlocked": bool(next_phase),
         "is_final_project_completed": is_final_phase,
         "blockchain": {

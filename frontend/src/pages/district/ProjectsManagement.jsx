@@ -1532,9 +1532,13 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
           color: 'var(--color-success)',
           marginBottom: '16px',
           fontSize: '12px',
-          fontWeight: '600'
+          fontWeight: '700',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
         }}>
-          {actionMsg}
+          <CheckCircle2 size={16} />
+          <span>{actionMsg}</span>
         </div>
       )}
 
@@ -1547,7 +1551,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
           color: 'var(--color-danger)',
           marginBottom: '16px',
           fontSize: '12px',
-          fontWeight: '600',
+          fontWeight: '700',
           display: 'flex',
           alignItems: 'center',
           gap: '8px'
@@ -1710,6 +1714,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
                             {mEvidence.map((ev, evIdx) => {
                               const isImg = ev.file_type?.startsWith('image/') || /\.(jpg|jpeg|png|webp)$/i.test(ev.file_name || '');
                               const isPdfOrDoc = ev.file_type?.includes('pdf') || /\.(pdf|doc|docx)$/i.test(ev.file_name || '');
+                              const isVideo = ev.file_type?.startsWith('video/') || /\.(mp4|webm|avi|mov|mkv)$/i.test(ev.file_name || '') || ev.doc_type === 'PROGRESS_VIDEO';
                               const token = localStorage.getItem('govtfund_token') || '';
                               const fileViewUrl = `${getApiBaseUrl()}/evidence/${ev.evidence_id || ev.evidenceId}/file?token=${token}`;
                               const fileDownloadUrl = `${fileViewUrl}&download=1`;
@@ -1753,7 +1758,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
                                       )}
                                       {isEvPending && (
                                         <span className="badge badge-warning" style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D', fontWeight: '700' }}>
-                                          ⏳ Pending Check
+                                          ⏳ Pending Approval
                                         </span>
                                       )}
                                     </div>
@@ -1765,7 +1770,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
                                     </div>
                                   )}
 
-                                  {/* Evidence Files Display */}
+                                  {/* Evidence Files Display - Only View and Download */}
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px', flexWrap: 'wrap' }}>
                                     {isImg && (
                                       <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1780,7 +1785,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
                                             background: '#F1F5F9'
                                           }}
                                           onClick={() => setPreviewEvidence({ ...ev, url: fileViewUrl })}
-                                          title="Click to view full size preview without downloading"
+                                          title="Click to view full size preview"
                                         >
                                           <img
                                             src={fileViewUrl}
@@ -1789,19 +1794,86 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
                                             onError={(e) => { e.target.style.display = 'none'; }}
                                           />
                                         </div>
-                                        <button
-                                          type="button"
-                                          className="btn btn-secondary btn-sm"
-                                          style={{ fontSize: '11px', padding: '4px 8px' }}
-                                          onClick={() => setPreviewEvidence({ ...ev, url: fileViewUrl })}
-                                        >
-                                          <Eye size={12} />
-                                          <span>View Preview</span>
-                                        </button>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                          <button
+                                            type="button"
+                                            className="btn btn-secondary btn-sm"
+                                            style={{ fontSize: '11px', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                            onClick={() => setPreviewEvidence({ ...ev, url: fileViewUrl })}
+                                          >
+                                            <Eye size={12} />
+                                            <span>View</span>
+                                          </button>
+                                          <a
+                                            href={fileDownloadUrl}
+                                            download={ev.file_name}
+                                            className="btn btn-secondary btn-sm"
+                                            style={{ fontSize: '11px', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                          >
+                                            <Download size={12} />
+                                            <span>Download</span>
+                                          </a>
+                                        </div>
                                       </div>
                                     )}
 
                                     {isPdfOrDoc && (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#F8FAFC', padding: '6px 10px', borderRadius: '4px', border: '1px solid #E2E8F0', fontSize: '12px' }}>
+                                          <FileText size={15} color="var(--color-primary)" />
+                                          <span>{ev.file_name}</span>
+                                        </div>
+                                        <a
+                                          href={fileViewUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="btn btn-secondary btn-sm"
+                                          style={{ fontSize: '11px', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                        >
+                                          <Eye size={12} />
+                                          <span>View</span>
+                                        </a>
+                                        <a
+                                          href={fileDownloadUrl}
+                                          download={ev.file_name}
+                                          className="btn btn-secondary btn-sm"
+                                          style={{ fontSize: '11px', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                        >
+                                          <Download size={12} />
+                                          <span>Download</span>
+                                        </a>
+                                      </div>
+                                    )}
+
+                                    {isVideo && (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#F8FAFC', padding: '6px 10px', borderRadius: '4px', border: '1px solid #E2E8F0', fontSize: '12px' }}>
+                                          <Video size={15} color="var(--color-primary)" />
+                                          <span>{ev.file_name}</span>
+                                        </div>
+                                        <a
+                                          href={fileViewUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="btn btn-secondary btn-sm"
+                                          style={{ fontSize: '11px', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                        >
+                                          <Eye size={12} />
+                                          <span>View Video</span>
+                                        </a>
+                                        <a
+                                          href={fileDownloadUrl}
+                                          download={ev.file_name}
+                                          className="btn btn-secondary btn-sm"
+                                          style={{ fontSize: '11px', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                        >
+                                          <Download size={12} />
+                                          <span>Download</span>
+                                        </a>
+                                      </div>
+                                    )}
+
+                                    {!isImg && !isPdfOrDoc && !isVideo && (
                                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#F8FAFC', padding: '6px 10px', borderRadius: '4px', border: '1px solid #E2E8F0', fontSize: '12px' }}>
                                           <FileText size={15} color="var(--color-primary)" />
@@ -1842,30 +1914,6 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
                                       <strong>Rejection Reason:</strong> {ev.rejection_reason || ev.rejectionReason}
                                     </div>
                                   )}
-
-                                  {/* Action Buttons: [Verify Evidence] & [Reject Evidence] */}
-                                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed #E2E8F0' }}>
-                                    <button
-                                      type="button"
-                                      className="btn btn-success btn-sm"
-                                      style={{ fontSize: '11px', padding: '5px 12px' }}
-                                      onClick={() => handleVerifyEvidence(ev.evidence_id || ev.evidenceId)}
-                                      disabled={submitting || isEvVerified}
-                                    >
-                                      <CheckCircle2 size={13} />
-                                      <span>{isEvVerified ? 'Proof Verified ✓' : 'Verify Work Proof'}</span>
-                                    </button>
-                                    <button
-                                      type="button"
-                                      className="btn btn-secondary btn-sm"
-                                      style={{ fontSize: '11px', padding: '5px 12px', color: 'var(--color-danger)' }}
-                                      onClick={() => handleOpenRejectEvidenceModal(ev)}
-                                      disabled={submitting}
-                                    >
-                                      <XCircle size={13} />
-                                      <span>Reject Work Proof</span>
-                                    </button>
-                                  </div>
                                 </div>
                               );
                             })}
@@ -1880,6 +1928,20 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
                 {(isRejectedProof && m.rejection_reason) && (
                   <div style={{ background: '#FEF2F2', padding: '8px 12px', borderRadius: 'var(--radius-sm)', border: '1px solid #FECACA', color: '#B91C1C', fontSize: '12px', margin: '8px 0' }}>
                     <strong>Inspection Rejection Reason:</strong> {m.rejection_reason} (Contractor executing rectification)
+                  </div>
+                )}
+
+                {/* Instant Feedback Callouts */}
+                {actionMsg && actionMsg.includes(`Phase #${idx + 1}`) && (
+                  <div style={{ background: '#DCFCE7', border: '1px solid #86EFAC', borderRadius: 'var(--radius-sm)', padding: '8px 12px', color: '#166534', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px', margin: '8px 0' }}>
+                    <CheckCircle2 size={15} />
+                    <span>{actionMsg}</span>
+                  </div>
+                )}
+                {actionError && actionError.includes(`Phase #${idx + 1}`) && (
+                  <div style={{ background: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 'var(--radius-sm)', padding: '8px 12px', color: '#991B1B', fontSize: '12px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '6px', margin: '8px 0' }}>
+                    <AlertCircle size={15} />
+                    <span>{actionError}</span>
                   </div>
                 )}
 
@@ -1915,26 +1977,32 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
                         className="btn btn-success btn-sm"
                         onClick={() => handleApproveProofSubmission(m.milestone_index)}
                         disabled={submitting}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontWeight: '700' }}
+                        title="Verify work proof and approve milestone completion"
                       >
-                        <ShieldCheck size={13} />
-                        <span>Approve Submission (Phase #{idx + 1} Completed)</span>
+                        <CheckCircle2 size={13} />
+                        <span>Proof Verified</span>
                       </button>
                       <button
                         className="btn btn-secondary btn-sm"
-                        style={{ color: 'var(--color-danger)' }}
+                        style={{ color: 'var(--color-danger)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
                         onClick={() => { setProofRejectModalPhase(m.milestone_index); setProofRejectReason(''); }}
                         disabled={submitting}
+                        title="Reject work proof and require contractor rectification"
                       >
                         <XCircle size={13} />
-                        <span>Reject & Require Rectification</span>
+                        <span>Reject Work Proof</span>
                       </button>
                     </>
                   )}
 
-                  {isCompleted && m.blockchain_tx_hash && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontSize: '11px', color: 'var(--color-success)', fontWeight: '700' }}>Payment Verified</span>
-                      <BlockchainBadge txHash={m.blockchain_tx_hash} />
+                  {isCompleted && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '700' }}>
+                        <CheckCircle2 size={12} />
+                        <span>Proof Verified ✓</span>
+                      </span>
+                      {m.blockchain_tx_hash && <BlockchainBadge txHash={m.blockchain_tx_hash} />}
                     </div>
                   )}
                 </div>
@@ -1989,7 +2057,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
         </h4>
         {docs.length > 0 ? (
           docs.map((doc, idx) => (
-            <DocumentHashViewer key={idx} document={doc} showVerifyButton={true} />
+            <DocumentHashViewer key={idx} document={doc} showVerifyButton={false} />
           ))
         ) : (
           <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)', fontSize: '12px' }}>
@@ -2023,7 +2091,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
 
       {/* Reject Proof Modal */}
       {proofRejectModalPhase !== null && (
-        <Modal title={`Reject Phase #${proofRejectModalPhase + 1} Completion Proof`} isOpen={true} onClose={() => setProofRejectModalPhase(null)}>
+        <Modal title={`Reject Phase #${proofRejectModalPhase + 1} Work Proof`} isOpen={true} onClose={() => setProofRejectModalPhase(null)}>
           <div className="form-group">
             <label className="form-label">Quality Inspection Deficiency Remarks</label>
             <textarea
@@ -2038,7 +2106,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
             <button className="btn btn-secondary" onClick={() => setProofRejectModalPhase(null)}>Cancel</button>
             <button className="btn btn-danger" onClick={handleRejectProofSubmission} disabled={submitting}>
-              <span>Confirm Rejection & Require Rectification</span>
+              <span>Confirm Reject Work Proof</span>
             </button>
           </div>
         </Modal>
