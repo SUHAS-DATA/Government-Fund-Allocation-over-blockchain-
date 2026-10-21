@@ -25,7 +25,8 @@ import {
   Ban,
   QrCode,
   Download,
-  ExternalLink
+  ExternalLink,
+  RefreshCw
 } from 'lucide-react';
 import API, { getApiBaseUrl } from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
@@ -35,7 +36,7 @@ import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FundAmountInput from '../../components/FundAmountInput';
 import { useAuth } from '../../context/AuthContext';
-import { useRealtimeSync } from '../../context/RealtimeContext';
+import { useRealtimeSync, useRealtime } from '../../context/RealtimeContext';
 import StateDistrictSelector from '../../components/StateDistrictSelector';
 import { useFinancialYear } from '../../context/FinancialYearContext';
 import { getAllStates, getDistrictsByState, getStateForDistrict, getState } from '../../config/statesDistrictsData';
@@ -43,6 +44,7 @@ import { getAllStates, getDistrictsByState, getStateForDistrict, getState } from
 const ProjectsManagement = () => {
   const { user } = useAuth();
   const { selectedFY } = useFinancialYear();
+  const { triggerManualSync } = useRealtime();
   const [searchParams] = useSearchParams();
   const initialDistrict = searchParams.get('district') || user?.district_name || 'Belagavi';
   const initialDistrictState = getStateForDistrict(initialDistrict)?.code || user?.state_code || 'KA';
@@ -257,6 +259,9 @@ const ProjectsManagement = () => {
         setShowCreateModal(false);
         setActionSuccess(`Project '${createForm.name}' created successfully under scheme ${createForm.scheme_name} (${selectedFY})!`);
         loadData();
+        if (typeof triggerManualSync === 'function') {
+          triggerManualSync({ type: 'PROJECT_CREATED', project_id: res.project?.project_id });
+        }
       } else {
         setCreateModalError(res.message || 'Error creating project');
       }
@@ -280,6 +285,9 @@ const ProjectsManagement = () => {
         setActionSuccess(res.message + " (Notification Sent to Contractor)");
         setModalMode('');
         loadData();
+        if (typeof triggerManualSync === 'function') {
+          triggerManualSync({ type: 'PROJECT_ASSIGNED', project_id: selectedProject.project_id, contractor_id: assignContractorId });
+        }
       } else {
         setAssignModalError(res.message || 'Failed to assign contractor');
       }
@@ -301,6 +309,9 @@ const ProjectsManagement = () => {
       if (res.success) {
         setActionSuccess(`Smart contract escrow deployed on Ethereum for ${projId}! Tx: ${res.blockchain?.tx_hash || 'Confirmed'}`);
         loadData();
+        if (typeof triggerManualSync === 'function') {
+          triggerManualSync({ type: 'ESCROW_CREATED', project_id: projId });
+        }
       } else {
         setActionError(res.message || 'Failed to deploy smart contract escrow');
       }
@@ -384,6 +395,15 @@ const ProjectsManagement = () => {
       header: 'Lifecycle Status',
       accessor: 'status',
       render: (r) => {
+        const hasPendingProof = Boolean(
+          r.has_pending_proof ||
+          (r.milestones && r.milestones.some(m => m.status === 'SUBMITTED' || m.phase_status === 'SUBMITTED_FOR_VERIFICATION' || m.evidence_status === 'SUBMITTED'))
+        );
+        const hasPendingFund = Boolean(
+          r.has_pending_fund ||
+          (r.milestones && r.milestones.some(m => m.status === 'FUND_REQUESTED' || m.phase_status === 'FUND_REQUESTED'))
+        );
+
         if (r.status === 'CLOSED') {
           return <span className="badge badge-secondary">CLOSED</span>;
         }
@@ -396,68 +416,102 @@ const ProjectsManagement = () => {
         if (r.status === 'ASSIGNED') {
           return <span className="badge badge-warning">ASSIGNED</span>;
         }
+
         return (
-          <span className={`badge ${r.is_frozen ? 'badge-danger' : r.status === 'COMPLETED' ? 'badge-success' : 'badge-info'}`}>
-            {r.is_frozen ? 'FROZEN' : r.status}
-          </span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+            <span className={`badge ${r.is_frozen ? 'badge-danger' : r.status === 'COMPLETED' ? 'badge-success' : 'badge-info'}`}>
+              {r.is_frozen ? 'FROZEN' : r.status}
+            </span>
+            {hasPendingProof && (
+              <span className="badge badge-primary" style={{ background: '#1D4ED8', color: '#FFFFFF', fontWeight: '800', fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '3px', boxShadow: '0 0 6px rgba(29, 78, 216, 0.4)' }}>
+                <Clock size={10} />
+                <span>VERIFICATION PENDING</span>
+              </span>
+            )}
+            {hasPendingFund && !hasPendingProof && (
+              <span className="badge badge-warning" style={{ fontWeight: '800', fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                <Coins size={10} />
+                <span>FUND REQUESTED</span>
+              </span>
+            )}
+          </div>
         );
       }
     },
     {
       header: 'Workflow Actions',
       accessor: 'action',
-      render: (r) => (
-        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-          {!r.contractor_name && (
-            <button
-              className="btn btn-primary btn-sm"
-              onClick={() => {
-                setSelectedProject(r);
-                if (contractors.length > 0) {
-                  setAssignContractorId(contractors[0].user_id || contractors[0]._id);
-                }
-                setModalMode('ASSIGN');
-              }}
-            >
-              <UserCheck size={12} />
-              <span>Assign Contractor</span>
-            </button>
-          )}
+      render: (r) => {
+        const hasPendingProof = Boolean(
+          r.has_pending_proof ||
+          (r.milestones && r.milestones.some(m => m.status === 'SUBMITTED' || m.phase_status === 'SUBMITTED_FOR_VERIFICATION' || m.evidence_status === 'SUBMITTED'))
+        );
 
-          {r.contractor_name && !r.escrow_onchain && (
-            <button
-              className="btn btn-outline btn-sm"
-              onClick={() => handleCreateEscrow(r)}
-              disabled={submittingEscrow === r.project_id}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', borderColor: '#2563EB', color: '#1D4ED8' }}
-              title="Deploy smart contract escrow on Ethereum before releasing funds"
-            >
-              <Shield size={12} />
-              <span>{submittingEscrow === r.project_id ? 'Deploying...' : 'Deploy Escrow'}</span>
-            </button>
-          )}
+        return (
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            {!r.contractor_name && (
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  setSelectedProject(r);
+                  if (contractors.length > 0) {
+                    setAssignContractorId(contractors[0].user_id || contractors[0]._id);
+                  }
+                  setModalMode('ASSIGN');
+                }}
+              >
+                <UserCheck size={12} />
+                <span>Assign Contractor</span>
+              </button>
+            )}
 
-          <button
-            className="btn btn-outline btn-sm"
-            onClick={() => openProjectDetails(r)}
-          >
-            <Eye size={12} />
-            <span>Manage Lifecycle</span>
-          </button>
+            {r.contractor_name && !r.escrow_onchain && (
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => handleCreateEscrow(r)}
+                disabled={submittingEscrow === r.project_id}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', borderColor: '#2563EB', color: '#1D4ED8' }}
+                title="Deploy smart contract escrow on Ethereum before releasing funds"
+              >
+                <Shield size={12} />
+                <span>{submittingEscrow === r.project_id ? 'Deploying...' : 'Deploy Escrow'}</span>
+              </button>
+            )}
 
-          {(r.contract_status === 'ACCEPTED' || r.assignment_status === 'ACCEPTED' || r.status === 'IN_PROGRESS' || r.status === 'COMPLETED' || r.qr_id || r.qr_code) && (
-            <button
-              className="btn btn-outline btn-sm"
-              onClick={() => handleOpenQrModal(r)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', borderColor: '#16A34A', color: '#166534' }}
-              title="View QR Verification"
-            >
-              <QrCode size={12} />
-              <span>View QR</span>
-            </button>
-          )}
-        </div>
-      )
+            {hasPendingProof ? (
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => openProjectDetails(r)}
+                style={{ background: '#1D4ED8', borderColor: '#1D4ED8', display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '700' }}
+                title="Contractor submitted work proof. Click to review and verify deliverables."
+              >
+                <FileCheck size={12} />
+                <span>Verify Proof</span>
+              </button>
+            ) : (
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => openProjectDetails(r)}
+              >
+                <Eye size={12} />
+                <span>Manage Lifecycle</span>
+              </button>
+            )}
+
+            {(r.contract_status === 'ACCEPTED' || r.assignment_status === 'ACCEPTED' || r.status === 'IN_PROGRESS' || r.status === 'COMPLETED' || r.qr_id || r.qr_code) && (
+              <button
+                className="btn btn-outline btn-sm"
+                onClick={() => handleOpenQrModal(r)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', borderColor: '#16A34A', color: '#166534' }}
+                title="View QR Verification"
+              >
+                <QrCode size={12} />
+                <span>View QR</span>
+              </button>
+            )}
+          </div>
+        );
+      }
     }
   ];
 
@@ -547,6 +601,17 @@ const ProjectsManagement = () => {
               </select>
             </div>
           )}
+
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => loadData(selectedDistrict, true)}
+            title="Refresh projects list and contractor proof statuses"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <RefreshCw size={13} className={loading ? 'spin' : ''} />
+            <span>Refresh</span>
+          </button>
 
           {/* Create Project Button */}
           <button className="btn btn-primary btn-sm" onClick={openCreateModal}>
@@ -922,7 +987,12 @@ const ProjectsManagement = () => {
         <ProjectManageModal
           project={selectedProject}
           onClose={() => setModalMode('')}
-          onRefresh={() => loadData()}
+          onRefresh={() => {
+            loadData();
+            if (typeof triggerManualSync === 'function') {
+              triggerManualSync({ type: 'PROJECT_UPDATED', project_id: selectedProject?.project_id });
+            }
+          }}
           onOpenQrModal={handleOpenQrModal}
         />
       )}
@@ -1033,11 +1103,18 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
   const [actionMsg, setActionMsg] = useState('');
   const [actionError, setActionError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
 
-  const loadDetails = () => {
-    API.get(`/district/projects/${project.project_id}`).then((res) => {
+  const loadDetails = async () => {
+    try {
+      setLoadingDetails(true);
+      const res = await API.get(`/district/projects/${project.project_id}`);
       if (res.success) setDetails(res);
-    });
+    } catch (e) {
+      console.error('Error fetching project details:', e);
+    } finally {
+      setLoadingDetails(false);
+    }
   };
 
   useEffect(() => {
@@ -1260,9 +1337,22 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
           <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Project ID: <strong style={{ fontFamily: 'monospace', color: 'var(--color-primary)' }}>{projData.project_id}</strong></div>
           <div style={{ fontSize: '13px', fontWeight: '700' }}>{projData.scheme_name}</div>
         </div>
-        <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Total Contract Value:</div>
-          <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--color-success)' }}>{formatCurrency(projData.total_budget)}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <button
+            type="button"
+            className="btn btn-outline btn-sm"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', padding: '5px 10px', height: 'auto', background: 'var(--card-bg)' }}
+            onClick={loadDetails}
+            disabled={loadingDetails}
+            title="Refresh latest contractor submissions and blockchain status"
+          >
+            <RefreshCw size={13} className={loadingDetails ? 'spin-anim' : ''} />
+            <span>{loadingDetails ? 'Syncing...' : 'Sync Status'}</span>
+          </button>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Total Contract Value:</div>
+            <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--color-success)' }}>{formatCurrency(projData.total_budget)}</div>
+          </div>
         </div>
       </div>
 
@@ -1475,8 +1565,21 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {milestones.map((m, idx) => {
+            const mEvidence = (details?.evidence || []).filter(
+              (e) => Number(e.milestone_index) === Number(m.milestone_index) ||
+                     String(e.milestoneId) === String(m._id) ||
+                     String(e.milestone_id) === String(m._id) ||
+                     e.milestoneId === `MS-${projData.project_id}-${Number(m.milestone_index) + 1}` ||
+                     e.milestone_id === `MS-${projData.project_id}-${Number(m.milestone_index) + 1}`
+            );
+
             const isCompleted = m.status === 'COMPLETED' || m.status === 'RELEASED';
-            const isSubmitted = !isCompleted && (m.status === 'SUBMITTED' || m.phase_status === 'SUBMITTED_FOR_VERIFICATION');
+            const isSubmitted = !isCompleted && (
+              m.status === 'SUBMITTED' ||
+              m.phase_status === 'SUBMITTED_FOR_VERIFICATION' ||
+              m.evidence_status === 'SUBMITTED' ||
+              mEvidence.some(e => e.status === 'SUBMITTED' || e.status === 'PENDING' || e.status === 'DRAFT')
+            );
             const isFundRequested = !isCompleted && (m.status === 'FUND_REQUESTED' || m.phase_status === 'FUND_REQUESTED');
             const isFundsTransferred = !isCompleted && (m.status === 'FUNDS_TRANSFERRED' || m.phase_status === 'FUNDS_TRANSFERRED');
             const isWorkInProgress = !isCompleted && (m.status === 'APPROVED_FOR_WORK' || m.phase_status === 'EXECUTING_WORK');
@@ -1489,7 +1592,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
                 background: isLocked ? '#F8FAFC' : '#FFFFFF',
                 padding: '16px',
                 borderRadius: 'var(--radius-sm)',
-                border: isCompleted ? '1.5px solid var(--color-success-border)' : isRejectedProof || isFundRejected ? '1.5px solid var(--color-danger-border)' : '1px solid var(--border-color)',
+                border: isCompleted ? '1.5px solid var(--color-success-border)' : isRejectedProof || isFundRejected ? '1.5px solid var(--color-danger-border)' : isSubmitted ? '1.5px solid #2563EB' : '1px solid var(--border-color)',
                 opacity: isLocked ? 0.6 : 1
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'gap', gap: '8px', marginBottom: '8px' }}>
@@ -1508,7 +1611,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
                     </div>
                     <div style={{ marginTop: '4px' }}>
                       {isCompleted && <span className="badge badge-success">✓ COMPLETED</span>}
-                      {isSubmitted && <span className="badge badge-primary">VERIFICATION PENDING</span>}
+                      {isSubmitted && <span className="badge badge-primary" style={{ background: '#1D4ED8', color: '#FFF', fontWeight: '800' }}>VERIFICATION PENDING</span>}
                       {isFundsTransferred && <span className="badge badge-success">FUNDS TRANSFERRED TO BANK</span>}
                       {isWorkInProgress && <span className="badge badge-warning">EXECUTING WORK</span>}
                       {isFundRequested && <span className="badge badge-info">FUND REQUEST RECEIVED</span>}
@@ -1533,231 +1636,244 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
 
                 {/* Work Evidence Inspection & Verification Deliverables */}
                 {(() => {
-                  const mEvidence = (details?.evidence || []).filter(
-                    (e) => Number(e.milestone_index) === Number(m.milestone_index) || e.milestoneId === m._id || e.milestoneId === `MS-${project.project_id}-${m.milestone_index + 1}`
+                  const hasSubmissionNotes = Boolean(
+                    isSubmitted ||
+                    m.proof_document_hash ||
+                    m.material_bills_notes ||
+                    m.video_url ||
+                    m.progress_notes
                   );
 
-                  if (mEvidence.length > 0) {
-                    return (
-                      <div style={{ background: '#F8FAFC', padding: '14px', borderRadius: 'var(--radius-sm)', border: '1px solid #CBD5E1', margin: '12px 0' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                          <div style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <FileCheck size={16} color="var(--color-primary)" />
-                            <span>Work Proof Submissions ({mEvidence.length}) — Phase #{idx + 1}</span>
+                  if (!hasSubmissionNotes && mEvidence.length === 0) return null;
+
+                  return (
+                    <>
+                      {/* Contractor Submission Deliverables Card */}
+                      {hasSubmissionNotes && (
+                        <div style={{ background: '#F0FDF4', padding: '12px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid #BBF7D0', margin: '10px 0', fontSize: '12px' }}>
+                          <div style={{ fontWeight: '800', color: '#166534', marginBottom: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '6px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <FileCheck size={16} />
+                              <span>Verify Contractor Completion Proof Submission (Phase #{idx + 1})</span>
+                            </div>
+                            {isSubmitted && (
+                              <span className="badge badge-primary" style={{ background: '#15803D', color: '#FFF', fontWeight: '800', fontSize: '10px' }}>
+                                AWAITING DISTRICT APPROVAL
+                              </span>
+                            )}
                           </div>
-                          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                            Project: <strong>{projData.name}</strong> • Contractor: <strong>{projData.contractor_name}</strong>
-                          </span>
+
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginTop: '8px' }}>
+                            <div style={{ background: '#FFF', padding: '8px 10px', borderRadius: '4px', border: '1px solid #DCFCE7' }}>
+                              <div style={{ fontWeight: '700', color: '#15803D' }}>📄 Material Bills:</div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{m.material_bills_notes || 'Uploaded invoice vouchers'}</div>
+                            </div>
+
+                            <div style={{ background: '#FFF', padding: '8px 10px', borderRadius: '4px', border: '1px solid #DCFCE7' }}>
+                              <div style={{ fontWeight: '700', color: '#15803D' }}>📸 Progress Photos:</div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{mEvidence.some(e => e.file_type?.startsWith('image/')) ? `${mEvidence.filter(e => e.file_type?.startsWith('image/')).length} geotagged site photo(s) attached` : 'Site photos attached'}</div>
+                            </div>
+
+                            <div style={{ background: '#FFF', padding: '8px 10px', borderRadius: '4px', border: '1px solid #DCFCE7' }}>
+                              <div style={{ fontWeight: '700', color: '#15803D' }}>🎥 Progress Videos:</div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{m.video_url ? <a href={m.video_url} target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)', fontWeight: '700' }}>View Site Video ↗</a> : 'Video recording attached'}</div>
+                            </div>
+
+                            <div style={{ background: '#FFF', padding: '8px 10px', borderRadius: '4px', border: '1px solid #DCFCE7' }}>
+                              <div style={{ fontWeight: '700', color: '#15803D' }}>📑 Site Notes & Reports:</div>
+                              <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{m.progress_notes || 'Quality test reports verified'}</div>
+                            </div>
+                          </div>
+
+                          {m.proof_document_hash && (
+                            <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--text-muted)' }}>
+                              Cryptographic SHA-256 Digest: <code style={{ color: 'var(--color-primary)' }}>{m.proof_document_hash}</code>
+                            </div>
+                          )}
                         </div>
+                      )}
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                          {mEvidence.map((ev, evIdx) => {
-                            const isImg = ev.file_type?.startsWith('image/') || /\.(jpg|jpeg|png|webp)$/i.test(ev.file_name || '');
-                            const isPdfOrDoc = ev.file_type?.includes('pdf') || /\.(pdf|doc|docx)$/i.test(ev.file_name || '');
-                            const token = localStorage.getItem('govtfund_token') || '';
-                            const fileViewUrl = `${getApiBaseUrl()}/evidence/${ev.evidence_id || ev.evidenceId}/file?token=${token}`;
-                            const fileDownloadUrl = `${fileViewUrl}&download=1`;
-                            const isEvVerified = ev.status === 'VERIFIED';
-                            const isEvRejected = ev.status === 'REJECTED';
-                            const isEvPending = ev.status === 'SUBMITTED' || ev.status === 'DRAFT' || ev.status === 'PENDING';
+                      {/* Uploaded Evidence Files List */}
+                      {mEvidence.length > 0 && (
+                        <div style={{ background: '#F8FAFC', padding: '14px', borderRadius: 'var(--radius-sm)', border: '1px solid #CBD5E1', margin: '12px 0' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                            <div style={{ fontWeight: '800', color: 'var(--text-main)', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <FileCheck size={16} color="var(--color-primary)" />
+                              <span>Work Proof Submissions ({mEvidence.length}) — Phase #{idx + 1}</span>
+                            </div>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                              Project: <strong>{projData.name}</strong> • Contractor: <strong>{projData.contractor_name}</strong>
+                            </span>
+                          </div>
 
-                            return (
-                              <div
-                                key={ev.evidence_id || evIdx}
-                                style={{
-                                  background: '#FFFFFF',
-                                  border: isEvVerified ? '1.5px solid #86EFAC' : isEvRejected ? '1.5px solid #FCA5A5' : '1px solid #CBD5E1',
-                                  borderRadius: '6px',
-                                  padding: '12px',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: '8px'
-                                }}
-                              >
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
-                                  <div>
-                                    <div style={{ fontWeight: '700', fontSize: '13px', color: 'var(--text-main)' }}>
-                                      {ev.file_name || `Evidence #${evIdx + 1}`}
-                                    </div>
-                                    <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                      Upload Date: {ev.uploaded_at ? new Date(ev.uploaded_at).toLocaleString('en-IN') : 'Recently'} • Milestone: Phase #{idx + 1}
-                                    </div>
-                                  </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {mEvidence.map((ev, evIdx) => {
+                              const isImg = ev.file_type?.startsWith('image/') || /\.(jpg|jpeg|png|webp)$/i.test(ev.file_name || '');
+                              const isPdfOrDoc = ev.file_type?.includes('pdf') || /\.(pdf|doc|docx)$/i.test(ev.file_name || '');
+                              const token = localStorage.getItem('govtfund_token') || '';
+                              const fileViewUrl = `${getApiBaseUrl()}/evidence/${ev.evidence_id || ev.evidenceId}/file?token=${token}`;
+                              const fileDownloadUrl = `${fileViewUrl}&download=1`;
+                              const isEvVerified = ev.status === 'VERIFIED';
+                              const isEvRejected = ev.status === 'REJECTED';
+                              const isEvPending = ev.status === 'SUBMITTED' || ev.status === 'DRAFT' || ev.status === 'PENDING';
 
-                                  <div>
-                                    {isEvVerified && (
-                                      <span className="badge badge-success" style={{ background: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC', fontWeight: '700' }}>
-                                        ✓ VERIFIED
-                                      </span>
-                                    )}
-                                    {isEvRejected && (
-                                      <span className="badge badge-danger" style={{ background: '#FEE2E2', color: '#991B1B', border: '1px solid #FCA5A5', fontWeight: '700' }}>
-                                        ⚠️ REJECTED
-                                      </span>
-                                    )}
-                                    {isEvPending && (
-                                      <span className="badge badge-warning" style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D', fontWeight: '700' }}>
-                                        ⏳ Pending Check
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {ev.description && (
-                                  <div style={{ fontSize: '12px', color: 'var(--text-secondary)', background: 'var(--bg-subtle)', padding: '6px 10px', borderRadius: '4px' }}>
-                                    <strong>Work Proof Description:</strong> {ev.description}
-                                  </div>
-                                )}
-
-                                {/* Evidence Files Display */}
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px', flexWrap: 'wrap' }}>
-                                  {isImg && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                      <div
-                                        style={{
-                                          width: '120px',
-                                          height: '80px',
-                                          borderRadius: '6px',
-                                          overflow: 'hidden',
-                                          border: '1px solid #CBD5E1',
-                                          cursor: 'pointer',
-                                          background: '#F1F5F9'
-                                        }}
-                                        onClick={() => setPreviewEvidence({ ...ev, url: fileViewUrl })}
-                                        title="Click to view full size preview without downloading"
-                                      >
-                                        <img
-                                          src={fileViewUrl}
-                                          alt={ev.file_name}
-                                          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                                          onError={(e) => { e.target.style.display = 'none'; }}
-                                        />
+                              return (
+                                <div
+                                  key={ev.evidence_id || evIdx}
+                                  style={{
+                                    background: '#FFFFFF',
+                                    border: isEvVerified ? '1.5px solid #86EFAC' : isEvRejected ? '1.5px solid #FCA5A5' : '1px solid #CBD5E1',
+                                    borderRadius: '6px',
+                                    padding: '12px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: '8px'
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px' }}>
+                                    <div>
+                                      <div style={{ fontWeight: '700', fontSize: '13px', color: 'var(--text-main)' }}>
+                                        {ev.file_name || `Evidence #${evIdx + 1}`}
                                       </div>
-                                      <button
-                                        type="button"
-                                        className="btn btn-secondary btn-sm"
-                                        style={{ fontSize: '11px', padding: '4px 8px' }}
-                                        onClick={() => setPreviewEvidence({ ...ev, url: fileViewUrl })}
-                                      >
-                                        <Eye size={12} />
-                                        <span>View Preview</span>
-                                      </button>
-                                    </div>
-                                  )}
-
-                                  {isPdfOrDoc && (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#F8FAFC', padding: '6px 10px', borderRadius: '4px', border: '1px solid #E2E8F0', fontSize: '12px' }}>
-                                        <FileText size={15} color="var(--color-primary)" />
-                                        <span>{ev.file_name}</span>
+                                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                        Upload Date: {ev.uploaded_at ? new Date(ev.uploaded_at).toLocaleString('en-IN') : 'Recently'} • Milestone: Phase #{idx + 1}
                                       </div>
-                                      <a
-                                        href={fileViewUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="btn btn-secondary btn-sm"
-                                        style={{ fontSize: '11px', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                                      >
-                                        <Eye size={12} />
-                                        <span>View</span>
-                                      </a>
-                                      <a
-                                        href={fileDownloadUrl}
-                                        download={ev.file_name}
-                                        className="btn btn-secondary btn-sm"
-                                        style={{ fontSize: '11px', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                                      >
-                                        <Download size={12} />
-                                        <span>Download</span>
-                                      </a>
                                     </div>
-                                  )}
 
-                                  {ev.sha256_hash && (
-                                    <div style={{ fontSize: '10px', fontFamily: 'monospace', color: 'var(--text-muted)', marginLeft: 'auto' }}>
-                                      Record Stamp: {ev.sha256_hash.slice(0, 16)}...
+                                    <div>
+                                      {isEvVerified && (
+                                        <span className="badge badge-success" style={{ background: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC', fontWeight: '700' }}>
+                                          ✓ VERIFIED
+                                        </span>
+                                      )}
+                                      {isEvRejected && (
+                                        <span className="badge badge-danger" style={{ background: '#FEE2E2', color: '#991B1B', border: '1px solid #FCA5A5', fontWeight: '700' }}>
+                                          ⚠️ REJECTED
+                                        </span>
+                                      )}
+                                      {isEvPending && (
+                                        <span className="badge badge-warning" style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D', fontWeight: '700' }}>
+                                          ⏳ Pending Check
+                                        </span>
+                                      )}
                                     </div>
-                                  )}
-                                </div>
-
-                                {/* Rejection Reason Callout */}
-                                {isEvRejected && (ev.rejection_reason || ev.rejectionReason) && (
-                                  <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '4px', padding: '8px 10px', fontSize: '12px', color: '#B91C1C' }}>
-                                    <strong>Rejection Reason:</strong> {ev.rejection_reason || ev.rejectionReason}
                                   </div>
-                                )}
 
-                                {/* Action Buttons: [Verify Evidence] & [Reject Evidence] */}
-                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed #E2E8F0' }}>
-                                  <button
-                                    type="button"
-                                    className="btn btn-success btn-sm"
-                                    style={{ fontSize: '11px', padding: '5px 12px' }}
-                                    onClick={() => handleVerifyEvidence(ev.evidence_id || ev.evidenceId)}
-                                    disabled={submitting || isEvVerified}
-                                  >
-                                    <CheckCircle2 size={13} />
-                                    <span>{isEvVerified ? 'Proof Verified ✓' : 'Verify Work Proof'}</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="btn btn-secondary btn-sm"
-                                    style={{ fontSize: '11px', padding: '5px 12px', color: 'var(--color-danger)' }}
-                                    onClick={() => handleOpenRejectEvidenceModal(ev)}
-                                    disabled={submitting}
-                                  >
-                                    <XCircle size={13} />
-                                    <span>Reject Work Proof</span>
-                                  </button>
+                                  {ev.description && (
+                                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', background: 'var(--bg-subtle)', padding: '6px 10px', borderRadius: '4px' }}>
+                                      <strong>Work Proof Description:</strong> {ev.description}
+                                    </div>
+                                  )}
+
+                                  {/* Evidence Files Display */}
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px', flexWrap: 'wrap' }}>
+                                    {isImg && (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                        <div
+                                          style={{
+                                            width: '120px',
+                                            height: '80px',
+                                            borderRadius: '6px',
+                                            overflow: 'hidden',
+                                            border: '1px solid #CBD5E1',
+                                            cursor: 'pointer',
+                                            background: '#F1F5F9'
+                                          }}
+                                          onClick={() => setPreviewEvidence({ ...ev, url: fileViewUrl })}
+                                          title="Click to view full size preview without downloading"
+                                        >
+                                          <img
+                                            src={fileViewUrl}
+                                            alt={ev.file_name}
+                                            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                                            onError={(e) => { e.target.style.display = 'none'; }}
+                                          />
+                                        </div>
+                                        <button
+                                          type="button"
+                                          className="btn btn-secondary btn-sm"
+                                          style={{ fontSize: '11px', padding: '4px 8px' }}
+                                          onClick={() => setPreviewEvidence({ ...ev, url: fileViewUrl })}
+                                        >
+                                          <Eye size={12} />
+                                          <span>View Preview</span>
+                                        </button>
+                                      </div>
+                                    )}
+
+                                    {isPdfOrDoc && (
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: '#F8FAFC', padding: '6px 10px', borderRadius: '4px', border: '1px solid #E2E8F0', fontSize: '12px' }}>
+                                          <FileText size={15} color="var(--color-primary)" />
+                                          <span>{ev.file_name}</span>
+                                        </div>
+                                        <a
+                                          href={fileViewUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="btn btn-secondary btn-sm"
+                                          style={{ fontSize: '11px', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                        >
+                                          <Eye size={12} />
+                                          <span>View</span>
+                                        </a>
+                                        <a
+                                          href={fileDownloadUrl}
+                                          download={ev.file_name}
+                                          className="btn btn-secondary btn-sm"
+                                          style={{ fontSize: '11px', padding: '4px 10px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+                                        >
+                                          <Download size={12} />
+                                          <span>Download</span>
+                                        </a>
+                                      </div>
+                                    )}
+
+                                    {ev.sha256_hash && (
+                                      <div style={{ fontSize: '10px', fontFamily: 'monospace', color: 'var(--text-muted)', marginLeft: 'auto' }}>
+                                        Record Stamp: {ev.sha256_hash.slice(0, 16)}...
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Rejection Reason Callout */}
+                                  {isEvRejected && (ev.rejection_reason || ev.rejectionReason) && (
+                                    <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: '4px', padding: '8px 10px', fontSize: '12px', color: '#B91C1C' }}>
+                                      <strong>Rejection Reason:</strong> {ev.rejection_reason || ev.rejectionReason}
+                                    </div>
+                                  )}
+
+                                  {/* Action Buttons: [Verify Evidence] & [Reject Evidence] */}
+                                  <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed #E2E8F0' }}>
+                                    <button
+                                      type="button"
+                                      className="btn btn-success btn-sm"
+                                      style={{ fontSize: '11px', padding: '5px 12px' }}
+                                      onClick={() => handleVerifyEvidence(ev.evidence_id || ev.evidenceId)}
+                                      disabled={submitting || isEvVerified}
+                                    >
+                                      <CheckCircle2 size={13} />
+                                      <span>{isEvVerified ? 'Proof Verified ✓' : 'Verify Work Proof'}</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="btn btn-secondary btn-sm"
+                                      style={{ fontSize: '11px', padding: '5px 12px', color: 'var(--color-danger)' }}
+                                      onClick={() => handleOpenRejectEvidenceModal(ev)}
+                                      disabled={submitting}
+                                    >
+                                      <XCircle size={13} />
+                                      <span>Reject Work Proof</span>
+                                    </button>
+                                  </div>
                                 </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  }
-
-                  if (isSubmitted) {
-                    return (
-                      <div style={{ background: '#F0FDF4', padding: '12px 14px', borderRadius: 'var(--radius-sm)', border: '1px solid #BBF7D0', margin: '10px 0', fontSize: '12px' }}>
-                        <div style={{ fontWeight: '800', color: '#166534', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                          <FileCheck size={16} />
-                          <span>Verify Contractor Completion Proof Submission (Phase #{idx + 1})</span>
-                        </div>
-
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginTop: '8px' }}>
-                          <div style={{ background: '#FFF', padding: '8px 10px', borderRadius: '4px', border: '1px solid #DCFCE7' }}>
-                            <div style={{ fontWeight: '700', color: '#15803D' }}>📄 Material Bills:</div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{m.material_bills_notes || 'Uploaded invoice vouchers'}</div>
-                          </div>
-
-                          <div style={{ background: '#FFF', padding: '8px 10px', borderRadius: '4px', border: '1px solid #DCFCE7' }}>
-                            <div style={{ fontWeight: '700', color: '#15803D' }}>📸 Progress Photos:</div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Geotagged site images attached</div>
-                          </div>
-
-                          <div style={{ background: '#FFF', padding: '8px 10px', borderRadius: '4px', border: '1px solid #DCFCE7' }}>
-                            <div style={{ fontWeight: '700', color: '#15803D' }}>🎥 Progress Videos:</div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{m.video_url ? <a href={m.video_url} target="_blank" rel="noreferrer">View Site Video</a> : 'Video recording attached'}</div>
-                          </div>
-
-                          <div style={{ background: '#FFF', padding: '8px 10px', borderRadius: '4px', border: '1px solid #DCFCE7' }}>
-                            <div style={{ fontWeight: '700', color: '#15803D' }}>📑 Other Documents:</div>
-                            <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Quality lab test reports verified</div>
+                              );
+                            })}
                           </div>
                         </div>
-
-                        {m.proof_document_hash && (
-                          <div style={{ marginTop: '8px', fontSize: '11px', color: 'var(--text-muted)' }}>
-                            Cryptographic SHA-256 Digest: <code style={{ color: 'var(--color-primary)' }}>{m.proof_document_hash}</code>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  }
-
-                  return null;
+                      )}
+                    </>
+                  );
                 })()}
 
                 {/* Rejection Notes */}

@@ -7,11 +7,12 @@ import BlockchainBadge from '../../components/BlockchainBadge';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
 import FundAmountInput from '../../components/FundAmountInput';
-import { useRealtimeSync } from '../../context/RealtimeContext';
+import { useRealtimeSync, useRealtime } from '../../context/RealtimeContext';
 import { useFinancialYear } from '../../context/FinancialYearContext';
 
 const BudgetAllocation = ({ initialAllocations, initialDepartments, initialSchemes, initialFinancialYears } = {}) => {
   const { selectedFY, setSelectedFY } = useFinancialYear();
+  const { triggerManualSync } = useRealtime();
   const [allocations, setAllocations] = useState(initialAllocations || []);
   const [financialYears, setFinancialYears] = useState(initialFinancialYears || []);
   const [departments, setDepartments] = useState(initialDepartments || []);
@@ -114,6 +115,9 @@ const BudgetAllocation = ({ initialAllocations, initialDepartments, initialSchem
       if (res.success) {
         setShowModal(false);
         loadData(selectedFY);
+        if (typeof triggerManualSync === 'function') {
+          triggerManualSync({ type: 'BUDGET_ALLOCATED', allocation_id: res.allocation_id });
+        }
       } else {
         setModalError(res.message || 'Allocation failed');
       }

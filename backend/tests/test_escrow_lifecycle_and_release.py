@@ -102,9 +102,9 @@ def test_missing_escrow_preflight_blocks_release():
         # Must NOT broadcast any transaction to blockchain
         mock_exec.assert_not_called()
 
-def test_verify_fund_request_returns_http400_when_escrow_missing():
-    """Verify that District approve fund request returns HTTP 400 when escrow is missing on-chain."""
-    proj_id = "PRJ-TEST-API-MISSING-ESCROW"
+def test_verify_fund_request_disburses_funds_directly():
+    """Verify that District approve fund request disburses on-chain contractor funds directly without requiring separate escrow."""
+    proj_id = "PRJ-TEST-API-DIRECT-TRANSFER"
     db.projects.insert_one({
         "project_id": proj_id,
         "name": "Belagavi Test Highway",
@@ -114,6 +114,7 @@ def test_verify_fund_request_returns_http400_when_escrow_missing():
         "released_amount": 0.0,
         "contractor_id": "CON-KA-APEX",
         "contractor_name": "Apex Infrastructure Contractors Pvt Ltd",
+        "contractor_wallet": CONTRACTOR_USER["wallet_address"],
         "escrow_onchain": False,
         "status": "IN_PROGRESS"
     })
@@ -129,28 +130,36 @@ def test_verify_fund_request_returns_http400_when_escrow_missing():
     token = get_auth_token(DISTRICT_USER)
     headers = {"Authorization": f"Bearer {token}"}
 
-    with patch.object(bcs, "check_project_escrow_exists_onchain", return_value=False), \
-         patch.object(bcs.w3, "is_connected", return_value=True):
-        
+    mock_tx_hash = f"0x{uuid.uuid4().hex}{uuid.uuid4().hex}"
+    mock_receipt = {
+        "tx_hash": mock_tx_hash,
+        "block_number": 11955360,
+        "status": "SUCCESS",
+        "from_address": "0x53212DFE5d74b8e8a42c18B8D3C91Ee88C5758ec"
+    }
+
+    with patch.object(bcs.w3, "is_connected", return_value=True), \
+         patch.object(bcs, "record_contractor_transfer_onchain", return_value=mock_receipt) as mock_trf:
+
         res = client.post(
             f"/api/district/projects/{proj_id}/phases/0/verify-fund-request",
             json={"action": "APPROVE"},
             headers=headers
         )
-        assert res.status_code == 400
+        assert res.status_code == 200
         data = res.json()
-        assert data["success"] is False
-        assert "Project escrow has not been initialized on-chain" in data["message"]
+        assert data["success"] is True
+        mock_trf.assert_called_once()
 
-        # Ensure atomic rollback: released_amount must remain 0.0
+        # Ensure released_amount is updated to 15000000.0
         p = db.projects.find_one({"project_id": proj_id})
-        assert p["released_amount"] == 0.0
+        assert p["released_amount"] == 15000000.0
 
 # -----------------------------------------------------------------------------
-# 2. Correct Escrow Creation With Canonical Project ID & Real Contractor Wallet
+# 2. Correct Escrow Activation in MongoDB Without Blockchain Dependency
 # -----------------------------------------------------------------------------
-def test_create_escrow_resolves_actual_contractor_wallet():
-    """Verify create-escrow resolves the actual contractor wallet from KYC rather than Ganache default."""
+def test_create_escrow_resolves_actual_contractor_wallet_and_updates_db():
+    """Verify create-escrow updates project status in MongoDB without submitting on-chain transactions."""
     proj_id = "PRJ-TEST-CREATE-ESCROW"
     db.projects.insert_one({
         "project_id": proj_id,
@@ -176,16 +185,8 @@ def test_create_escrow_resolves_actual_contractor_wallet():
     token = get_auth_token(DISTRICT_USER)
     headers = {"Authorization": f"Bearer {token}"}
 
-    mock_tx_hash = f"0x{uuid.uuid4().hex}{uuid.uuid4().hex}"
-    with patch.object(bcs, "check_project_escrow_exists_onchain", return_value=False), \
-         patch.object(bcs, "create_project_escrow_onchain") as mock_create_escrow, \
+    with patch.object(bcs, "create_project_escrow_onchain") as mock_create_escrow, \
          patch.object(bcs, "set_project_milestones_onchain") as mock_set_milestones:
-
-        mock_create_escrow.return_value = {
-            "tx_hash": mock_tx_hash,
-            "block_number": 11955350,
-            "status": "SUCCESS"
-        }
 
         res = client.post(
             f"/api/district/projects/{proj_id}/create-escrow",
@@ -194,88 +195,16 @@ def test_create_escrow_resolves_actual_contractor_wallet():
         assert res.status_code == 200
         data = res.json()
         assert data["success"] is True
-        assert data["escrow_onchain"] is True
         assert data["contractor_wallet"] == CONTRACTOR_USER["wallet_address"]
 
-        # Verify exact arguments passed to create_project_escrow_onchain:
-        mock_create_escrow.assert_called_once_with(
-            proj_id,
-            "Belagavi Smart Infrastructure Project",
-            CONTRACTOR_USER["wallet_address"],
-            30000000.0
-        )
-
-        # Verify milestone sync was triggered
-        mock_set_milestones.assert_called_once_with(proj_id, [9000000])
+        # Crucial: Project creation / escrow activation must NOT submit on-chain transactions
+        mock_create_escrow.assert_not_called()
+        mock_set_milestones.assert_not_called()
 
         # Verify database updated
         p = db.projects.find_one({"project_id": proj_id})
-        assert p["escrow_onchain"] is True
-        assert p["escrow_tx_hash"] == mock_tx_hash
-
-# -----------------------------------------------------------------------------
-# 3. Duplicate Escrow Creation Prevention
-# -----------------------------------------------------------------------------
-def test_create_escrow_blocks_duplicate():
-    """Verify create-escrow rejects duplicate creation if already initialized on-chain."""
-    proj_id = "PRJ-TEST-DUPLICATE-ESCROW"
-    db.projects.insert_one({
-        "project_id": proj_id,
-        "name": "Duplicate Test",
-        "district_name": "Belagavi",
-        "state_code": "KA",
-        "total_budget": 10000000.0,
-        "contractor_id": "CON-KA-APEX",
-        "contractor_name": "Apex Infrastructure",
-        "escrow_onchain": False,
-        "status": "ASSIGNED"
-    })
-
-    token = get_auth_token(DISTRICT_USER)
-    headers = {"Authorization": f"Bearer {token}"}
-
-    with patch.object(bcs, "check_project_escrow_exists_onchain", return_value=True):
-        res = client.post(
-            f"/api/district/projects/{proj_id}/create-escrow",
-            headers=headers
-        )
-        assert res.status_code == 400
-        assert "already created" in res.json()["message"] or "already exists" in res.json()["message"]
-
-# -----------------------------------------------------------------------------
-# 4. Escrow Creation Failure Leaves escrow_onchain False
-# -----------------------------------------------------------------------------
-def test_create_escrow_failure_does_not_set_flag():
-    """Verify that on-chain transaction failure does not mark escrow_onchain as True."""
-    proj_id = "PRJ-TEST-FAIL-ESCROW"
-    db.projects.insert_one({
-        "project_id": proj_id,
-        "name": "Failing Escrow Test",
-        "district_name": "Belagavi",
-        "state_code": "KA",
-        "total_budget": 10000000.0,
-        "contractor_id": "CON-KA-APEX",
-        "contractor_name": "Apex Infrastructure",
-        "escrow_onchain": False,
-        "status": "ASSIGNED"
-    })
-
-    token = get_auth_token(DISTRICT_USER)
-    headers = {"Authorization": f"Bearer {token}"}
-
-    with patch.object(bcs, "check_project_escrow_exists_onchain", return_value=False), \
-         patch.object(bcs, "create_project_escrow_onchain", side_effect=Exception("Gas estimation failed: revert")):
-
-        res = client.post(
-            f"/api/district/projects/{proj_id}/create-escrow",
-            headers=headers
-        )
-        assert res.status_code == 500
-        assert "Failed to initialize smart contract escrow" in res.json()["message"]
-
-        p = db.projects.find_one({"project_id": proj_id})
+        assert p["status"] == "ESCROW_FUNDED"
         assert p["escrow_onchain"] is False
-        assert p.get("escrow_tx_hash") is None
 
 # -----------------------------------------------------------------------------
 # 5. Project ID Consistency Across Lifecycle

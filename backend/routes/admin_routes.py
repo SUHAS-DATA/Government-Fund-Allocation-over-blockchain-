@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from database import db, serialize_doc, invalidate_active_financial_year_cache
 from auth_middleware import require_roles
 import blockchain_service as bcs
+from realtime_manager import realtime_manager
 
 router = APIRouter()
 admin_bp = router
@@ -223,6 +224,18 @@ async def create_financial_year(
     db.financial_years.update_one({"year": year}, {"$set": doc}, upsert=True)
     if status_val == "ACTIVE":
         invalidate_active_financial_year_cache()
+
+    realtime_manager.trigger_broadcast("FINANCIAL_YEAR_UPDATED", {
+        "year": year,
+        "status": status_val,
+        "action": "CREATE"
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "financial_years",
+        "action": "CREATE",
+        "year": year
+    })
+
     return {"success": True, "message": f"Financial year {year} saved successfully", "financial_year": serialize_doc(doc)}
 
 @router.put("/financial-years/{year}/activate")
@@ -241,6 +254,17 @@ async def activate_financial_year(
     db.financial_years.update_one({"year": year}, {"$set": {"status": "ACTIVE", "updated_at": datetime.now(timezone.utc)}})
     invalidate_active_financial_year_cache()
     
+    realtime_manager.trigger_broadcast("FINANCIAL_YEAR_UPDATED", {
+        "year": year,
+        "status": "ACTIVE",
+        "action": "ACTIVATE"
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "financial_years",
+        "action": "ACTIVATE",
+        "year": year
+    })
+
     return {"success": True, "message": f"Financial year {year} is now ACTIVE."}
 
 # --- Departments ---
@@ -438,6 +462,19 @@ async def create_scheme(
         "created_at": datetime.now(timezone.utc)
     }
     db.schemes.update_one({"code": code, "financial_year": fy}, {"$set": doc}, upsert=True)
+
+    realtime_manager.trigger_broadcast("SCHEME_CREATED", {
+        "code": code,
+        "name": name,
+        "financial_year": fy,
+        "target_budget": doc["target_budget"]
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "schemes",
+        "action": "CREATE",
+        "code": code
+    })
+
     return {"success": True, "message": "Scheme created successfully", "scheme": serialize_doc(doc)}
 
 # --- Central Budget Allocation & Blockchain Dispatch ---
@@ -574,18 +611,11 @@ async def allocate_budget(
 
     alloc_id = generate_allocation_id(fy)
 
-    # 1. Record on Ethereum Smart Contract
+    # Budget creation and planning is managed off-chain via MongoDB
     tx_hash = None
     block_num = None
-    try:
-        tx_receipt = bcs.record_budget_allocation_onchain(alloc_id, scheme_name, department, amount)
-        if tx_receipt:
-            tx_hash = tx_receipt["tx_hash"]
-            block_num = tx_receipt["block_number"]
-    except Exception as e:
-        print(f"Warning on-chain budget allocation transaction error: {e}")
 
-    # 2. Record in MongoDB
+    # Record in MongoDB
     alloc_doc = {
         "allocation_id": alloc_id,
         "idempotency_key": idempotency_key,
@@ -643,11 +673,25 @@ async def allocate_budget(
             "timestamp": datetime.now(timezone.utc)
         })
 
+    realtime_manager.trigger_broadcast("BUDGET_ALLOCATED", {
+        "allocation_id": alloc_id,
+        "financial_year": fy,
+        "department": department,
+        "scheme_name": scheme_name,
+        "amount": amount,
+        "blockchain_tx_hash": tx_hash
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "budget_allocations",
+        "action": "ALLOCATE_BUDGET",
+        "allocation_id": alloc_id
+    })
+
     return {
         "success": True,
-        "message": f"Central budget allocation {alloc_id} registered and anchored on blockchain",
+        "message": f"Central budget allocation {alloc_id} sanctioned and recorded successfully",
         "allocation_id": alloc_id,
-        "blockchain": {"tx_hash": tx_hash, "block_number": block_num},
+        "blockchain": None,
         "budget": serialize_doc(alloc_doc)
     }
 

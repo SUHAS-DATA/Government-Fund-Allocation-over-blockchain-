@@ -1,7 +1,9 @@
 import os
 import re
+import collections
 import random
 import string
+import hashlib
 from datetime import datetime, timezone
 from typing import Optional
 from pymongo import ReturnDocument
@@ -136,6 +138,48 @@ async def dashboard(
     total_received = sum(a.get("amount", 0) for a in received_allocs)
     total_released = sum(p.get("released_amount", 0) for p in projects)
 
+    p_ids = [p["project_id"] for p in projects if p.get("project_id")]
+    pending_milestones_count = 0
+    pending_payments_count = 0
+    pending_verifications = []
+    if p_ids:
+        pending_ms_list = list(db.milestones.find({
+            "project_id": {"$in": p_ids},
+            "$or": [
+                {"status": "SUBMITTED"},
+                {"phase_status": "SUBMITTED_FOR_VERIFICATION"},
+                {"evidence_status": "SUBMITTED"}
+            ]
+        }).sort("submitted_at", -1))
+        pending_milestones_count = len(pending_ms_list)
+
+        pending_pay_list = list(db.milestones.find({
+            "project_id": {"$in": p_ids},
+            "$or": [
+                {"status": "FUND_REQUESTED"},
+                {"phase_status": "FUND_REQUESTED"}
+            ]
+        }))
+        pending_payments_count = len(pending_pay_list)
+
+        # Build list of pending milestone verification details with project info
+        proj_map = {p["project_id"]: p for p in projects}
+        for ms in pending_ms_list[:10]:
+            p_obj = proj_map.get(ms.get("project_id"), {})
+            pending_verifications.append({
+                "milestone_id": ms.get("milestone_id") or f"MS-{ms.get('project_id')}-{ms.get('milestone_index', 0) + 1}",
+                "project_id": ms.get("project_id"),
+                "project_name": p_obj.get("name", ms.get("project_id")),
+                "scheme_name": p_obj.get("scheme_name", "Public Infrastructure"),
+                "stage": ms.get("title") or f"Phase #{ms.get('milestone_index', 0) + 1}",
+                "milestone_index": ms.get("milestone_index", 0),
+                "amount": ms.get("amount", 0),
+                "status": "Awaiting District Verification",
+                "contractor_name": p_obj.get("contractor_name") or "Assigned Contractor",
+                "proof_document_hash": ms.get("proof_document_hash"),
+                "submitted_at": ms.get("submitted_at")
+            })
+
     return {
         "success": True,
         "district_name": district_name,
@@ -153,10 +197,15 @@ async def dashboard(
             "active_projects_count": len([p for p in projects if p.get("status") in ["IN_PROGRESS", "ASSIGNED", "ESCROW_FUNDED"]]),
             "total_payments_released": total_released,
             "pending_kyc_count": pending_kyc,
-            "open_grievances_count": open_grievances
+            "open_grievances_count": open_grievances,
+            "pending_milestones": pending_milestones_count,
+            "pending_milestones_count": pending_milestones_count,
+            "pending_payment_requests": pending_payments_count,
+            "pending_payment_requests_count": pending_payments_count
         },
         "recent_projects": serialize_doc(projects[:5]),
-        "received_funds": serialize_doc(received_allocs)
+        "received_funds": serialize_doc(received_allocs),
+        "pending_verifications": serialize_doc(pending_verifications)
     }
 
 # --- Scheme Management (Step 1: Create & View Schemes) ---
@@ -475,6 +524,32 @@ async def get_projects(
     total_committed_sum = sum(float(p.get("total_budget", 0.0)) for p in proj_list if p.get("status") not in ["CANCELLED", "REJECTED"])
     total_available_sum = max(0.0, total_received_sum - total_committed_sum)
 
+    # Attach phases/milestones and pending flags to projects so District table immediately reflects contractor submissions
+    p_ids = [p["project_id"] for p in proj_list if p.get("project_id")]
+    phases_by_proj = collections.defaultdict(list)
+    if p_ids:
+        all_phases = list(db.milestones.find({"project_id": {"$in": p_ids}}).sort("milestone_index", 1))
+        for ph in all_phases:
+            phases_by_proj[ph["project_id"]].append(ph)
+
+    for p in proj_list:
+        p_id = p.get("project_id")
+        p_phases = phases_by_proj.get(p_id, [])
+        p["milestones"] = serialize_doc(p_phases)
+        has_pending_proof = any(
+            ph.get("status") == "SUBMITTED" or 
+            ph.get("phase_status") == "SUBMITTED_FOR_VERIFICATION" or
+            ph.get("evidence_status") == "SUBMITTED"
+            for ph in p_phases
+        )
+        has_pending_fund = any(
+            ph.get("status") == "FUND_REQUESTED" or 
+            ph.get("phase_status") == "FUND_REQUESTED"
+            for ph in p_phases
+        )
+        p["has_pending_proof"] = has_pending_proof or p.get("has_pending_proof", False)
+        p["has_pending_fund"] = has_pending_fund
+
     return {
         "success": True,
         "district_name": district_name,
@@ -679,6 +754,21 @@ async def create_project(
         "created_at": datetime.now(timezone.utc)
     }
     db.projects.insert_one(doc)
+
+    realtime_manager.trigger_broadcast("PROJECT_CREATED", {
+        "project_id": project_id,
+        "name": name,
+        "district_name": target_district,
+        "financial_year": fy,
+        "scheme_name": raw_scheme_name,
+        "total_budget": total_budget
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "projects",
+        "action": "CREATE",
+        "project_id": project_id,
+        "district_name": target_district
+    })
 
     return {
         "success": True,
@@ -910,6 +1000,20 @@ async def assign_contractor(
         "created_at": datetime.now(timezone.utc)
     })
 
+    realtime_manager.trigger_broadcast("PROJECT_ASSIGNED", {
+        "project_id": project_id,
+        "contractor_id": contractor_assigned_id,
+        "contractor_name": company_name,
+        "district_name": assigning_district,
+        "status": "ASSIGNED"
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "projects",
+        "action": "ASSIGN_CONTRACTOR",
+        "project_id": project_id,
+        "contractor_id": contractor_assigned_id
+    })
+
     return {
         "success": True,
         "message": f"Contractor '{company_name}' assigned to project {project_id} successfully"
@@ -940,20 +1044,6 @@ async def create_escrow(
             content={"success": False, "message": "Cannot create escrow: Contractor has not been assigned to this project yet."}
         )
 
-    # Check if escrow already exists on-chain
-    if bcs.check_project_escrow_exists_onchain(project_id):
-        db.projects.update_one(
-            {"project_id": project_id},
-            {"$set": {
-                "escrow_onchain": True,
-                "status": "ESCROW_FUNDED" if proj.get("status") in ["CREATED", "ASSIGNED"] else proj.get("status")
-            }}
-        )
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={"success": False, "message": "Smart contract escrow already created and active on Ethereum."}
-        )
-
     # Authoritative resolution of contractor wallet address
     contractor_wallet = proj.get("contractor_wallet")
     is_valid_addr = contractor_wallet and bcs.w3.is_address(contractor_wallet) and contractor_wallet.lower() != "0x70997970c51812dc3a010c7d01b50e0d17dc79c8"
@@ -976,80 +1066,38 @@ async def create_escrow(
 
     tx_hash = None
     block_num = None
-    try:
-        tx_receipt = bcs.create_project_escrow_onchain(
-            project_id,
-            proj.get("name"),
-            contractor_wallet,
-            proj.get("total_budget")
-        )
-        if tx_receipt and tx_receipt.get("tx_hash"):
-            tx_hash = tx_receipt["tx_hash"]
-            block_num = tx_receipt.get("block_number")
-        else:
-            raise Exception("Blockchain transaction failed to return a valid transaction hash.")
-    except Exception as e:
-        print(f"Error deploying smart contract escrow on blockchain: {e}")
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={
-                "success": False,
-                "message": f"Failed to initialize smart contract escrow on blockchain: {str(e)}"
-            }
-        )
-
     now_utc = datetime.now(timezone.utc)
     new_status = "ESCROW_FUNDED" if proj.get("status") in ["CREATED", "ASSIGNED"] else proj.get("status")
     db.projects.update_one(
         {"project_id": project_id},
         {"$set": {
-            "escrow_onchain": True,
+            "escrow_onchain": False,
             "contractor_wallet": contractor_wallet,
-            "escrow_tx_hash": tx_hash,
-            "escrow_block": block_num,
+            "escrow_tx_hash": None,
+            "escrow_block": None,
             "status": new_status,
             "escrow_created_at": now_utc
         }}
     )
 
-    # Sync existing milestones on-chain if they exist
-    existing_milestones = list(db.milestones.find({"project_id": project_id}).sort("milestone_index", 1))
-    if existing_milestones:
-        amounts_list = [int(float(m.get("amount", 0))) for m in existing_milestones]
-        try:
-            bcs.set_project_milestones_onchain(project_id, amounts_list)
-        except Exception as e:
-            print(f"Warning syncing existing milestones on-chain after escrow creation: {e}")
-
-    if tx_hash:
-        from_dist = bcs.get_entity_wallet("DISTRICT", proj.get("district_name"))
-        to_escrow = bcs.get_entity_wallet("ESCROW")
-        dist_title = proj.get("district_name") or "District"
-        db.blockchain_transactions.insert_one({
-            "tx_hash": tx_hash,
-            "block_number": block_num,
-            "operation_type": "PROJECT_ESCROW_CREATION",
-            "entity_id": project_id,
-            "from_address": from_dist,
-            "to_address": to_escrow,
-            "from_entity": f"{dist_title} District Development Agency",
-            "to_entity": "Project Smart Contract Escrow",
-            "transfer_tier": "DISTRICT_TO_ESCROW",
-            "flow_stage": f"4. {dist_title} District -> Project Escrow Lock",
-            "amount": proj.get("total_budget"),
-            "details": f"Project Escrow Lock: {dist_title} Agency -> Smart Contract Escrow for {proj.get('name')}",
-            "timestamp": now_utc
-        })
+    realtime_manager.trigger_broadcast("ESCROW_CREATED", {
+        "project_id": project_id,
+        "contractor_wallet": contractor_wallet,
+        "tx_hash": tx_hash,
+        "status": new_status
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "escrow",
+        "action": "CREATE_ESCROW",
+        "project_id": project_id
+    })
 
     return {
         "success": True,
-        "message": f"Smart contract escrow deployed on Ethereum for {project_id}",
-        "escrow_onchain": True,
+        "message": f"Project escrow record active for {project_id}",
+        "escrow_onchain": False,
         "contractor_wallet": contractor_wallet,
-        "blockchain": {
-            "tx_hash": tx_hash,
-            "block_number": block_num
-        }
+        "blockchain": None
     }
 
 @router.post("/projects/{project_id}/milestones")
@@ -1130,11 +1178,6 @@ async def set_milestones(
             }
         )
 
-    amounts_list = [int(m.get("amount", 0)) for m in milestones_data]
-    try:
-        bcs.set_project_milestones_onchain(project_id, amounts_list)
-    except Exception as e:
-        print(f"Warning setting milestones on-chain: {e}")
 
     db.milestones.delete_many({"project_id": project_id})
     for idx, m in enumerate(milestones_data):
@@ -1151,7 +1194,17 @@ async def set_milestones(
             "created_at": datetime.now(timezone.utc)
         })
 
-    return {"success": True, "message": f"{len(milestones_data)} milestones configured and anchored on blockchain."}
+    realtime_manager.trigger_broadcast("MILESTONES_CONFIGURED", {
+        "project_id": project_id,
+        "count": len(milestones_data)
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "milestones",
+        "action": "CONFIGURED",
+        "project_id": project_id
+    })
+
+    return {"success": True, "message": f"{len(milestones_data)} milestones configured successfully."}
 
 # --- Phase Fund Request Verification & Bank Disbursal (Steps 8-11, 19-22, 29-32) ---
 @router.post("/projects/{project_id}/phases/{milestone_index}/verify-fund-request")
@@ -1221,6 +1274,18 @@ async def verify_phase_fund_request(
                 "read": False,
                 "created_at": datetime.now(timezone.utc)
             })
+
+        realtime_manager.trigger_broadcast("FUND_REQUEST_REJECTED", {
+            "project_id": project_id,
+            "milestone_index": milestone_index,
+            "fund_rejection_reason": remarks
+        })
+        realtime_manager.trigger_broadcast("DATA_MUTATED", {
+            "entity": "milestones",
+            "action": "FUND_REQUEST_REJECTED",
+            "project_id": project_id,
+            "milestone_index": milestone_index
+        })
 
         return {
             "success": True,
@@ -1301,23 +1366,6 @@ async def verify_phase_fund_request(
     to_contractor = bank_acc.get("wallet_address") or bcs.get_entity_wallet("CONTRACTOR", proj.get("contractor_name"))
 
     # Pre-flight check: Escrow must be initialized on-chain before releasing milestone payments
-    if not proj.get("escrow_onchain") and bcs.w3 and bcs.w3.is_connected():
-        if not bcs.check_project_escrow_exists_onchain(project_id):
-            # Roll back reservation atomically
-            db.projects.update_one(
-                {"project_id": project_id},
-                {"$inc": {"released_amount": -allocated_amount}}
-            )
-            return JSONResponse(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                content={
-                    "success": False,
-                    "message": f"Cannot disburse funds: Project escrow has not been initialized on-chain for '{project_id}'. "
-                               f"Please initialize the smart contract escrow before releasing milestone payments."
-                }
-            )
-        else:
-            db.projects.update_one({"project_id": project_id}, {"$set": {"escrow_onchain": True}})
 
     try:
         rand_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
@@ -1869,15 +1917,9 @@ async def handle_milestone_verification(project_id: str, milestone_index: int, r
             "is_already_completed": True
         }
 
-    tx_hash = None
-    block_num = None
-    try:
-        tx_receipt = bcs.release_milestone_payment_onchain(project_id, milestone_index)
-        if tx_receipt:
-            tx_hash = tx_receipt["tx_hash"]
-            block_num = tx_receipt["block_number"]
-    except Exception as e:
-        print(f"Warning executing milestone completion anchor on blockchain: {e}")
+    # Preserve existing fund transfer transaction metadata if previously disbursed
+    tx_hash = milestone.get("blockchain_tx_hash") or milestone.get("fund_transfer_tx")
+    block_num = milestone.get("blockchain_block") or milestone.get("fund_transfer_block")
 
     milestone_amount = milestone.get("amount", 0.0)
     db.milestones.update_one(
@@ -1943,6 +1985,14 @@ async def handle_milestone_verification(project_id: str, milestone_index: int, r
     is_final_phase = (milestone_index >= 2)
     calc_prog = compute_project_progress(proj)
 
+    remaining_submitted = db.milestones.count_documents({
+        "project_id": project_id,
+        "$or": [
+            {"status": "SUBMITTED"},
+            {"phase_status": "SUBMITTED_FOR_VERIFICATION"},
+            {"evidence_status": "SUBMITTED"}
+        ]
+    })
     db.projects.update_one(
         {"project_id": project_id},
         {"$set": {
@@ -1950,29 +2000,11 @@ async def handle_milestone_verification(project_id: str, milestone_index: int, r
             "status": "FINAL_PROJECT_COMPLETED" if is_final_phase else "IN_PROGRESS",
             "progress_percentage": 100 if is_final_phase else calc_prog,
             "current_active_phase": milestone_index + 2 if not is_final_phase else 3,
-            "last_disbursal_at": datetime.now(timezone.utc)
+            "last_disbursal_at": datetime.now(timezone.utc),
+            "has_pending_proof": (remaining_submitted > 0)
         }}
     )
 
-    if tx_hash:
-        from_escrow = bcs.get_entity_wallet("ESCROW")
-        contractor_wallet = proj.get("contractor_wallet") or bcs.get_entity_wallet("CONTRACTOR", proj.get("contractor_name"))
-        contractor_name = proj.get("contractor_name") or "Contractor & Vendor"
-        db.blockchain_transactions.insert_one({
-            "tx_hash": tx_hash,
-            "block_number": block_num,
-            "operation_type": "MILESTONE_COMPLETION_VERIFICATION",
-            "entity_id": project_id,
-            "from_address": from_escrow,
-            "to_address": contractor_wallet,
-            "from_entity": "Project Smart Contract Escrow",
-            "to_entity": f"{contractor_name} (Contractor)",
-            "transfer_tier": "ESCROW_TO_CONTRACTOR",
-            "flow_stage": f"Milestone #{milestone_index + 1} Verified & Completed",
-            "amount": milestone_amount,
-            "details": f"Phase #{milestone_index + 1} Completion Verified: Smart Contract Escrow -> {contractor_name} for {proj.get('name')}",
-            "timestamp": datetime.now(timezone.utc)
-        })
 
     if proj.get("contractor_id"):
         db.notifications.insert_one({
@@ -1983,6 +2015,26 @@ async def handle_milestone_verification(project_id: str, milestone_index: int, r
             "read": False,
             "created_at": datetime.now(timezone.utc)
         })
+
+    realtime_manager.trigger_broadcast("MILESTONE_VERIFIED", {
+        "project_id": project_id,
+        "milestone_index": milestone_index,
+        "next_phase_unlocked": bool(next_phase),
+        "is_final_project_completed": is_final_phase,
+        "blockchain_tx_hash": tx_hash,
+        "status": "COMPLETED"
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "milestones",
+        "action": "MILESTONE_VERIFIED",
+        "project_id": project_id,
+        "milestone_index": milestone_index
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "projects",
+        "action": "MILESTONE_VERIFIED",
+        "project_id": project_id
+    })
 
     return {
         "success": True,
@@ -2400,6 +2452,19 @@ async def reject_work_evidence(
         }}
     )
 
+    rem_submitted = db.milestones.count_documents({
+        "project_id": proj_id,
+        "$or": [
+            {"status": "SUBMITTED"},
+            {"phase_status": "SUBMITTED_FOR_VERIFICATION"},
+            {"evidence_status": "SUBMITTED"}
+        ]
+    })
+    db.projects.update_one(
+        {"project_id": proj_id},
+        {"$set": {"has_pending_proof": (rem_submitted > 0)}}
+    )
+
     # Notify contractor with reason
     if proj.get("contractor_id"):
         db.notifications.insert_one({
@@ -2422,6 +2487,12 @@ async def reject_work_evidence(
     })
     realtime_manager.trigger_broadcast("DATA_MUTATED", {
         "entity": "evidence",
+        "project_id": proj_id,
+        "milestone_index": m_idx,
+        "action": "EVIDENCE_REJECTED"
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "projects",
         "project_id": proj_id,
         "milestone_index": m_idx,
         "action": "EVIDENCE_REJECTED"

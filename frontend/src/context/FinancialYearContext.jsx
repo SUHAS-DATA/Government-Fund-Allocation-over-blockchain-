@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import API from '../services/api';
+import { useRealtimeSync } from './RealtimeContext';
 
 const FinancialYearContext = createContext(null);
 
@@ -40,6 +41,8 @@ export const FinancialYearProvider = ({ children }) => {
   useEffect(() => {
     fetchFinancialYears();
   }, []);
+
+  useRealtimeSync(fetchFinancialYears, { interval: 15000 });
 
   const setSelectedFY = (newFY) => {
     if (!newFY || newFY === selectedFY) return;

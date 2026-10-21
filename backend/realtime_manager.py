@@ -74,6 +74,12 @@ class RealtimeConnectionManager:
         Can be called from async route handlers, sync middleware, or background threads.
         """
         try:
+            from cache_service import public_cache
+            public_cache.invalidate()
+        except Exception:
+            pass
+
+        try:
             loop = None
             try:
                 loop = asyncio.get_running_loop()

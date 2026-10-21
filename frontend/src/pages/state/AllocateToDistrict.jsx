@@ -8,11 +8,12 @@ import FundAmountInput from '../../components/FundAmountInput';
 import TransactionDetailsModal from '../../components/TransactionDetailsModal';
 
 import { getDistrictsByState, getState } from '../../config/statesDistrictsData';
-import { useRealtimeSync } from '../../context/RealtimeContext';
+import { useRealtimeSync, useRealtime } from '../../context/RealtimeContext';
 import { useFinancialYear } from '../../context/FinancialYearContext';
 
 const AllocateToDistrict = () => {
   const { selectedFY } = useFinancialYear();
+  const { triggerManualSync } = useRealtime();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -113,6 +114,10 @@ const AllocateToDistrict = () => {
 
       if (res.success) {
         setSuccessResult(res);
+        loadReceivedFunds();
+        if (typeof triggerManualSync === 'function') {
+          triggerManualSync({ type: 'DISTRICT_ALLOCATED', district_alloc_id: res.allocation?.district_alloc_id });
+        }
       } else {
         setError(res.message || 'District allocation failed');
       }

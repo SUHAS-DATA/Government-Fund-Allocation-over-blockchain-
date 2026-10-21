@@ -871,12 +871,32 @@ def execute_contract_transaction(func_call, role: str = "FINANCE", custom_privat
     # 1. If RPC is connected to active node, execute live on-chain
     if w3 and w3.is_connected() and account and pk and func_call is not None:
         try:
-            nonce = w3.eth.get_transaction_count(account.address, 'pending')
+            # Pre-flight call simulation to detect revert before any gas is spent
+            if hasattr(func_call, "call"):
+                try:
+                    func_call.call({"from": account.address})
+                except Exception as sim_err:
+                    err_msg = str(sim_err)
+                    bc_logger.error(
+                        f"[BLOCKCHAIN_PREFLIGHT_FAIL] Op={fn_name} | Role={role} | Sender={account.address} | "
+                        f"Pre-flight call simulation failed: {err_msg}"
+                    )
+                    raise ValueError(f"Blockchain pre-flight check failed: {err_msg}")
+
+            # Pre-flight gas estimation: Must succeed. If the call would revert, estimation fails.
+            # Never swallow this exception to broadcast a guaranteed-to-fail transaction!
             try:
                 gas_est = func_call.estimate_gas({"from": account.address})
-                gas_limit = int(gas_est * 1.3)
-            except Exception:
-                gas_limit = 600000
+                gas_limit = int(gas_est * 1.3) if isinstance(gas_est, (int, float)) else 500000
+            except Exception as gas_err:
+                err_msg = str(gas_err)
+                bc_logger.error(
+                    f"[BLOCKCHAIN_GAS_EST_FAIL] Op={fn_name} | Role={role} | Sender={account.address} | "
+                    f"Gas estimation failed (tx would revert): {err_msg}"
+                )
+                raise ValueError(f"Gas estimation failed (transaction would revert on-chain): {err_msg}")
+
+            nonce = w3.eth.get_transaction_count(account.address, 'pending')
 
             try:
                 chain_id = get_cached_chain_id() or w3.eth.chain_id
@@ -927,7 +947,7 @@ def execute_contract_transaction(func_call, role: str = "FINANCE", custom_privat
                 "status": status_str
             }
         except Exception as e:
-            if "reverted" in str(e).lower():
+            if isinstance(e, ValueError) or "reverted" in str(e).lower() or "pre-flight" in str(e).lower():
                 raise
             if is_cloud_render:
                 bc_logger.error(f"[BLOCKCHAIN_TX_ERROR] Hosted RPC transaction failed ({e}). Silent fallback forbidden.")
@@ -1117,6 +1137,17 @@ def record_contractor_transfer_onchain(transfer_id, project_id, district_name, c
 
     contract = get_contract()
     if contract and w3 and w3.is_connected():
+        # Pre-flight check: If escrow exists on-chain, verify not frozen and within budget
+        escrow_info = get_project_escrow_onchain(project_id)
+        if escrow_info and escrow_info.get("exists"):
+            if escrow_info.get("is_frozen"):
+                raise ValueError(f"Cannot transfer to contractor: Project escrow for '{project_id}' is frozen.")
+            if escrow_info.get("released_amount", 0) + int(amount) > escrow_info.get("total_budget", 0):
+                raise ValueError(
+                    f"Cannot transfer to contractor: Transfer of INR {amount:,.2f} exceeds project escrow budget ceiling "
+                    f"(INR {escrow_info.get('total_budget') - escrow_info.get('released_amount'):,.2f} remaining)."
+                )
+
         try:
             code = w3.eth.get_code(contract.address).hex()
             sel_trf = Web3.keccak(text="transferToContractor(string,string,address,string,string,uint256)")[:4].hex()[2:]
@@ -1148,7 +1179,7 @@ def record_contractor_transfer_onchain(transfer_id, project_id, district_name, c
                 send_native_eth_transfer("DISTRICT", rec_addr_checksum, amount_eth=0.05)
                 return res
         except Exception as e:
-            if "reverted" in str(e).lower() or is_cloud_render:
+            if "reverted" in str(e).lower() or isinstance(e, ValueError) or is_cloud_render:
                 raise
             bc_logger.warning(f"Live contract call failed: {e}. Using ledger engine.")
 
@@ -1211,6 +1242,15 @@ def create_project_escrow_onchain(project_id, project_name, contractor_address, 
     contract = get_contract()
     c_addr = contractor_address if contractor_address and w3.is_address(contractor_address) else WALLET_REGISTRY["CONTRACTOR"]["address"]
     if contract and w3 and w3.is_connected():
+        # Pre-flight check: If escrow already exists on-chain, avoid reverting with duplicate error
+        if check_project_escrow_exists_onchain(project_id):
+            bc_logger.info(f"Project escrow already exists on-chain for '{project_id}'. Skipping duplicate creation.")
+            return {
+                "status": "SUCCESS",
+                "message": f"Project escrow already exists on-chain for {project_id}",
+                "project_id": str(project_id),
+                "already_existed": True
+            }
         try:
             return execute_contract_transaction(
                 contract.functions.createProjectEscrow(
@@ -1219,7 +1259,7 @@ def create_project_escrow_onchain(project_id, project_name, contractor_address, 
                 role="DISTRICT"
             )
         except Exception as e:
-            if "reverted" in str(e).lower() or is_cloud_render:
+            if "reverted" in str(e).lower() or isinstance(e, ValueError) or is_cloud_render:
                 raise
             bc_logger.warning(f"Live contract call createProjectEscrow failed: {e}. Using ledger engine.")
     return generate_cryptographic_ledger_receipt(role="DISTRICT", op_name="createProjectEscrow", target_address=c_addr)
@@ -1228,22 +1268,46 @@ def set_project_milestones_onchain(project_id, milestone_amounts):
     contract = get_contract()
     amounts = [int(a) for a in milestone_amounts]
     if contract and w3 and w3.is_connected():
-        if not check_project_escrow_exists_onchain(project_id):
+        escrow_info = get_project_escrow_onchain(project_id)
+        if not escrow_info or not escrow_info.get("exists"):
             err_msg = (
                 f"Cannot configure milestones on-chain: Project escrow does not exist for '{project_id}'. "
                 "Initialize project escrow before setting milestones."
             )
-            bc_logger.warning(err_msg)
-            if is_cloud_render:
-                raise ValueError(err_msg)
-            return generate_cryptographic_ledger_receipt(role="DISTRICT", op_name="setMilestones")
+            bc_logger.error(f"[SET_MILESTONES_ERROR] {err_msg}")
+            raise ValueError(err_msg)
+
+        if escrow_info.get("is_frozen"):
+            err_msg = f"Cannot configure milestones on-chain: Project escrow for '{project_id}' is frozen."
+            bc_logger.error(f"[SET_MILESTONES_ERROR] {err_msg}")
+            raise ValueError(err_msg)
+
+        if escrow_info.get("milestone_count", 0) > 0:
+            bc_logger.info(f"Milestones already configured on-chain for '{project_id}' ({escrow_info['milestone_count']} milestones). Skipping duplicate configuration.")
+            return {
+                "status": "SUCCESS",
+                "message": f"Milestones already configured on-chain for {project_id}",
+                "project_id": str(project_id),
+                "milestone_count": escrow_info["milestone_count"],
+                "already_configured": True
+            }
+
+        total_milestones_sum = sum(amounts)
+        if total_milestones_sum > escrow_info.get("total_budget", 0):
+            err_msg = (
+                f"Cannot configure milestones on-chain: Total milestone sum ({total_milestones_sum}) "
+                f"exceeds project budget ({escrow_info.get('total_budget')})."
+            )
+            bc_logger.error(f"[SET_MILESTONES_ERROR] {err_msg}")
+            raise ValueError(err_msg)
+
         try:
             return execute_contract_transaction(
                 contract.functions.setMilestones(str(project_id), amounts),
                 role="DISTRICT"
             )
         except Exception as e:
-            if "reverted" in str(e).lower() or is_cloud_render:
+            if "reverted" in str(e).lower() or isinstance(e, ValueError) or is_cloud_render:
                 raise
             bc_logger.warning(f"Live contract call setMilestones failed: {e}. Using ledger engine.")
     return generate_cryptographic_ledger_receipt(role="DISTRICT", op_name="setMilestones")
@@ -1275,13 +1339,67 @@ def release_milestone_payment_onchain(project_id, milestone_index):
     contract = get_contract()
     if contract and w3 and w3.is_connected():
         # Pre-flight check: Escrow MUST exist on-chain before calling releaseMilestonePayment
-        if not check_project_escrow_exists_onchain(project_id):
+        escrow_info = get_project_escrow_onchain(project_id)
+        if not escrow_info or not escrow_info.get("exists"):
             err_msg = (
                 f"Cannot release milestone payment: Project escrow does not exist on-chain for project '{project_id}'. "
                 "The project escrow must be initialized by the District before releasing milestone payments."
             )
             bc_logger.error(f"[ESCROW_PREFLIGHT_ERROR] {err_msg}")
             raise ValueError(err_msg)
+
+        if escrow_info.get("is_frozen"):
+            err_msg = f"Cannot release milestone payment: Project escrow for '{project_id}' is frozen."
+            bc_logger.error(f"[ESCROW_PREFLIGHT_ERROR] {err_msg}")
+            raise ValueError(err_msg)
+
+        milestone_count = escrow_info.get("milestone_count", 0)
+        if milestone_index >= milestone_count:
+            err_msg = f"Cannot release milestone payment: Milestone index {milestone_index} is out of bounds (total configured: {milestone_count})."
+            bc_logger.error(f"[ESCROW_PREFLIGHT_ERROR] {err_msg}")
+            raise ValueError(err_msg)
+
+        # Query on-chain milestone details to verify progress and released status
+        try:
+            m_tuple = contract.functions.projectMilestones(str(project_id), int(milestone_index)).call()
+            # Milestone struct tuple:
+            # [index, amount, progressProofHash, progressPercentage, isReleased, releaseTimestamp, isVerified, verifiedTimestamp]
+            if isinstance(m_tuple, (list, tuple)) and len(m_tuple) >= 5:
+                m_amount = m_tuple[1]
+                m_progress = m_tuple[3]
+                m_is_released = bool(m_tuple[4])
+
+                if m_is_released:
+                    bc_logger.info(f"Milestone #{milestone_index} for project '{project_id}' is already released on-chain. Skipping duplicate release.")
+                    return {
+                        "status": "SUCCESS",
+                        "message": f"Milestone #{milestone_index} already released on-chain for {project_id}",
+                        "project_id": str(project_id),
+                        "milestone_index": int(milestone_index),
+                        "already_released": True
+                    }
+
+                if m_progress == 0:
+                    err_msg = (
+                        f"Cannot release milestone payment: Milestone #{milestone_index + 1} has 0% progress recorded on-chain. "
+                        "Contractor must submit milestone progress proof before release."
+                    )
+                    bc_logger.error(f"[ESCROW_PREFLIGHT_ERROR] {err_msg}")
+                    raise ValueError(err_msg)
+
+                released_amount = escrow_info.get("released_amount", 0)
+                total_budget = escrow_info.get("total_budget", 0)
+                if released_amount + m_amount > total_budget:
+                    err_msg = (
+                        f"Cannot release milestone payment: Release amount ({m_amount}) would exceed remaining budget "
+                        f"({total_budget - released_amount} remaining of {total_budget}). Funds may have already been disbursed."
+                    )
+                    bc_logger.error(f"[ESCROW_PREFLIGHT_ERROR] {err_msg}")
+                    raise ValueError(err_msg)
+        except ValueError:
+            raise
+        except Exception as q_err:
+            bc_logger.warning(f"Could not query on-chain milestone details ({q_err}); proceeding to simulated call.")
 
         try:
             res = execute_contract_transaction(
@@ -1290,14 +1408,13 @@ def release_milestone_payment_onchain(project_id, milestone_index):
             )
             if res:
                 try:
-                    escrow = contract.functions.projectEscrows(str(project_id)).call()
-                    con_addr = escrow[2] if len(escrow) > 2 else CONTRACTOR_ADDR
+                    con_addr = escrow_info.get("contractor") or CONTRACTOR_ADDR
                     send_native_eth_transfer("DISTRICT", con_addr, amount_eth=0.05)
                 except Exception:
                     send_native_eth_transfer("DISTRICT", CONTRACTOR_ADDR, amount_eth=0.05)
                 return res
         except Exception as e:
-            if "reverted" in str(e).lower() or is_cloud_render:
+            if "reverted" in str(e).lower() or isinstance(e, ValueError) or is_cloud_render:
                 raise
             bc_logger.warning(f"Live contract call releaseMilestonePayment failed: {e}. Using ledger engine.")
     return generate_cryptographic_ledger_receipt(role="DISTRICT", op_name="releaseMilestonePayment", target_address=CONTRACTOR_ADDR)

@@ -15,19 +15,31 @@ import {
 import API from '../../services/api';
 import { formatCurrency, formatTxHash } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
+import { useRealtimeSync } from '../../context/RealtimeContext';
 
 const PublicProjectDetail = () => {
   const { id } = useParams();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+  const fetchProjectData = (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     API.get(`/public/projects/${id}`)
       .then((res) => {
         if (res.success) setData(res);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (showSpinner) setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    fetchProjectData(true);
   }, [id]);
+
+  useRealtimeSync(() => {
+    fetchProjectData(false);
+  }, { interval: 8000 });
 
   if (loading) {
     return <div style={{ padding: '60px', textAlign: 'center' }}>Loading project verification data...</div>;

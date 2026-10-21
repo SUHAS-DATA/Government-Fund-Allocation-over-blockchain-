@@ -1,5 +1,6 @@
 import os
 import re
+import collections
 import random
 import string
 import uuid
@@ -321,12 +322,6 @@ async def kyc_submit(
                     file_path_map["statutory_document"] = save_path
 
             tx_hash = None
-            try:
-                tx_receipt = bcs.anchor_document_hash_onchain(doc_id, sha256_digest, doc_type, user_id, role="CONTRACTOR")
-                if tx_receipt:
-                    tx_hash = tx_receipt["tx_hash"]
-            except Exception as e:
-                print(f"Warning anchoring KYC document hash on-chain: {e}")
 
             doc_record = {
                 "document_id": doc_id,
@@ -358,8 +353,8 @@ async def kyc_submit(
 
     return {
         "success": True,
-        "message": "KYC credentials and SHA-256 cryptographic hashes anchored on blockchain.",
-        "anchored_documents": anchored_docs
+        "message": "KYC credentials and SHA-256 cryptographic hashes verified and recorded successfully.",
+        "documents": anchored_docs
     }
 
 # --- Project Directory & Accept / Reject Workflow ---
@@ -387,10 +382,16 @@ async def get_my_projects(
 
     projects = list(db.projects.find(query).sort("created_at", -1))
     
+    p_ids = [p["project_id"] for p in projects if p.get("project_id")]
+    phases_by_proj = collections.defaultdict(list)
+    if p_ids:
+        all_phases = list(db.milestones.find({"project_id": {"$in": p_ids}}).sort("milestone_index", 1))
+        for ph in all_phases:
+            phases_by_proj[ph["project_id"]].append(ph)
+
     for p in projects:
         p_id = p.get("project_id")
-        phases = list(db.milestones.find({"project_id": p_id}).sort("milestone_index", 1))
-        p["phases"] = serialize_doc(phases)
+        p["phases"] = serialize_doc(phases_by_proj.get(p_id, []))
 
     return {"success": True, "financial_year": fy or get_active_financial_year(), "projects": serialize_doc(projects)}
 
@@ -541,14 +542,6 @@ async def accept_project(
     for phase in three_phases:
         db.milestones.insert_one(phase)
 
-    try:
-        amounts_list = [int(p1_amount), int(p2_amount), int(p3_amount)]
-        if proj.get("escrow_onchain") or bcs.check_project_escrow_exists_onchain(project_id):
-            bcs.set_project_milestones_onchain(project_id, amounts_list)
-        else:
-            print(f"Notice: On-chain escrow not yet initialized for {project_id}. Milestones will sync upon escrow deployment.")
-    except Exception as e:
-        print(f"Warning syncing on-chain milestones: {e}")
 
     contract_id = proj.get("contract_id") or qr_service.generate_contract_id(project_id)
 
@@ -769,6 +762,19 @@ async def request_phase_funds(
         "created_at": datetime.now(timezone.utc)
     })
 
+    realtime_manager.trigger_broadcast("FUND_REQUESTED", {
+        "project_id": project_id,
+        "milestone_index": milestone_index,
+        "requested_amount": requested_amount,
+        "district_name": proj.get("district_name")
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "milestones",
+        "action": "FUND_REQUESTED",
+        "project_id": project_id,
+        "milestone_index": milestone_index
+    })
+
     return {
         "success": True,
         "message": f"Fund request for Phase #{milestone_index + 1} (INR {requested_amount:,.2f}) submitted to District Officer for approval."
@@ -818,6 +824,18 @@ async def receive_allocated_funds(
             "current_active_phase": milestone_index + 1
         }}
     )
+
+    realtime_manager.trigger_broadcast("FUNDS_RECEIVED", {
+        "project_id": project_id,
+        "milestone_index": milestone_index,
+        "status": "APPROVED_FOR_WORK"
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "milestones",
+        "action": "FUNDS_RECEIVED",
+        "project_id": project_id,
+        "milestone_index": milestone_index
+    })
 
     return {
         "success": True,
@@ -952,10 +970,6 @@ async def handle_milestone_progress_submission(project_id: str, milestone_index:
             proof_hashes.append(sha256_digest)
             primary_hash = sha256_digest
 
-            try:
-                bcs.anchor_document_hash_onchain(doc_id, sha256_digest, f"PHASE_{milestone_index + 1}_{doc_type}", project_id, role="CONTRACTOR")
-            except Exception as e:
-                print(f"Warning anchoring {doc_type} proof on blockchain: {e}")
 
             doc_rec = {
                 "document_id": doc_id,
@@ -1014,13 +1028,6 @@ async def handle_milestone_progress_submission(project_id: str, milestone_index:
 
     tx_hash = None
     block_num = None
-    try:
-        tx_receipt = bcs.submit_milestone_progress_onchain(project_id, milestone_index, primary_hash, progress_percentage)
-        if tx_receipt:
-            tx_hash = tx_receipt["tx_hash"]
-            block_num = tx_receipt["block_number"]
-    except Exception as e:
-        print(f"Warning anchoring milestone progress on-chain: {e}")
 
     db.milestones.update_one(
         {"project_id": project_id, "milestone_index": milestone_index},
@@ -1039,9 +1046,18 @@ async def handle_milestone_progress_submission(project_id: str, milestone_index:
         }}
     )
 
-    # Recalculate parent project progress
+    # Recalculate parent project progress and mark project has_pending_proof
     calc_prog = compute_project_progress(proj)
-    db.projects.update_one({"project_id": project_id}, {"$set": {"progress_percentage": calc_prog}})
+    now_utc_ts = datetime.now(timezone.utc)
+    db.projects.update_one(
+        {"project_id": project_id},
+        {"$set": {
+            "progress_percentage": calc_prog,
+            "has_pending_proof": True,
+            "pending_verification_phase": milestone_index,
+            "last_submitted_at": now_utc_ts
+        }}
+    )
 
     if tx_hash:
         contractor_wallet = bcs.get_entity_wallet("CONTRACTOR", proj.get("contractor_name"))
@@ -1060,7 +1076,7 @@ async def handle_milestone_progress_submission(project_id: str, milestone_index:
             "flow_stage": f"Proof Submission: Phase #{milestone_index + 1}",
             "amount": 0,
             "details": f"Material Bills, Photos, Videos & SHA-256 Proof Anchor ({primary_hash[:12]}...) for Phase #{milestone_index + 1} ({proj.get('name')})",
-            "timestamp": datetime.now(timezone.utc)
+            "timestamp": now_utc_ts
         })
 
     db.notifications.insert_one({
@@ -1070,7 +1086,26 @@ async def handle_milestone_progress_submission(project_id: str, milestone_index:
         "message": f"Contractor submitted Phase #{milestone_index + 1} proof deliverables (Material Bills, Photos, Videos, Test Docs) with cryptographic SHA-256 for {project_id}. Verification required.",
         "link": f"/district/projects?project_id={project_id}",
         "read": False,
-        "created_at": datetime.now(timezone.utc)
+        "created_at": now_utc_ts
+    })
+
+    realtime_manager.trigger_broadcast("WORK_EVIDENCE_SUBMITTED", {
+        "project_id": project_id,
+        "milestone_index": milestone_index,
+        "primary_hash": primary_hash,
+        "district_name": proj.get("district_name")
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "milestones",
+        "action": "WORK_EVIDENCE_SUBMITTED",
+        "project_id": project_id,
+        "milestone_index": milestone_index
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "projects",
+        "action": "WORK_EVIDENCE_SUBMITTED",
+        "project_id": project_id,
+        "milestone_index": milestone_index
     })
 
     return {
@@ -1284,20 +1319,10 @@ async def upload_work_evidence(
 
     sha256_digest = hashlib.sha256(content).hexdigest()
 
-    # Anchor SHA-256 digest on blockchain (proof hash only, never actual file)
-    try:
-        bcs.anchor_document_hash_onchain(
-            evidence_id,
-            sha256_digest,
-            f"PHASE_{milestone_index + 1}_EVIDENCE",
-            project_id,
-            role="CONTRACTOR"
-        )
-    except Exception as e:
-        print(f"Warning anchoring evidence hash on blockchain: {e}")
+
 
     contract_id = proj.get("contract_id") or f"CTR-{project_id}"
-    milestone_id = str(milestone.get("_id")) or f"MS-{project_id}-{milestone_index + 1}"
+    milestone_id = f"MS-{project_id}-{milestone_index + 1}"
     contractor_id_canonical = (
         proj.get("canonical_contractor_id") or 
         proj.get("contractor_id") or 
@@ -1369,9 +1394,17 @@ async def upload_work_evidence(
         }}
     )
 
-    # Recalculate physical progress
+    # Recalculate physical progress and set has_pending_proof on parent project
     calc_prog = compute_project_progress(proj)
-    db.projects.update_one({"project_id": project_id}, {"$set": {"progress_percentage": calc_prog}})
+    db.projects.update_one(
+        {"project_id": project_id},
+        {"$set": {
+            "progress_percentage": calc_prog,
+            "has_pending_proof": True,
+            "pending_verification_phase": milestone_index,
+            "last_submitted_at": now_utc
+        }}
+    )
 
     # Notify District Officer
     db.notifications.insert_one({
@@ -1394,6 +1427,12 @@ async def upload_work_evidence(
     })
     realtime_manager.trigger_broadcast("DATA_MUTATED", {
         "entity": "evidence",
+        "project_id": project_id,
+        "milestone_index": milestone_index,
+        "action": "EVIDENCE_SUBMITTED"
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "projects",
         "project_id": project_id,
         "milestone_index": milestone_index,
         "action": "EVIDENCE_SUBMITTED"

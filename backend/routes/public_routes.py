@@ -1,3 +1,4 @@
+import collections
 import random
 import string
 import re
@@ -6,6 +7,7 @@ from typing import Optional
 from fastapi import APIRouter, Request, status, Query, Response
 from fastapi.responses import JSONResponse
 from database import db, serialize_doc, compute_project_progress, get_active_financial_year, reconcile_project_released_amount
+from cache_service import public_cache
 import qr_service
 
 router = APIRouter()
@@ -20,6 +22,10 @@ from concurrent.futures import ThreadPoolExecutor
 @router.get("/stats")
 async def get_public_stats(fy: Optional[str] = Query(None)):
     target_fy = fy or get_active_financial_year()
+    cache_key = f"public_stats_{target_fy}"
+    cached = public_cache.get(cache_key)
+    if cached:
+        return cached
 
     def _get_budget_stats():
         return list(db.budget_allocations.aggregate([
@@ -61,7 +67,7 @@ async def get_public_stats(fy: Optional[str] = Query(None)):
     total_allocated = budget_stats[0]["total"] if budget_stats else 0.0
     total_disbursed = budget_stats[0]["disbursed"] if budget_stats else 0.0
 
-    return {
+    result = {
         "success": True,
         "financial_year": target_fy,
         "stats": {
@@ -73,6 +79,8 @@ async def get_public_stats(fy: Optional[str] = Query(None)):
             "blockchain_transactions_count": tx_count
         }
     }
+    public_cache.set(cache_key, result, ttl_seconds=20)
+    return result
 
 @router.get("/financial-years")
 async def get_public_financial_years():
@@ -124,6 +132,11 @@ async def get_hierarchy():
 async def get_public_schemes(fy: Optional[str] = Query(None)):
     try:
         target_fy = fy or get_active_financial_year()
+        cache_key = f"public_schemes_{target_fy}"
+        cached = public_cache.get(cache_key)
+        if cached:
+            return cached
+
         sc_list = list(db.schemes.find({"$or": [{"financial_year": target_fy}, {"financial_year": {"$exists": False}}]}).sort("name", 1))
 
         # If no schemes exist in database, return standard national flagship schemes fallback
@@ -210,28 +223,32 @@ async def get_public_schemes(fy: Optional[str] = Query(None)):
                     "status": "ACTIVE"
                 }
             ]
-            return {"success": True, "schemes": sc_list}
+            res = {"success": True, "schemes": sc_list}
+            public_cache.set(cache_key, res, ttl_seconds=30)
+            return res
+
+        # Single batch query with projection to eliminate N+1 queries and regex scans
+        all_allocs = list(db.budget_allocations.find(
+            {"financial_year": target_fy},
+            {"scheme_name": 1, "amount": 1, "disbursed_amount": 1}
+        ))
+        alloc_map = {}
+        for a in all_allocs:
+            s_name = (a.get("scheme_name") or "").strip().lower()
+            if not s_name:
+                continue
+            if s_name not in alloc_map:
+                alloc_map[s_name] = {"allocated": 0.0, "disbursed": 0.0}
+            alloc_map[s_name]["allocated"] += float(a.get("amount") or 0.0)
+            alloc_map[s_name]["disbursed"] += float(a.get("disbursed_amount") or 0.0)
 
         for s in sc_list:
             scheme_name = s.get("name", "")
             target_budget = float(s.get("target_budget") or s.get("allocated_budget") or 0.0)
-
-            allocations = []
-            if scheme_name:
-                allocations = list(db.budget_allocations.find({
-                    "$and": [
-                        {
-                            "$or": [
-                                {"scheme_name": scheme_name},
-                                {"scheme_name": {"$regex": f"^{re.escape(scheme_name.strip())}$", "$options": "i"}}
-                            ]
-                        },
-                        {"financial_year": target_fy}
-                    ]
-                }))
-
-            total_allocated = sum(float(a.get("amount", 0.0)) for a in allocations)
-            total_disbursed = sum(float(a.get("disbursed_amount", 0.0)) for a in allocations)
+            s_key = scheme_name.strip().lower() if scheme_name else ""
+            stats = alloc_map.get(s_key, {"allocated": 0.0, "disbursed": 0.0})
+            total_allocated = stats["allocated"]
+            total_disbursed = stats["disbursed"]
 
             s["scheme_name"] = scheme_name
             dept = s.get("department") or s.get("department_name") or "Infrastructure"
@@ -249,7 +266,9 @@ async def get_public_schemes(fy: Optional[str] = Query(None)):
             if "status" not in s:
                 s["status"] = "ACTIVE"
 
-        return {"success": True, "schemes": serialize_doc(sc_list)}
+        res = {"success": True, "schemes": serialize_doc(sc_list)}
+        public_cache.set(cache_key, res, ttl_seconds=30)
+        return res
     except Exception as e:
         return {"success": False, "message": str(e), "schemes": []}
 
@@ -327,13 +346,31 @@ async def get_public_projects(
 
     query = {"$and": and_clauses} if and_clauses else {}
     projects = list(db.projects.find(query).sort("created_at", -1))
+
+    # Batch-fetch milestones for all projects to eliminate 2N database queries
+    project_ids = [p["project_id"] for p in projects if p.get("project_id")]
+    milestones_by_project = collections.defaultdict(list)
+    if project_ids:
+        all_milestones = list(db.milestones.find(
+            {"project_id": {"$in": project_ids}},
+            {
+                "project_id": 1, "amount": 1, "status": 1, "phase_status": 1,
+                "progress_percentage": 1, "funds_transferred_at": 1,
+                "transfer_tx_hash": 1, "funds_approved_at": 1,
+                "source_account_id": 1, "blockchainTxHash": 1,
+                "milestone_index": 1
+            }
+        ))
+        for m in all_milestones:
+            milestones_by_project[m["project_id"]].append(m)
+
     sanitized_projects = []
     for p in projects:
-        reconcile_project_released_amount(p)
-        calc_prog = compute_project_progress(p)
-        if p.get("progress_percentage") != calc_prog:
-            p["progress_percentage"] = calc_prog
-            db.projects.update_one({"project_id": p["project_id"]}, {"$set": {"progress_percentage": calc_prog}})
+        p_ms = milestones_by_project.get(p.get("project_id"), [])
+        reconcile_project_released_amount(p, milestones=p_ms)
+        calc_prog = compute_project_progress(p, milestones=p_ms)
+        p["progress_percentage"] = calc_prog
+
         sanitized = dict(p)
         for sensitive_field in [
             "contractor_bank_account", "contractor_account_number", "contractor_ifsc",

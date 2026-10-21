@@ -150,7 +150,10 @@ const FinanceDashboard = () => {
     loadSchemesList();
   }, [selectedFY]);
 
-  useRealtimeSync(() => loadFinanceData(false), { interval: 20000 });
+  useRealtimeSync(() => {
+    loadFinanceData(false);
+    loadSchemesList();
+  }, { interval: 20000 });
 
   const metrics = data?.metrics || {};
   const pendingBudgets = data?.pending_budgets || [];

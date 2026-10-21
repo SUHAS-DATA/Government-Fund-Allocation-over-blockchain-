@@ -452,6 +452,19 @@ async def allocate_to_district(
         "destination_entity": destination_account.get("account_holder_name"),
         "blockchain_tx_hash": tx_hash
     })
+    realtime_manager.trigger_broadcast("DISTRICT_ALLOCATED", {
+        "district_alloc_id": dist_alloc_id,
+        "district_name": district_name,
+        "state_code": trf.get("state_code", user_state_code),
+        "amount": amount,
+        "scheme_name": trf.get("scheme_name")
+    })
+    realtime_manager.trigger_broadcast("DATA_MUTATED", {
+        "entity": "district_allocations",
+        "action": "DISTRICT_ALLOCATED",
+        "district_name": district_name,
+        "district_alloc_id": dist_alloc_id
+    })
     realtime_manager.trigger_broadcast("DATA_MUTATED", {
         "entity": "transactions",
         "action": "TRANSACTION_COMPLETED",

@@ -93,6 +93,7 @@ async def dashboard(
         "state_breakdown": serialize_doc(state_breakdown)
     }
 
+@router.get("/budgets")
 @router.get("/received-budgets")
 async def received_budgets(
     fy: Optional[str] = Query(None),

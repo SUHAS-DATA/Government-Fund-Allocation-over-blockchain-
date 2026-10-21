@@ -281,12 +281,14 @@ export const useRealtimeSync = (refreshFunction, options = {}) => {
     };
   }, [registerListener, triggerDebounced, enabled]);
 
-  // Fallback periodic sync interval: only runs when WebSocket is NOT connected
+  // Resilient periodic sync interval: ensures periodic heartbeat refresh at requested interval
   useEffect(() => {
-    if (!enabled || !interval || isConnected) return;
+    if (!enabled || !interval) return;
+    // When connected, use slightly relaxed interval to save bandwidth, but keep ticking
+    const effectiveInterval = isConnected ? Math.max(interval, 8000) : Math.max(interval, 4000);
     const timer = setInterval(() => {
       triggerDebounced();
-    }, Math.max(interval, 15000));
+    }, effectiveInterval);
 
     return () => clearInterval(timer);
   }, [interval, enabled, isConnected, triggerDebounced]);

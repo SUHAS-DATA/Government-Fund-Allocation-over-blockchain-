@@ -34,6 +34,7 @@ import PublicProjects from '../public/PublicProjects';
 import PublicExplorer from '../public/PublicExplorer';
 import GrievancePortal from '../public/GrievancePortal';
 import ThemeToggle from '../../components/ThemeToggle';
+import { useRealtimeSync } from '../../context/RealtimeContext';
 import { useFinancialYear } from '../../context/FinancialYearContext';
 import FinancialYearSelector from '../../components/FinancialYearSelector';
 import '../admin/SuperAdminHub.css';
@@ -118,7 +119,7 @@ const PublicPortalPage = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  useEffect(() => {
+  const fetchData = () => {
     const fyParam = selectedFY ? `?fy=${selectedFY}` : '';
     API.get(`/public/stats${fyParam}`).then((res) => {
       if (res.success) setStats(res.stats);
@@ -149,7 +150,13 @@ const PublicPortalPage = () => {
         setSchemes(defaultSchemes);
       });
     }).finally(() => setLoading(false));
+  };
+
+  useEffect(() => {
+    fetchData();
   }, [selectedFY]);
+
+  useRealtimeSync(fetchData, { interval: 10000 });
 
   const handleCitizenSearch = (e) => {
     e.preventDefault();

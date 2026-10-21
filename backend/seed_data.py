@@ -4,6 +4,11 @@ from auth_middleware import hash_password
 import blockchain_service as bcs
 
 def seed():
+    # Fast path: If the database is already seeded with administrative users and departments, skip full re-seeding for fast startup
+    if db.users.count_documents({"email": "admin@govtfund.gov.in"}) > 0 and db.departments.count_documents({}) >= 5:
+        print("Database FUNDSYSTEM already initialized with administrative records. Fast startup.")
+        return
+
     print("Starting automated database seeding for FUNDSYSTEM...")
 
     # 1. Seed Users for all 6 Roles

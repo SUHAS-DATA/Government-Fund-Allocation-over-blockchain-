@@ -24,11 +24,12 @@ import { formatCurrency } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
 import FundAmountInput from '../../components/FundAmountInput';
 import TransactionDetailsModal from '../../components/TransactionDetailsModal';
-import { useRealtimeSync } from '../../context/RealtimeContext';
+import { useRealtimeSync, useRealtime } from '../../context/RealtimeContext';
 import { useFinancialYear } from '../../context/FinancialYearContext';
 
 const TransferToState = () => {
   const { selectedFY } = useFinancialYear();
+  const { triggerManualSync } = useRealtime();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -232,6 +233,10 @@ const TransferToState = () => {
       if (res.success) {
         setPendingIdempotencyKey(null);
         setSuccessResult(res);
+        loadBudgets();
+        if (typeof triggerManualSync === 'function') {
+          triggerManualSync({ type: 'TRANSACTION_COMPLETED', transfer_id: res.transfer?.transfer_id });
+        }
       } else {
         setError(formatTransferError(res.message));
       }
@@ -249,6 +254,10 @@ const TransferToState = () => {
           if (probe && probe.success) {
             setPendingIdempotencyKey(null);
             setSuccessResult(probe);
+            loadBudgets();
+            if (typeof triggerManualSync === 'function') {
+              triggerManualSync({ type: 'TRANSACTION_COMPLETED', transfer_id: probe.transfer?.transfer_id });
+            }
             return;
           }
         } catch (probeErr) {

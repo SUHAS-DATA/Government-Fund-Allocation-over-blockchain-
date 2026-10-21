@@ -20,12 +20,13 @@ export const isLocalHostname = (hostname) => {
 
 export const isLocalhostUrl = (urlStr) => {
   if (!urlStr || typeof urlStr !== 'string') return false;
-  const u = urlStr.toLowerCase();
+  const u = urlStr.toLowerCase().trim();
   return (
     u.includes('127.0.0.1') ||
     u.includes('localhost') ||
     u.includes('0.0.0.0') ||
-    u.includes('[::1]')
+    u.includes('[::1]') ||
+    /^https?:\/\/(?:10\.|192\.168\.|172\.(?:1[6-9]|2[0-9]|3[01])\.)/i.test(u)
   );
 };
 
@@ -36,11 +37,12 @@ export const normalizeApiUrl = (url) => {
 };
 
 // Immediate sanity cleanup on deployed remote domains:
-// Remove any stale loopback overrides from previous sessions.
+// Remove any stale loopback, private-network, or mixed-content HTTP overrides from previous sessions.
 if (typeof window !== 'undefined' && !isLocalHostname(window.location.hostname)) {
   try {
     const existing = localStorage.getItem('govtfund_api_host');
-    if (existing && isLocalhostUrl(existing)) {
+    const isRemoteSecure = window.location.protocol === 'https:';
+    if (existing && (isLocalhostUrl(existing) || (isRemoteSecure && existing.trim().toLowerCase().startsWith('http://')))) {
       localStorage.removeItem('govtfund_api_host');
     }
     if (typeof sessionStorage !== 'undefined') {
@@ -54,8 +56,8 @@ if (typeof window !== 'undefined' && !isLocalHostname(window.location.hostname))
  * Automatically supports:
  * 1. Intentional user override saved in localStorage ('govtfund_api_host')
  *    - On localhost: respects any saved override (local or cloud).
- *    - On remote/deployed domains (e.g. Vercel): strictly blocks localhost (127.0.0.1, localhost, [::1])
- *      and purges any stale loopback override from localStorage/sessionStorage.
+ *    - On remote/deployed domains (e.g. Vercel): strictly blocks localhost (127.0.0.1, localhost, [::1]),
+ *      private IP ranges, and insecure HTTP URLs, purging them to ensure reliable cloud backend access.
  * 2. Local development on localhost/loopback targeting local FastAPI backend (127.0.0.1:5000)
  * 3. Deployed cloud environments (e.g. Vercel) targeting configured VITE_API_URL or hosted cloud backend
  */
@@ -69,9 +71,12 @@ export const getApiBaseUrl = () => {
       const clean = saved.trim();
 
       // Guard: On a deployed remote environment (e.g. *.vercel.app),
-      // localhost/loopback targets (127.0.0.1, localhost, [::1]) are strictly prohibited.
-      // Unconditionally purge any local override and never allow it to override cloud backend.
-      if (!isLocalHost && isLocalhostUrl(clean)) {
+      // localhost, loopback, private-network, or insecure HTTP targets over HTTPS are strictly prohibited.
+      // Unconditionally purge any such override and fallback to cloud backend.
+      const isRemoteSecure = !isLocalHost && window.location.protocol === 'https:';
+      const isInsecureOrLocal = isLocalhostUrl(clean) || (isRemoteSecure && clean.toLowerCase().startsWith('http://'));
+
+      if (!isLocalHost && isInsecureOrLocal) {
         try {
           localStorage.removeItem('govtfund_api_host');
           if (typeof sessionStorage !== 'undefined') {
@@ -243,7 +248,7 @@ export const getWsUrl = () => {
 
 const api = axios.create({
   baseURL: getApiBaseUrl(),
-  timeout: 30000, // 30 seconds to allow on-chain transaction mining without client abort
+  timeout: 45000, // 45 seconds: accommodates measured cloud container cold initialization and on-chain verification
   headers: {
     'Content-Type': 'application/json',
   },
@@ -294,6 +299,14 @@ api.interceptors.response.use(
       }
     }
 
+    const isTimeout = error.code === 'ECONNABORTED' || (error.message && error.message.toLowerCase().includes('timeout'));
+    if (isTimeout) {
+      return Promise.reject({
+        message: 'Server connection timed out. The backend service may be initializing or experiencing network delay. Please try again.',
+        isTimeout: true,
+      });
+    }
+
     if (error.response) {
       if (error.response.status === 401 && !window.location.href.includes('login') && window.location.pathname !== '/') {
         localStorage.removeItem('govtfund_token');
@@ -303,9 +316,17 @@ api.interceptors.response.use(
           window.location.href = '/?session_expired=1';
         }
       }
-      return Promise.reject(error.response.data || { message: error.message });
+      const respData = error.response.data;
+      const respMessage = (respData && (respData.message || respData.detail)) || error.message;
+      return Promise.reject(typeof respData === 'object' && respData !== null ? { ...respData, message: respMessage } : { message: respMessage });
     }
-    return Promise.reject({ message: error.message || 'Network connection failed' });
+
+    return Promise.reject({
+      message: error.message === 'Network Error'
+        ? 'Unable to connect to government server. Please check your internet connection or verify backend availability.'
+        : (error.message || 'Network connection failed'),
+      isNetworkError: true,
+    });
   }
 );
 

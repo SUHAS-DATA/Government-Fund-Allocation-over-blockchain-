@@ -431,26 +431,41 @@ const DistrictDashboard = () => {
                     💡 <strong>Smart Escrow Security:</strong> Field engineers must verify geotagged photos and test reports before milestone sign-off triggers escrow release.
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    {[
-                      { id: 'M-101', project: 'District Hospital Oxygen Pipeline', stage: 'Stage 2: Pressure Testing & Line Certification', completion: '100%', amount: '₹45,00,000', status: 'Awaiting District Engineer Sign-off' },
-                      { id: 'M-102', project: 'Rural Bypass Macadam Roadway', stage: 'Stage 3: Sub-Base Compaction & Layering', completion: '100%', amount: '₹1,20,00,000', status: 'Geo-Photo Audit Verified' },
-                      { id: 'M-103', project: 'Panchayat Model Smart School', stage: 'Stage 1: Foundation Piling & Plinth Level', completion: '100%', amount: '₹35,00,000', status: 'Inspection Scheduled' }
-                    ].map((m, idx) => (
-                      <div key={idx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
-                        <div>
-                          <div style={{ fontWeight: '800', color: '#102A43', fontSize: '15px' }}>{m.project}</div>
-                          <div style={{ fontSize: '13px', color: '#475569', marginTop: '4px' }}>{m.stage} • Target Value: <strong style={{ color: '#006B4F' }}>{m.amount}</strong></div>
-                          <div style={{ fontSize: '11px', color: '#7C3AED', fontWeight: '700', marginTop: '4px' }}>Milestone ID: {m.id} • {m.status}</div>
+                    {data?.pending_verifications && data.pending_verifications.length > 0 ? (
+                      data.pending_verifications.map((m, idx) => (
+                        <div key={idx} style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+                          <div>
+                            <div style={{ fontWeight: '800', color: '#102A43', fontSize: '15px' }}>{m.project_name}</div>
+                            <div style={{ fontSize: '13px', color: '#475569', marginTop: '4px' }}>
+                              {m.stage} • Target Value: <strong style={{ color: '#006B4F' }}>{formatCurrency(m.amount)}</strong> • Contractor: <strong>{m.contractor_name}</strong>
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#7C3AED', fontWeight: '700', marginTop: '4px' }}>
+                              Milestone ID: {m.milestone_id} • Project ID: {m.project_id} • <span style={{ background: '#FEF3C7', color: '#92400E', padding: '2px 6px', borderRadius: '4px' }}>⚡ {m.status}</span>
+                            </div>
+                            {m.proof_document_hash && (
+                              <div style={{ fontSize: '11px', color: '#0284C7', fontFamily: 'monospace', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span>🔒 SHA-256 Proof Hash:</span>
+                                <code>{m.proof_document_hash.slice(0, 24)}...</code>
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setTab('projects')}
+                            style={{ background: '#7C3AED', color: '#FFFFFF', border: 'none', padding: '8px 18px', borderRadius: '6px', fontSize: '13px', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+                          >
+                            <span>Inspect & Verify Proof</span>
+                            <ArrowRight size={14} />
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setTab('projects')}
-                          style={{ background: '#7C3AED', color: '#FFFFFF', border: 'none', padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: '700', cursor: 'pointer' }}
-                        >
-                          Verify & Sign Off
-                        </button>
+                      ))
+                    ) : (
+                      <div style={{ textAlign: 'center', padding: '40px 20px', background: '#F8FAFC', borderRadius: '8px', border: '1px dashed #CBD5E1', color: '#64748B' }}>
+                        <CheckCircle2 size={32} color="#16A34A" style={{ margin: '0 auto 10px', display: 'block' }} />
+                        <div style={{ fontWeight: '800', fontSize: '15px', color: '#1E293B', marginBottom: '4px' }}>All Milestones Up to Date</div>
+                        <div style={{ fontSize: '13px' }}>There are currently no contractor milestone submissions awaiting verification in {currentDistrictName}.</div>
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
               )}

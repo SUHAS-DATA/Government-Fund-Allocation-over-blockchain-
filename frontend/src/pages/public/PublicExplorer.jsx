@@ -6,6 +6,7 @@ import BlockchainBadge from '../../components/BlockchainBadge';
 import TransactionFlowBadge from '../../components/TransactionFlowBadge';
 import DataTable from '../../components/DataTable';
 import { useFinancialYear } from '../../context/FinancialYearContext';
+import { useRealtimeSync } from '../../context/RealtimeContext';
 
 const PublicExplorer = () => {
   const { selectedFY } = useFinancialYear();
@@ -13,15 +14,25 @@ const PublicExplorer = () => {
   const [loading, setLoading] = useState(true);
   const [activeTierFilter, setActiveTierFilter] = useState('ALL');
 
-  useEffect(() => {
-    setLoading(true);
+  const fetchTransactions = (showSpinner = false) => {
+    if (showSpinner) setLoading(true);
     const fyParam = selectedFY ? `?fy=${selectedFY}` : '';
     API.get(`/blockchain/transactions${fyParam}`)
       .then((res) => {
         if (res.success) setTransactions(res.transactions || []);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (showSpinner) setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    fetchTransactions(true);
   }, [selectedFY]);
+
+  useRealtimeSync(() => {
+    fetchTransactions(false);
+  }, { interval: 8000 });
 
   const tierFilters = [
     { id: 'ALL', label: 'All Transfers' },

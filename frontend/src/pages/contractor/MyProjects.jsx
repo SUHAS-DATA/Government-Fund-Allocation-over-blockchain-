@@ -33,11 +33,12 @@ import BlockchainBadge from '../../components/BlockchainBadge';
 import DocumentHashViewer from '../../components/DocumentHashViewer';
 import DataTable from '../../components/DataTable';
 import Modal from '../../components/Modal';
-import { useRealtimeSync } from '../../context/RealtimeContext';
+import { useRealtime, useRealtimeSync } from '../../context/RealtimeContext';
 import { useFinancialYear } from '../../context/FinancialYearContext';
 import FinancialYearSelector from '../../components/FinancialYearSelector';
 
 const MyProjects = () => {
+  const { triggerManualSync } = useRealtime();
   const { selectedFY } = useFinancialYear();
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
@@ -129,6 +130,7 @@ const MyProjects = () => {
           setProjectDetails(detailsRes);
         }
         loadProjects();
+        triggerManualSync();
       }
     } catch (err) {
       setActionError(err.message || 'Failed to accept project assignment.');
@@ -164,6 +166,7 @@ const MyProjects = () => {
         setSelectedProject(null);
         setProjectDetails(null);
         loadProjects();
+        triggerManualSync();
       }
     } catch (err) {
       setActionError(err.message || 'Failed to decline project.');
@@ -195,6 +198,7 @@ const MyProjects = () => {
         setShowFundRequestModal(false);
         openProjectDetails(selectedProject);
         loadProjects();
+        triggerManualSync();
       }
     } catch (err) {
       setActionError(err.message || 'Failed to submit fund request');
@@ -214,6 +218,7 @@ const MyProjects = () => {
         setActionSuccess(`Allocated funds acknowledged! Phase #${phaseIndex + 1} execution initiated.`);
         openProjectDetails(selectedProject);
         loadProjects();
+        triggerManualSync();
       }
     } catch (err) {
       setActionError(err.message || 'Failed to acknowledge funds');
@@ -262,6 +267,7 @@ const MyProjects = () => {
         setShowProgressModal(false);
         openProjectDetails(selectedProject);
         loadProjects();
+        triggerManualSync();
       }
     } catch (err) {
       setActionError(err.message || 'Progress upload failed');
@@ -298,6 +304,7 @@ const MyProjects = () => {
         setEvidenceDescription('');
         openProjectDetails(selectedProject);
         loadProjects();
+        triggerManualSync();
       }
     } catch (err) {
       setActionError(err.message || 'Failed to upload work evidence.');

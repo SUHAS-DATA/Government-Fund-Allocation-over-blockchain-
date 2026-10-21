@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { 
   Landmark, 
@@ -11,6 +11,7 @@ import {
   Zap 
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { testBackendHealth } from '../../services/api';
 import PortalNavHeader from '../../components/PortalNavHeader';
 import ThemeToggle from '../../components/ThemeToggle';
 
@@ -52,6 +53,11 @@ const AdminPortalPage = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Background pre-warm: quietly ping health endpoint to awaken cloud instance if sleeping
+  useEffect(() => {
+    testBackendHealth().catch(() => {});
+  }, []);
+
   // If already logged in, redirect to permitted dashboard or role home
   if (user) {
     if (user.role === 'SUPER_ADMIN') return <Navigate to="/admin" replace />;
@@ -62,6 +68,7 @@ const AdminPortalPage = () => {
   }
 
   const handleRoleSelect = (roleObj) => {
+    if (loading) return;
     setActiveRole(roleObj);
     setEmail(roleObj.defaultEmail);
     setPassword(roleObj.defaultPassword);
@@ -69,6 +76,7 @@ const AdminPortalPage = () => {
   };
 
   const handleExecuteLogin = async (loginEmail, loginPassword) => {
+    if (loading) return;
     setError('');
     setLoading(true);
     try {
@@ -90,7 +98,14 @@ const AdminPortalPage = () => {
         }
       }
     } catch (err) {
-      setError(err.message || 'Authentication failed. Please verify credentials.');
+      const rawMsg = (typeof err === 'string' ? err : err?.message) || '';
+      if (err?.isTimeout || rawMsg.toLowerCase().includes('timeout')) {
+        setError('Server response timed out (cloud service may be waking up). Please click Sign In again.');
+      } else if (err?.isNetworkError || rawMsg.toLowerCase().includes('network') || rawMsg.toLowerCase().includes('failed to fetch')) {
+        setError('Unable to reach government backend servers. Please verify your internet connection or try again.');
+      } else {
+        setError(rawMsg || 'Authentication failed. Please verify credentials.');
+      }
     } finally {
       setLoading(false);
     }
@@ -98,6 +113,7 @@ const AdminPortalPage = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (loading) return;
     handleExecuteLogin(email, password);
   };
 
@@ -201,6 +217,7 @@ const AdminPortalPage = () => {
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
+                    if (loading) return;
                     handleRoleSelect(r);
                     handleExecuteLogin(r.defaultEmail, r.defaultPassword);
                   }}
@@ -220,7 +237,7 @@ const AdminPortalPage = () => {
                   disabled={loading}
                 >
                   <Zap size={12} fill="#FFFFFF" />
-                  <span>1-Click {r.title} Login</span>
+                  <span>{loading ? 'Connecting...' : `1-Click ${r.title} Login`}</span>
                 </button>
               </div>
             </div>
@@ -283,6 +300,7 @@ const AdminPortalPage = () => {
                 style={{ paddingLeft: '36px' }}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
                 required
               />
               <Mail size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
@@ -298,6 +316,7 @@ const AdminPortalPage = () => {
                 style={{ paddingLeft: '36px' }}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
                 required
               />
               <Lock size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
@@ -322,7 +341,7 @@ const AdminPortalPage = () => {
               }}
               disabled={loading}
             >
-              <span>{loading ? 'Verifying...' : `Sign In as ${activeRole.title}`}</span>
+              <span>{loading ? 'Verifying Credentials...' : `Sign In as ${activeRole.title}`}</span>
               <ArrowRight size={14} />
             </button>
 
@@ -330,7 +349,10 @@ const AdminPortalPage = () => {
               type="button"
               className="btn btn-secondary"
               style={{ padding: '10px 16px', fontSize: '12px', fontWeight: '700' }}
-              onClick={() => handleExecuteLogin(activeRole.defaultEmail, activeRole.defaultPassword)}
+              onClick={() => {
+                if (loading) return;
+                handleExecuteLogin(activeRole.defaultEmail, activeRole.defaultPassword);
+              }}
               disabled={loading}
               title="Quick test login with default credentials"
             >

@@ -460,7 +460,14 @@ async def contractor_login(request: Request):
 
 @router.get("/profile")
 async def profile(current_user: dict = Depends(get_current_user)):
-    user = db.users.find_one({"_id": ObjectId(current_user["user_id"])})
+    user_id = current_user.get("user_id")
+    if not user_id:
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"success": False, "message": "Invalid authentication token"}
+        )
+    query = {"_id": ObjectId(user_id)} if ObjectId.is_valid(user_id) else {"email": current_user.get("email")}
+    user = db.users.find_one(query)
     if not user:
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,

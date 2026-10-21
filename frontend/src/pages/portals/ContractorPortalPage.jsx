@@ -117,6 +117,7 @@ const ContractorPortalPage = () => {
   };
 
   const handleExecuteLogin = async (emailToUse, passToUse) => {
+    if (loginLoading) return;
     setLoginError('');
     setLoginKycStatus('');
     setLoginKycRemarks('');
@@ -145,11 +146,18 @@ const ContractorPortalPage = () => {
         setLoginKycStatus('REJECTED');
         setLoginKycRemarks(remarks);
         setLoginKycState(stateName);
+        setLoginError(msg);
       } else if (kycStatus === 'UNDER_REVIEW' || msg.includes('UNDER REVIEW') || msg.toLowerCase().includes('under review') || msg.toLowerCase().includes('pending')) {
         setLoginKycStatus('UNDER_REVIEW');
         setLoginKycState(stateName);
+        setLoginError(msg);
+      } else if (err?.isTimeout || msg.toLowerCase().includes('timeout')) {
+        setLoginError('Server response timed out (cloud service may be waking up). Please click Sign In again.');
+      } else if (err?.isNetworkError || msg.toLowerCase().includes('network') || msg.toLowerCase().includes('failed to fetch')) {
+        setLoginError('Unable to reach government backend servers. Please verify your internet connection or try again.');
+      } else {
+        setLoginError(msg || 'Contractor authentication failed. Please verify credentials.');
       }
-      setLoginError(msg || 'Contractor authentication failed. Please verify credentials.');
     } finally {
       setLoginLoading(false);
     }
@@ -157,6 +165,7 @@ const ContractorPortalPage = () => {
 
   const handleLoginSubmit = (e) => {
     e.preventDefault();
+    if (loginLoading) return;
     handleExecuteLogin(loginEmail, loginPassword);
   };
 

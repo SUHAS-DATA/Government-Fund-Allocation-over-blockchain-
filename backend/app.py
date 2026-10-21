@@ -97,15 +97,24 @@ async def lifespan(app: FastAPI):
         seed()
     except Exception as e:
         logging.warning(f"Database seed warning: {e}")
+
+    # Run blockchain diagnostics in background thread so HTTP requests and login aren't delayed by external RPC checks
+    def _run_diag():
+        try:
+            diag = bcs.get_blockchain_diagnostics()
+            if diag.get("warnings"):
+                for w in diag["warnings"]:
+                    logging.warning(f"[BLOCKCHAIN_CONFIG_ADVISORY] {w}")
+            else:
+                logging.info(f"[BLOCKCHAIN_READY] Connected to chain {diag['active_chain_id']} at {diag['rpc_url']}")
+        except Exception as e:
+            logging.warning(f"Startup blockchain diagnostic warning: {e}")
+
     try:
-        diag = bcs.get_blockchain_diagnostics()
-        if diag.get("warnings"):
-            for w in diag["warnings"]:
-                logging.warning(f"[BLOCKCHAIN_CONFIG_ADVISORY] {w}")
-        else:
-            logging.info(f"[BLOCKCHAIN_READY] Connected to chain {diag['active_chain_id']} at {diag['rpc_url']}")
+        asyncio.create_task(asyncio.to_thread(_run_diag))
     except Exception as e:
-        logging.warning(f"Startup blockchain diagnostic warning: {e}")
+        logging.warning(f"Could not dispatch background blockchain diagnostic: {e}")
+
     yield
     logging.info("System shutdown.")
 
@@ -194,13 +203,14 @@ async def cors_and_security_middleware(request: Request, call_next):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
 
-    # Auto-broadcast mutations across all connected devices and laptops
+    # Auto-broadcast mutations across all connected devices and laptops (skip auth and websocket routes)
     if request.method in ["POST", "PUT", "PATCH", "DELETE"] and response.status_code < 400:
-        realtime_manager.trigger_broadcast("DATA_MUTATED", {
-            "path": request.url.path,
-            "method": request.method,
-            "status_code": response.status_code
-        })
+        if not request.url.path.startswith("/api/auth") and not request.url.path.startswith("/ws"):
+            realtime_manager.trigger_broadcast("DATA_MUTATED", {
+                "path": request.url.path,
+                "method": request.method,
+                "status_code": response.status_code
+            })
 
     return response
 

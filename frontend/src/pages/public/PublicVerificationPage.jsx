@@ -23,6 +23,7 @@ import {
 import API from '../../services/api';
 import { formatCurrency, formatTxHash } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
+import { useRealtimeSync } from '../../context/RealtimeContext';
 
 const PublicVerificationPage = () => {
   const { qrId } = useParams();
@@ -31,14 +32,14 @@ const PublicVerificationPage = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
+  const fetchVerificationData = (showSpinner = false) => {
     if (!qrId) {
       setErrorMsg('No QR verification code provided in URL.');
-      setLoading(false);
+      if (showSpinner) setLoading(false);
       return;
     }
 
-    setLoading(true);
+    if (showSpinner) setLoading(true);
     setErrorMsg('');
 
     API.get(`/public/qr/verify/${encodeURIComponent(qrId)}`)
@@ -53,9 +54,17 @@ const PublicVerificationPage = () => {
         }
       })
       .finally(() => {
-        setLoading(false);
+        if (showSpinner) setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchVerificationData(true);
   }, [qrId]);
+
+  useRealtimeSync(() => {
+    fetchVerificationData(false);
+  }, { interval: 8000 });
 
   const handleCopyLink = () => {
     if (typeof window !== 'undefined') {
