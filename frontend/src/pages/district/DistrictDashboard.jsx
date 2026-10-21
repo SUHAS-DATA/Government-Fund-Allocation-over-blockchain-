@@ -151,14 +151,9 @@ const DistrictDashboard = () => {
   };
 
   useEffect(() => {
-    if (isDistrictOfficer) {
-      setSelectedDistrict(assignedDistrict);
-      setSelectedState(assignedStateCode);
-      loadDashboard(assignedDistrict, true);
-    } else {
-      loadDashboard(selectedDistrict, true);
-    }
-  }, [selectedDistrict, user?.district_name, user?.role, selectedFY]);
+    const targetDist = isDistrictOfficer ? assignedDistrict : selectedDistrict;
+    loadDashboard(targetDist, true);
+  }, [isDistrictOfficer ? assignedDistrict : selectedDistrict, selectedFY]);
 
   useRealtimeSync(() => {
     const target = isDistrictOfficer ? assignedDistrict : selectedDistrict;

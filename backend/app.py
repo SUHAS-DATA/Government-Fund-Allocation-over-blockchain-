@@ -277,26 +277,44 @@ async def health():
     except Exception as e:
         db_status = f"ERROR: {str(e)}"
 
-    diag = bcs.get_blockchain_diagnostics()
+    try:
+        diag = bcs.get_blockchain_diagnostics(force_refresh=False)
+    except Exception as e:
+        diag = {
+            "environment": os.getenv("APP_ENV") or os.getenv("ENVIRONMENT") or "production",
+            "connected": False,
+            "contract_address": bcs.contract_address,
+            "configured_chain_id": int(os.getenv("CHAIN_ID")) if os.getenv("CHAIN_ID") else (bcs.contract_chain_id or (11155111 if bcs.is_cloud_render else 1337)),
+            "active_chain_id": None,
+            "contract_deployed": False,
+            "rpc_url": bcs.mask_rpc_url(bcs.RPC_URL),
+            "chain_id_match": False,
+            "roles": {},
+            "warnings": [f"Diagnostics temporarily unavailable: {e}"],
+            "status": "DEGRADED"
+        }
+
+    is_db_ok = not db_status.startswith("ERROR")
+    is_bc_ok = bool(diag.get("connected", False)) and bool(diag.get("contract_deployed", False))
 
     return {
-        "status": "HEALTHY",
+        "status": "HEALTHY" if (is_db_ok and is_bc_ok) else "DEGRADED",
         "framework": "FastAPI",
-        "environment": diag["environment"],
+        "environment": diag.get("environment", "production"),
         "database": db_status,
         "blockchain": {
-            "connected": diag["connected"],
-            "contract_address": diag["contract_address"],
-            "chain_id": diag["active_chain_id"] or diag["configured_chain_id"],
-            "contract_deployed": diag["contract_deployed"]
+            "connected": diag.get("connected", False),
+            "contract_address": diag.get("contract_address"),
+            "chain_id": diag.get("active_chain_id") or diag.get("configured_chain_id"),
+            "contract_deployed": diag.get("contract_deployed", False)
         },
         "blockchain_diagnostics": {
-            "rpc_url": diag["rpc_url"],
-            "configured_chain_id": diag["configured_chain_id"],
-            "active_chain_id": diag["active_chain_id"],
-            "chain_id_match": diag["chain_id_match"],
-            "roles_configured": {k: v["ready"] for k, v in diag["roles"].items()},
-            "warnings": diag["warnings"]
+            "rpc_url": diag.get("rpc_url"),
+            "configured_chain_id": diag.get("configured_chain_id"),
+            "active_chain_id": diag.get("active_chain_id"),
+            "chain_id_match": diag.get("chain_id_match", False),
+            "roles_configured": {k: v.get("ready", False) for k, v in diag.get("roles", {}).items()},
+            "warnings": diag.get("warnings", [])
         }
     }
 

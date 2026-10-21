@@ -84,20 +84,27 @@ async def get_public_stats(fy: Optional[str] = Query(None)):
 
 @router.get("/financial-years")
 async def get_public_financial_years():
+    cache_key = "public_financial_years"
+    cached = public_cache.get(cache_key)
+    if cached:
+        return cached
+
     active_year = get_active_financial_year()
     try:
         fys = list(db.financial_years.find().sort("year", -1))
         if fys:
             for f in fys:
                 f["is_current"] = (f.get("status") == "ACTIVE" or f.get("year") == active_year)
-            return {
+            result = {
                 "success": True,
                 "financial_years": serialize_doc(fys),
                 "active_financial_year": active_year
             }
+            public_cache.set(cache_key, result, ttl_seconds=60)
+            return result
     except Exception as e:
         pass
-    return {
+    result = {
         "success": True,
         "financial_years": [
             {"year": active_year or "2027-28", "is_current": True, "description": f"National Financial Year {active_year or '2027-28'}"},
@@ -106,9 +113,16 @@ async def get_public_financial_years():
         ],
         "active_financial_year": active_year or "2027-28"
     }
+    public_cache.set(cache_key, result, ttl_seconds=60)
+    return result
 
 @router.get("/hierarchy")
 async def get_hierarchy():
+    cache_key = "public_hierarchy"
+    cached = public_cache.get(cache_key)
+    if cached:
+        return cached
+
     with ThreadPoolExecutor(max_workers=4) as executor:
         f_states = executor.submit(lambda: list(db.states.find().sort("name", 1)))
         f_districts = executor.submit(lambda: list(db.districts.find().sort("name", 1)))
@@ -120,13 +134,15 @@ async def get_hierarchy():
         departments = f_departments.result()
         schemes = f_schemes.result()
 
-    return {
+    result = {
         "success": True,
         "states": serialize_doc(states),
         "districts": serialize_doc(districts),
         "departments": serialize_doc(departments),
         "schemes": serialize_doc(schemes)
     }
+    public_cache.set(cache_key, result, ttl_seconds=60)
+    return result
 
 @router.get("/schemes")
 async def get_public_schemes(fy: Optional[str] = Query(None)):
@@ -281,6 +297,11 @@ async def get_public_projects(
     scheme: Optional[str] = Query(None),
     search: Optional[str] = Query(None)
 ):
+    cache_key = f"public_projects_{fy or ''}_{state or ''}_{district or ''}_{department or ''}_{scheme or ''}_{search or ''}"
+    cached = public_cache.get(cache_key)
+    if cached:
+        return cached
+
     and_clauses = []
     if fy and fy.strip() and fy.strip() != "ALL":
         and_clauses.append({"financial_year": fy.strip()})
@@ -367,7 +388,7 @@ async def get_public_projects(
     sanitized_projects = []
     for p in projects:
         p_ms = milestones_by_project.get(p.get("project_id"), [])
-        reconcile_project_released_amount(p, milestones=p_ms)
+        reconcile_project_released_amount(p, milestones=p_ms, persist=False)
         calc_prog = compute_project_progress(p, milestones=p_ms)
         p["progress_percentage"] = calc_prog
 
@@ -380,7 +401,9 @@ async def get_public_projects(
             sanitized.pop(sensitive_field, None)
         sanitized_projects.append(sanitized)
 
-    return {"success": True, "projects": serialize_doc(sanitized_projects)}
+    res = {"success": True, "projects": serialize_doc(sanitized_projects)}
+    public_cache.set(cache_key, res, ttl_seconds=20)
+    return res
 
 @router.get("/projects/{project_id}")
 async def get_public_project_detail(project_id: str):

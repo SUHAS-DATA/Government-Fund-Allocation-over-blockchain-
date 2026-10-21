@@ -106,6 +106,10 @@ def init_indexes():
     """Create essential MongoDB indexes with safe conflict handling"""
     # 1. Users collection
     safe_create_index(db.users, [("email", ASCENDING)], unique=True)
+    safe_create_index(db.users, [("officer_id", ASCENDING)], unique=False, sparse=True)
+    safe_create_index(db.users, [("contractor_id", ASCENDING)], unique=False, sparse=True)
+    safe_create_index(db.users, [("username", ASCENDING)], unique=False, sparse=True)
+    safe_create_index(db.users, [("role", ASCENDING)])
 
     # 2. Financial Years collection
     safe_create_index(db.financial_years, [("year", ASCENDING)], unique=True, sparse=True)
@@ -118,11 +122,15 @@ def init_indexes():
 
     # 5. Schemes collection (Aligned with MongoDB Atlas: unique and non-sparse)
     safe_create_index(db.schemes, [("code", ASCENDING)], unique=True)
+    safe_create_index(db.schemes, [("financial_year", ASCENDING), ("name", ASCENDING)], sparse=True)
+    safe_create_index(db.schemes, [("name", ASCENDING)])
 
     # 6. Budget Allocations collection (Aligned with MongoDB Atlas: unique and non-sparse)
     safe_create_index(db.budget_allocations, [("allocation_id", ASCENDING)], unique=True)
     safe_create_index(db.budget_allocations, [("financial_year", ASCENDING), ("status", ASCENDING)])
     safe_create_index(db.budget_allocations, [("financial_year", ASCENDING), ("created_at", DESCENDING)])
+    safe_create_index(db.budget_allocations, [("financial_year", ASCENDING), ("scheme_name", ASCENDING)])
+    safe_create_index(db.budget_allocations, [("scheme_name", ASCENDING)])
     safe_create_index(db.budget_allocations, [("state_code", ASCENDING)])
 
     # 7. State Transfers collection (Aligned with MongoDB Atlas: unique and non-sparse)
@@ -144,6 +152,7 @@ def init_indexes():
     # 9. Projects collection (Aligned with MongoDB Atlas: unique and non-sparse)
     safe_create_index(db.projects, [("project_id", ASCENDING)], unique=True)
     safe_create_index(db.projects, [("financial_year", ASCENDING), ("district_name", ASCENDING)])
+    safe_create_index(db.projects, [("financial_year", ASCENDING), ("created_at", DESCENDING)])
     safe_create_index(db.projects, [("district_name", ASCENDING), ("status", ASCENDING)])
     safe_create_index(db.projects, [("state_code", ASCENDING), ("status", ASCENDING)])
     safe_create_index(db.projects, [("contractor_id", ASCENDING), ("status", ASCENDING)])
@@ -170,6 +179,11 @@ def init_indexes():
 
     # 12. Blockchain Transactions collection (Aligned with MongoDB Atlas: unique and non-sparse)
     safe_create_index(db.blockchain_transactions, [("tx_hash", ASCENDING)], unique=True)
+    safe_create_index(db.blockchain_transactions, [("financial_year", ASCENDING), ("timestamp", DESCENDING)])
+    safe_create_index(db.blockchain_transactions, [("operation_type", ASCENDING), ("timestamp", DESCENDING)])
+    safe_create_index(db.blockchain_transactions, [("entity_id", ASCENDING), ("timestamp", DESCENDING)])
+    safe_create_index(db.blockchain_transactions, [("project_id", ASCENDING), ("timestamp", DESCENDING)])
+    safe_create_index(db.blockchain_transactions, [("to_address", ASCENDING), ("timestamp", DESCENDING)])
     safe_create_index(db.blockchain_transactions, [("timestamp", DESCENDING)])
 
     # 13. QR Codes collection
@@ -297,7 +311,7 @@ def compute_project_progress(proj, milestones=None):
         
     return min(100, max(0, int(round(total_weighted_progress))))
 
-def reconcile_project_released_amount(proj: dict, milestones: list = None, exclude_milestone_index: int = None) -> float:
+def reconcile_project_released_amount(proj: dict, milestones: list = None, exclude_milestone_index: int = None, persist: bool = True) -> float:
     """
     Calculate and reconcile the accurate project released_amount based on funded milestones.
     Prevents double-counting across milestone submissions/verifications and auto-heals historical budget drift.
@@ -336,22 +350,22 @@ def reconcile_project_released_amount(proj: dict, milestones: list = None, exclu
     if total_budget > 0:
         actual_released = min(total_budget, actual_released)
 
-    # Heal stored released_amount in database if it has drifted
+    # Heal stored released_amount in database if it has drifted and persist is True
     stored_released = float(proj.get("released_amount", 0.0))
-    if exclude_milestone_index is None:
-        if abs(stored_released - actual_released) > 0.01:
-            db.projects.update_one(
-                {"project_id": project_id},
-                {"$set": {"released_amount": actual_released}}
-            )
-            proj["released_amount"] = actual_released
-    else:
-        if stored_released > actual_released:
-            db.projects.update_one(
-                {"project_id": project_id},
-                {"$set": {"released_amount": actual_released}}
-            )
-            proj["released_amount"] = actual_released
+    proj["released_amount"] = actual_released
+    if persist:
+        if exclude_milestone_index is None:
+            if abs(stored_released - actual_released) > 0.01:
+                db.projects.update_one(
+                    {"project_id": project_id},
+                    {"$set": {"released_amount": actual_released}}
+                )
+        else:
+            if stored_released > actual_released:
+                db.projects.update_one(
+                    {"project_id": project_id},
+                    {"$set": {"released_amount": actual_released}}
+                )
 
     return actual_released
 

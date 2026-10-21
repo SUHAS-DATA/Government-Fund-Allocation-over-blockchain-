@@ -474,7 +474,7 @@ def mask_rpc_url(url: str) -> str:
 def get_blockchain_diagnostics(force_refresh: bool = False) -> dict:
     """
     Safely validates active blockchain configuration without exposing private keys or secrets.
-    Uses in-memory caching to prevent slow live RPC calls during high-frequency telemetry.
+    Uses in-memory caching on underlying network RPC checks to prevent slow live calls.
     """
     env = os.getenv("APP_ENV") or os.getenv("ENVIRONMENT") or "production"
     warnings = []
@@ -582,7 +582,7 @@ def get_blockchain_diagnostics(force_refresh: bool = False) -> dict:
         if not w.startswith("Contractor signer key not configured: optional for three-stage fund-transfer pipeline")
     ]
 
-    return {
+    result = {
         "environment": env,
         "rpc_url": mask_rpc_url(RPC_URL),
         "connected": connected,
@@ -595,6 +595,7 @@ def get_blockchain_diagnostics(force_refresh: bool = False) -> dict:
         "warnings": warnings,
         "status": "HEALTHY" if (connected and (chain_id_match or not active_chain_id) and contract_deployed and len(transfer_critical_warnings) == 0) else "DEGRADED"
     }
+    return result
 
 class WalletConfigurationError(Exception):
     """Raised when stage wallet configuration is invalid, missing, or mismatched."""

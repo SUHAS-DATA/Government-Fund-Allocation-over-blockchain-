@@ -393,23 +393,31 @@ async def get_schemes(
     if fy and fy != "ALL":
         sc_query["financial_year"] = fy
     sc_list = list(db.schemes.find(sc_query).sort("name", 1))
+    # Batch fetch allocations to eliminate N+1 queries and regex scans
+    alloc_query = {}
+    if fy and fy != "ALL":
+        alloc_query["financial_year"] = fy
+    all_allocs = list(db.budget_allocations.find(
+        alloc_query,
+        {"scheme_name": 1, "amount": 1, "disbursed_amount": 1}
+    ))
+    alloc_map = {}
+    for a in all_allocs:
+        s_name = (a.get("scheme_name") or "").strip().lower()
+        if not s_name:
+            continue
+        if s_name not in alloc_map:
+            alloc_map[s_name] = {"allocated": 0.0, "disbursed": 0.0}
+        alloc_map[s_name]["allocated"] += float(a.get("amount") or 0.0)
+        alloc_map[s_name]["disbursed"] += float(a.get("disbursed_amount") or 0.0)
+
     for s in sc_list:
         scheme_name = s.get("name", "")
         target_budget = float(s.get("target_budget") or s.get("allocated_budget") or 0.0)
-        
-        # Calculate existing allocations made to this scheme in the given FY
-        alloc_query = {
-            "$or": [
-                {"scheme_name": scheme_name},
-                {"scheme_name": {"$regex": f"^{re.escape(scheme_name.strip())}$", "$options": "i"}}
-            ]
-        }
-        if fy and fy != "ALL":
-            alloc_query["financial_year"] = fy
-        allocations = list(db.budget_allocations.find(alloc_query))
-        
-        total_allocated = sum(float(a.get("amount", 0.0)) for a in allocations)
-        total_disbursed = sum(float(a.get("disbursed_amount", 0.0)) for a in allocations)
+        s_key = scheme_name.strip().lower() if scheme_name else ""
+        stats = alloc_map.get(s_key, {"allocated": 0.0, "disbursed": 0.0})
+        total_allocated = stats["allocated"]
+        total_disbursed = stats["disbursed"]
         
         s["allocated_amount"] = total_allocated
         s["disbursed_amount"] = total_disbursed

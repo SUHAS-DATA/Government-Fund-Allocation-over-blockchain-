@@ -21,6 +21,7 @@ export const RealtimeProvider = ({ children }) => {
   const heartbeatIntervalRef = useRef(null);
   const broadcastChannelRef = useRef(null);
   const lastMutationTimeRef = useRef(0);
+  const hasConnectedOnceRef = useRef(false);
 
   // Notify all registered component listeners
   const notifyListeners = useCallback((eventPayload) => {
@@ -74,8 +75,12 @@ export const RealtimeProvider = ({ children }) => {
 
       ws.onopen = () => {
         setIsConnected(true);
-        // Server is online, trigger immediate sync so any data missed during cold-start is loaded
-        notifyListeners({ type: 'SERVER_ONLINE', timestamp: Date.now() });
+        const isReconnect = hasConnectedOnceRef.current;
+        hasConnectedOnceRef.current = true;
+        // Only trigger catch-up sync if reconnecting after a dropped connection
+        if (isReconnect) {
+          notifyListeners({ type: 'SERVER_ONLINE', isReconnect: true, timestamp: Date.now() });
+        }
         // Start heartbeat ping every 20 seconds
         if (heartbeatIntervalRef.current) clearInterval(heartbeatIntervalRef.current);
         heartbeatIntervalRef.current = setInterval(() => {
@@ -272,7 +277,9 @@ export const useRealtimeSync = (refreshFunction, options = {}) => {
   // Listen to WebSocket broadcasts and tab focus
   useEffect(() => {
     if (!enabled) return;
-    const unregister = registerListener(() => {
+    const unregister = registerListener((evt) => {
+      // Don't re-trigger initial fetch on fresh WebSocket open
+      if (evt?.type === 'SERVER_ONLINE' && !evt?.isReconnect) return;
       triggerDebounced();
     });
     return () => {
@@ -284,8 +291,8 @@ export const useRealtimeSync = (refreshFunction, options = {}) => {
   // Resilient periodic sync interval: ensures periodic heartbeat refresh at requested interval
   useEffect(() => {
     if (!enabled || !interval) return;
-    // When connected, use slightly relaxed interval to save bandwidth, but keep ticking
-    const effectiveInterval = isConnected ? Math.max(interval, 8000) : Math.max(interval, 4000);
+    // When connected, use relaxed interval to save bandwidth and prevent hammering
+    const effectiveInterval = isConnected ? Math.max(interval, 30000) : Math.max(interval, 8000);
     const timer = setInterval(() => {
       triggerDebounced();
     }, effectiveInterval);

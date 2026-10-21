@@ -205,16 +205,27 @@ async def dashboard(
     total_received = sum(p.get("released_amount", 0) for p in display_projects)
 
     proj_ids = [str(p.get("project_id")) for p in display_projects if p.get("project_id")]
-    pay_query = {
-        "operation_type": "MILESTONE_PAYMENT_RELEASE",
-        "$or": [
-            {"project_id": {"$in": proj_ids}},
-            {"projectId": {"$in": proj_ids}},
-            {"to_entity": {"$regex": re.escape(current_user.get("name", "###")), "$options": "i"}},
-            {"receiver_department": {"$regex": re.escape(current_user.get("name", "###")), "$options": "i"}}
-        ]
-    } if proj_ids else {"_id": None}
-    recent_payments = list(db.blockchain_transactions.find(pay_query).sort("timestamp", -1).limit(5))
+    cwallet = (current_user.get("wallet_address") or "").strip()
+    cname = (current_user.get("name") or "").strip()
+    matchers = []
+    if proj_ids:
+        matchers.append({"project_id": {"$in": proj_ids}})
+        matchers.append({"projectId": {"$in": proj_ids}})
+        matchers.append({"entity_id": {"$in": proj_ids}})
+    if cwallet:
+        matchers.append({"to_address": cwallet})
+        matchers.append({"receiverAddress": cwallet})
+    if cname:
+        matchers.append({"to_entity": cname})
+
+    if matchers:
+        pay_query = {
+            "operation_type": {"$in": ["MILESTONE_PAYMENT_RELEASE", "DISTRICT_CONTRACTOR_TRANSFER", "PHASE_FUND_TRANSFER_TO_CONTRACTOR_BANK"]},
+            "$or": matchers
+        }
+        recent_payments = list(db.blockchain_transactions.find(pay_query).sort("timestamp", -1).limit(5))
+    else:
+        recent_payments = []
 
     return {
         "success": True,

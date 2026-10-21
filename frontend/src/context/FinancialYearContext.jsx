@@ -42,7 +42,7 @@ export const FinancialYearProvider = ({ children }) => {
     fetchFinancialYears();
   }, []);
 
-  useRealtimeSync(fetchFinancialYears, { interval: 15000 });
+  useRealtimeSync(fetchFinancialYears, { interval: 120000 });
 
   const setSelectedFY = (newFY) => {
     if (!newFY || newFY === selectedFY) return;
