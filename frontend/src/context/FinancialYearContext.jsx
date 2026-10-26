@@ -6,13 +6,10 @@ const FinancialYearContext = createContext(null);
 
 export const FinancialYearProvider = ({ children }) => {
   const [selectedFY, setSelectedFYState] = useState(() => {
-    return localStorage.getItem('selected_fy') || '2027-28';
+    return localStorage.getItem('selected_fy') || '';
   });
 
-  const [financialYears, setFinancialYears] = useState([
-    { year: '2027-28', is_current: true, description: 'National Financial Year 2027-28' },
-    { year: '2026-27', is_current: false, description: 'National Financial Year 2026-27' }
-  ]);
+  const [financialYears, setFinancialYears] = useState([]);
 
   const [isLoading, setIsLoading] = useState(false);
 
@@ -20,19 +17,25 @@ export const FinancialYearProvider = ({ children }) => {
     try {
       setIsLoading(true);
       const res = await API.get('/public/financial-years');
-      if (res && res.success && Array.isArray(res.financial_years) && res.financial_years.length > 0) {
-        setFinancialYears(res.financial_years);
-        const activeItem = res.financial_years.find((f) => f.is_current || f.status === 'ACTIVE') || res.financial_years[0];
-        const saved = localStorage.getItem('selected_fy');
-        if (!saved || !res.financial_years.some((f) => f.year === saved)) {
-          if (activeItem) {
-            setSelectedFYState(activeItem.year);
-            localStorage.setItem('selected_fy', activeItem.year);
+      if (res && res.success && Array.isArray(res.financial_years)) {
+        if (res.financial_years.length > 0) {
+          setFinancialYears(res.financial_years);
+          const activeItem = res.financial_years.find((f) => f.is_current || f.status === 'ACTIVE') || res.financial_years[0];
+          const saved = localStorage.getItem('selected_fy');
+          if (!saved || !res.financial_years.some((f) => f.year === saved)) {
+            if (activeItem) {
+              setSelectedFYState(activeItem.year);
+              localStorage.setItem('selected_fy', activeItem.year);
+            }
           }
+        } else {
+          setFinancialYears([]);
+          setSelectedFYState('');
+          localStorage.removeItem('selected_fy');
         }
       }
     } catch (err) {
-      console.warn('Could not fetch financial years from backend, using defaults:', err);
+      console.warn('Could not fetch financial years from backend:', err);
     } finally {
       setIsLoading(false);
     }

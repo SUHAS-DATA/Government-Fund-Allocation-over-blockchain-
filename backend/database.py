@@ -371,9 +371,9 @@ def reconcile_project_released_amount(proj: dict, milestones: list = None, exclu
 
 _active_fy_cache = {"year": None, "expires_at": 0}
 
-def get_active_financial_year(force_refresh: bool = False) -> str:
+def get_active_financial_year(force_refresh: bool = False):
     """
-    Returns the currently active financial year from MongoDB, falling back to '2026-27'.
+    Returns the currently active financial year from MongoDB, falling back to None if no records exist.
     Cached in-memory with a 60-second TTL to avoid 70ms database round-trips on every request.
     """
     global _active_fy_cache
@@ -395,7 +395,7 @@ def get_active_financial_year(force_refresh: bool = False) -> str:
             return val
     except Exception:
         pass
-    return "2026-27"
+    return None
 
 def invalidate_active_financial_year_cache():
     """Immediately invalidates the cached active financial year."""
@@ -411,6 +411,8 @@ def ensure_financial_year_associations():
     """
     try:
         active_fy = get_active_financial_year()
+        if not active_fy:
+            return
 
         # 1. Backfill state_transfers
         transfers_without_fy = list(db.state_transfers.find({"$or": [{"financial_year": None}, {"financial_year": {"$exists": False}}]}))

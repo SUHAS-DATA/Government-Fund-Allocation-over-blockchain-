@@ -6,6 +6,9 @@ def reset_all_transaction_data():
     print("==================================================")
     print("  PURGING ALL FINANCIAL, FUND & INPUT STORAGE DATA")
     print("==================================================")
+    print(f"[*] Target Database Name: {db.name}")
+    if db.name != "FUNDSYSTEM":
+        raise ValueError(f"CRITICAL SAFETY ABORT: Target database must be 'FUNDSYSTEM', found '{db.name}'")
 
     # 1. Operational & User-Inputted Fund Allocation Collections
     fund_collections = [
@@ -60,30 +63,16 @@ def reset_all_transaction_data():
         res = db[col_name].delete_many({})
         print(f"[-] Deleted {res.deleted_count} {label} ({col_name})")
 
-    # 5. Reset Contractor Operational Counters & KYC status
-    r_kyc = db.contractor_kyc.update_many(
-        {},
-        {"$set": {
-            "kyc_status": "UNDER_REVIEW",
-            "verified_by": None,
-            "verification_notes": None,
-            "verification_remarks": None,
-            "reviewed_at": None,
-            "reviewed_by": None,
-        }}
-    )
-    print(f"[*] Reset {r_kyc.modified_count} Contractor KYC records to UNDER_REVIEW")
-
+    # 5. Reset Contractor Operational Project Counters (Preserving KYC Status & Identity)
+    # db.contractor_kyc is preserved intact (all 12 records with APPROVED statuses and verification remarks preserved)
     r_contractors = db.contractors.update_many(
         {},
         {"$set": {
             "active_projects_count": 0,
-            "completed_projects_count": 0,
-            "kyc_status": "UNDER_REVIEW",
-            "kyc_documents": []
+            "completed_projects_count": 0
         }}
     )
-    print(f"[*] Reset {r_contractors.modified_count} Contractors operational project counters to 0")
+    print(f"[*] Reset {r_contractors.modified_count} Contractors operational project counters to 0 (KYC statuses preserved)")
 
     # 6. Reset all Department and Administrative Level Financial Balances to 0
     r_depts = db.departments.update_many(

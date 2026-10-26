@@ -92,29 +92,21 @@ async def get_public_financial_years():
     active_year = get_active_financial_year()
     try:
         fys = list(db.financial_years.find().sort("year", -1))
-        if fys:
-            for f in fys:
-                f["is_current"] = (f.get("status") == "ACTIVE" or f.get("year") == active_year)
-            result = {
-                "success": True,
-                "financial_years": serialize_doc(fys),
-                "active_financial_year": active_year
-            }
-            public_cache.set(cache_key, result, ttl_seconds=60)
-            return result
+        for f in fys:
+            f["is_current"] = (f.get("status") == "ACTIVE" or f.get("year") == active_year)
+        result = {
+            "success": True,
+            "financial_years": serialize_doc(fys),
+            "active_financial_year": active_year if fys else None
+        }
+        public_cache.set(cache_key, result, ttl_seconds=60)
+        return result
     except Exception as e:
-        pass
-    result = {
-        "success": True,
-        "financial_years": [
-            {"year": active_year or "2027-28", "is_current": True, "description": f"National Financial Year {active_year or '2027-28'}"},
-            {"year": "2026-27", "is_current": False, "description": "National Financial Year 2026-27"},
-            {"year": "2025-26", "is_current": False, "description": "National Financial Year 2025-26"}
-        ],
-        "active_financial_year": active_year or "2027-28"
-    }
-    public_cache.set(cache_key, result, ttl_seconds=60)
-    return result
+        return {
+            "success": True,
+            "financial_years": [],
+            "active_financial_year": None
+        }
 
 @router.get("/hierarchy")
 async def get_hierarchy():

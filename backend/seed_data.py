@@ -330,40 +330,9 @@ def seed():
     # 4. Flagship National Schemes (Cleared by user request - empty initially)
     # Schemes will be created dynamically by Admin through the UI portal
 
-    # 5. Seed Multi-Year Financial Cycles
-    fys = [
-        {
-            "year": "2025-26",
-            "title": "Union Budget FY 2025-2026",
-            "total_budget": 4500000000.0,
-            "status": "CLOSED",
-            "start_date": "2025-04-01",
-            "end_date": "2026-03-31",
-            "created_at": datetime.now(timezone.utc)
-        },
-        {
-            "year": "2026-27",
-            "title": "Union Budget FY 2026-2027",
-            "total_budget": 5000000000.0,
-            "status": "ACTIVE",
-            "start_date": "2026-04-01",
-            "end_date": "2027-03-31",
-            "created_at": datetime.now(timezone.utc)
-        },
-        {
-            "year": "2027-28",
-            "title": "Union Budget FY 2027-2028 (Projected)",
-            "total_budget": 6000000000.0,
-            "status": "UPCOMING",
-            "start_date": "2027-04-01",
-            "end_date": "2028-03-31",
-            "created_at": datetime.now(timezone.utc)
-        }
-    ]
-    for fy in fys:
-        existing_fy = db.financial_years.find_one({"year": fy["year"]})
-        if not existing_fy:
-            db.financial_years.insert_one(fy)
+    # 5. Financial Years (Cleared by user request - empty initially)
+    # Financial years will be created dynamically by Admin through the UI portal
+    # Note: Automatic reseeding disabled to honor clean operational state
 
     # 6. Synchronize Multi-Tier Addresses in Existing Blockchain Transactions
     sync_multitier_transactions()

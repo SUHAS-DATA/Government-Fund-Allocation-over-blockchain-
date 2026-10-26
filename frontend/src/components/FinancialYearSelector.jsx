@@ -6,7 +6,7 @@ const FinancialYearSelector = ({ compact = false, showLabel = true, className = 
   const { selectedFY, setSelectedFY, financialYears } = useFinancialYear();
 
   const activeObj = financialYears.find((f) => f.year === selectedFY);
-  const isCurrentFY = activeObj ? !!activeObj.is_current : selectedFY === '2026-27';
+  const isCurrentFY = activeObj ? !!activeObj.is_current : false;
 
   return (
     <div
@@ -56,19 +56,32 @@ const FinancialYearSelector = ({ compact = false, showLabel = true, className = 
           }}
           aria-label="Select Financial Year"
         >
-          {financialYears.map((fy) => (
+          {financialYears.length === 0 ? (
             <option
-              key={fy.year}
-              value={fy.year}
+              value=""
               style={{
                 background: '#0F172A',
-                color: '#F8FAFC',
+                color: '#94A3B8',
                 padding: '8px'
               }}
             >
-              FY {fy.year} {fy.is_current ? '★ (Active)' : '(Historical)'}
+              No Active FY
             </option>
-          ))}
+          ) : (
+            financialYears.map((fy) => (
+              <option
+                key={fy.year}
+                value={fy.year}
+                style={{
+                  background: '#0F172A',
+                  color: '#F8FAFC',
+                  padding: '8px'
+                }}
+              >
+                FY {fy.year} {fy.is_current ? '★ (Active)' : '(Historical)'}
+              </option>
+            ))
+          )}
         </select>
         <ChevronDown
           size={12}
@@ -81,40 +94,42 @@ const FinancialYearSelector = ({ compact = false, showLabel = true, className = 
         />
       </div>
 
-      {isCurrentFY ? (
-        <span
-          title="Current Active Financial Year"
-          style={{
-            background: 'rgba(16, 185, 129, 0.2)',
-            color: '#10B981',
-            border: '1px solid rgba(16, 185, 129, 0.35)',
-            borderRadius: '4px',
-            padding: '1px 5px',
-            fontSize: '10px',
-            fontWeight: '700',
-            letterSpacing: '0.03em',
-            textTransform: 'uppercase'
-          }}
-        >
-          LIVE
-        </span>
-      ) : (
-        <span
-          title="Historical Financial Year Records"
-          style={{
-            background: 'rgba(245, 158, 11, 0.2)',
-            color: '#F59E0B',
-            border: '1px solid rgba(245, 158, 11, 0.35)',
-            borderRadius: '4px',
-            padding: '1px 5px',
-            fontSize: '10px',
-            fontWeight: '700',
-            letterSpacing: '0.03em',
-            textTransform: 'uppercase'
-          }}
-        >
-          HISTORICAL
-        </span>
+      {financialYears.length > 0 && selectedFY && (
+        isCurrentFY ? (
+          <span
+            title="Current Active Financial Year"
+            style={{
+              background: 'rgba(16, 185, 129, 0.2)',
+              color: '#10B981',
+              border: '1px solid rgba(16, 185, 129, 0.35)',
+              borderRadius: '4px',
+              padding: '1px 5px',
+              fontSize: '10px',
+              fontWeight: '700',
+              letterSpacing: '0.03em',
+              textTransform: 'uppercase'
+            }}
+          >
+            LIVE
+          </span>
+        ) : (
+          <span
+            title="Historical Financial Year Records"
+            style={{
+              background: 'rgba(245, 158, 11, 0.2)',
+              color: '#F59E0B',
+              border: '1px solid rgba(245, 158, 11, 0.35)',
+              borderRadius: '4px',
+              padding: '1px 5px',
+              fontSize: '10px',
+              fontWeight: '700',
+              letterSpacing: '0.03em',
+              textTransform: 'uppercase'
+            }}
+          >
+            HISTORICAL
+          </span>
+        )
       )}
     </div>
   );

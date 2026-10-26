@@ -51,8 +51,8 @@ async def dashboard(
     all_fys = list(db.financial_years.find().sort("year", -1))
     active_fy_doc = next((f for f in all_fys if f.get("status") == "ACTIVE"), None) or (all_fys[0] if all_fys else None)
     
-    target_fy_year = selected_fy if selected_fy else (active_fy_doc.get("year") if active_fy_doc else "2026-27")
-    target_fy_doc = next((f for f in all_fys if f.get("year") == target_fy_year), None) or active_fy_doc
+    target_fy_year = selected_fy if selected_fy else (active_fy_doc.get("year") if active_fy_doc else None)
+    target_fy_doc = (next((f for f in all_fys if f.get("year") == target_fy_year), None) or active_fy_doc) if target_fy_year else None
 
     # 2. Execute independent metrics queries concurrently via bounded ThreadPoolExecutor
     def _get_fy_stats():
@@ -128,7 +128,7 @@ async def dashboard(
     fy_disbursed = fy_stat.get("disbursed", 0.0)
     fy_allocations_count = fy_stat.get("count", 0)
 
-    sanctioned_ceiling = float(target_fy_doc.get("total_budget", 5000000000.0)) if target_fy_doc else 5000000000.0
+    sanctioned_ceiling = float(target_fy_doc.get("total_budget", 0.0)) if target_fy_doc else 0.0
     remaining_unallocated = max(0.0, sanctioned_ceiling - fy_allocated)
 
     lifetime_allocated = life_stat.get("total", 0.0)
@@ -138,7 +138,7 @@ async def dashboard(
         "success": True,
         "metrics": {
             "selected_financial_year": target_fy_year,
-            "active_financial_year": active_fy_doc.get("year") if active_fy_doc else "2026-27",
+            "active_financial_year": active_fy_doc.get("year") if active_fy_doc else None,
             "sanctioned_union_ceiling": sanctioned_ceiling,
             "allocated_to_schemes": fy_allocated,
             "disbursed_to_states": fy_disbursed,
