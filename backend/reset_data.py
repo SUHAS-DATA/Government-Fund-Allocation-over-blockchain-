@@ -9,6 +9,7 @@ def reset_all_transaction_data():
 
     # 1. Operational & User-Inputted Fund Allocation Collections
     fund_collections = [
+        ("financial_years", "Financial Years"),
         ("schemes", "Schemes"),
         ("budget_allocations", "Central Budget Allocations"),
         ("state_transfers", "State Treasury Transfers"),
@@ -112,24 +113,7 @@ def reset_all_transaction_data():
     )
     print(f"[*] Reset financial balances to 0 for {r_districts.modified_count} District Administrative Levels")
 
-    # 7. Ensure Master Fiscal Cycles exist
-    active_fy = db.financial_years.find_one({"status": "ACTIVE"})
-    if not active_fy:
-        db.financial_years.update_one(
-            {"year": "2027-28"},
-            {"$set": {
-                "year": "2027-28",
-                "title": "Union Budget FY 2027-2028 (Projected)",
-                "total_budget": 6000000000.0,
-                "status": "ACTIVE",
-                "start_date": "2027-04-01",
-                "end_date": "2028-03-31"
-            }},
-            upsert=True
-        )
-        print("[+] Enforced active Financial Year 2027-28")
-
-    # 8. Clean all off-chain files from backend/uploads including evidence subdirectories
+    # 7. Clean all off-chain files from backend/uploads including evidence subdirectories
     uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
     if os.path.exists(uploads_dir):
         files_removed = 0
