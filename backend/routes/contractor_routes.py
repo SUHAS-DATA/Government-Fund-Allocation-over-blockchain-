@@ -726,7 +726,13 @@ async def request_phase_funds(
 
     if milestone_index > 0:
         prev_phase = db.milestones.find_one({"project_id": project_id, "milestone_index": milestone_index - 1})
-        if not prev_phase or prev_phase.get("status") != "COMPLETED":
+        valid_completed_statuses = ["COMPLETED", "RELEASED", "VERIFIED", "PAID"]
+        is_prev_completed = prev_phase and (
+            prev_phase.get("status") in valid_completed_statuses or
+            prev_phase.get("phase_status") in valid_completed_statuses or
+            prev_phase.get("evidence_status") == "VERIFIED"
+        )
+        if not is_prev_completed:
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={
@@ -919,7 +925,13 @@ async def handle_milestone_progress_submission(project_id: str, milestone_index:
 
     if milestone_index > 0:
         prev_phase = db.milestones.find_one({"project_id": project_id, "milestone_index": milestone_index - 1})
-        if not prev_phase or prev_phase.get("status") != "COMPLETED":
+        valid_completed_statuses = ["COMPLETED", "RELEASED", "VERIFIED", "PAID"]
+        is_prev_completed = prev_phase and (
+            prev_phase.get("status") in valid_completed_statuses or
+            prev_phase.get("phase_status") in valid_completed_statuses or
+            prev_phase.get("evidence_status") == "VERIFIED"
+        )
+        if not is_prev_completed:
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { 
   Building, 
   Layers, 
@@ -56,7 +56,7 @@ const FIELD_ROLES = [
 ];
 
 const FieldPortalPage = () => {
-  const { user, login } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
   const [activeRole, setActiveRole] = useState(FIELD_ROLES[0]);
   const [selectedJurisdiction, setSelectedJurisdiction] = useState(FIELD_ROLES[0].jurisdictions[0]);
@@ -69,16 +69,6 @@ const FieldPortalPage = () => {
   useEffect(() => {
     testBackendHealth().catch(() => {});
   }, []);
-
-  // If already logged in, redirect to permitted dashboard or role home
-  if (user) {
-    if (user.role === 'STATE') return <Navigate to="/state" replace />;
-    if (user.role === 'DISTRICT' || user.role === 'DEPARTMENT') return <Navigate to="/district" replace />;
-    if (user.role === 'SUPER_ADMIN') return <Navigate to="/admin" replace />;
-    if (user.role === 'FINANCE') return <Navigate to="/finance" replace />;
-    if (user.role === 'CONTRACTOR') return <Navigate to="/contractor/dashboard" replace />;
-    return <Navigate to="/public" replace />;
-  }
 
   const handleRoleSelect = (roleObj) => {
     if (loading) return;

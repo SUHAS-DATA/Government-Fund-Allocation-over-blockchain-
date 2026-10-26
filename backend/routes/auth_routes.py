@@ -28,7 +28,7 @@ async def register(request: Request):
     role = data.get("role", "CONTRACTOR").upper()
 
     # Block public registration for privileged administrative roles
-    if role in ["SUPER_ADMIN", "ADMIN", "FINANCE", "STATE", "DISTRICT"]:
+    if role in ["SUPER_ADMIN", "ADMIN", "FINANCE", "STATE", "DISTRICT", "AUDITOR"]:
         auth_header = request.headers.get("Authorization")
         is_authorized_admin = False
         if auth_header and auth_header.lower().startswith("bearer "):
@@ -454,6 +454,84 @@ async def contractor_login(request: Request):
     return {
         "success": True,
         "message": f"Welcome Contractor: {user.get('company_name') or user.get('name')}",
+        "token": token,
+        "user": user_data
+    }
+
+@router.post("/auditor/login")
+async def auditor_login(request: Request):
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
+    identifier = (data.get("identifier") or data.get("email") or data.get("username") or data.get("officer_id") or "").strip()
+    password = data.get("password", "")
+
+    if not identifier or not password:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Auditor ID / Email / Username and password are required"}
+        )
+
+    query = {
+        "$or": [
+            {"email": identifier.lower()},
+            {"email": identifier},
+            {"username": identifier.lower()},
+            {"username": identifier},
+            {"officer_id": identifier.upper()},
+            {"officer_id": identifier}
+        ]
+    }
+    user = db.users.find_one(query)
+    if not user:
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"success": False, "message": "Invalid Auditor credentials or account not found"}
+        )
+
+    user_role = str(user.get("role", "")).strip().upper()
+    if user_role != "AUDITOR":
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={
+                "success": False,
+                "message": f"Access Denied: Account '{identifier}' holds the role '{user.get('role')}'. Only verified accounts with the 'AUDITOR' role are permitted to log in through the Auditor Portal."
+            }
+        )
+
+    if not user.get("is_active", True):
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={"success": False, "message": "This Auditor account is suspended. Contact Super Administrator."}
+        )
+
+    if not verify_password(password, user["password"]):
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"success": False, "message": "Invalid Auditor credentials or password"}
+        )
+
+    token = generate_token(
+        str(user["_id"]),
+        user["email"],
+        user["role"],
+        user["name"],
+        user.get("state_code"),
+        user.get("state_name"),
+        user.get("district_name"),
+        user.get("officer_id"),
+        user.get("username")
+    )
+    user_data = serialize_doc(user)
+    user_data["user_id"] = str(user["_id"])
+    if "password" in user_data:
+        del user_data["password"]
+
+    return {
+        "success": True,
+        "message": f"Auditor authentication successful. Welcome, {user.get('name')}.",
         "token": token,
         "user": user_data
     }

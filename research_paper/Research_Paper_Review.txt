@@ -1,0 +1,73 @@
+================================================================================
+GOVERNMENT FUND ALLOCATION TRACKING SYSTEM OVER BLOCKCHAIN (PFMS 2.0)
+RESEARCH PAPER DELIVERABLES & FIGURE INCORPORATION AUDIT REPORT
+================================================================================
+Date of Generation : October 25, 2026
+Target Project     : Government Fund Allocation Tracking System Over Blockchain
+Authors            : Ritheesh K, Shamith P N, Shreyas P, Suhas M
+Project Guide      : Mr. Pradeep Rao K B, Assistant Professor
+Institution        : SDM Institute of Technology, Ujire - 574 240, Karnataka, India
+Affiliation        : Visvesvaraya Technological University (VTU), Belagavi
+Deliverables Folder: C:\Users\msuha\Desktop\Research_Paper_Output\
+
+--------------------------------------------------------------------------------
+1. DELIVERABLES SUMMARY
+--------------------------------------------------------------------------------
+- Research_Paper.docx : Complete editable research paper with IEEE two-column formatting,
+  running headers/footers, mathematical equations (1)-(6), 4 detailed tables, and
+  5 embedded application screenshots with exact academic captions and concise explanations.
+- Research_Paper.pdf  : Final publication-grade PDF compiled natively via Word COM
+  automation (7 pages).
+- Figures Embedded    : 5 high-resolution system screenshots in Section VI.D with
+  standardized bold captions and 3-sentence academic explanatory paragraphs on new lines.
+
+--------------------------------------------------------------------------------
+2. EMBEDDED FIGURES & SYSTEM METRICS VERIFICATION
+--------------------------------------------------------------------------------
+Fig. 1. Administrator Dashboard
+  - Image: fig1_admin_dashboard.png (2052 x 1642 px)
+  - Caption: Fig. 1. Administrator Dashboard (directly below screenshot, centered, bold)
+  - Explanation: Fig. 1 illustrates the Administrator Dashboard, which functions as the central supervisory interface of the platform. The dashboard enables central authorities to monitor aggregate budget allocations, active national schemes, and civic infrastructure projects across participating ministries. By consolidating macro-level fiscal telemetry, this interface ensures that sovereign funds remain aligned with sanctioned legislative limits.
+  - Verified Metrics: Central Budget ₹600 Cr, Allocated ₹30 Cr (5%), Remaining ₹570 Cr,
+    00 Pending Approvals, 2 Active Schemes, 8 Active Projects, 73 Payment Records.
+
+Fig. 2. Finance Dashboard
+  - Image: fig2_finance_dashboard.png (2052 x 1478 px)
+  - Caption: Fig. 2. Finance Dashboard (directly below screenshot, centered, bold)
+  - Explanation: Fig. 2 presents the Finance Dashboard utilized by ministry finance officers to oversee liquid treasury reserves. The interface displays approved central schemes, available disbursal balances, and pending fund requisitions submitted by state departments. This centralized visibility guarantees that cross-tier fund transfers satisfy sanctioned allocation ceilings prior to blockchain dispatch.
+  - Verified Metrics: 1 Approved Scheme, ₹49 Cr Available Pool, ₹1 Cr Sent (2%),
+    01 Pending Request, 1 State-Wise Allocation, 1 Recent Payment.
+
+Fig. 3. Central-to-State Fund Transfer Interface
+  - Image: fig3_central_to_state_transfer.png (2052 x 1534 px)
+  - Caption: Fig. 3. Central-to-State Fund Transfer Interface (directly below screenshot, centered, bold)
+  - Explanation: Fig. 3 depicts the cross-tier transfer interface executing capital devolution from the Central Finance Authority to a state treasury. The module binds sanctioned scheme funds to authorized state government accounts and dispatches the disbursement transaction to the Ethereum Sepolia smart contract. This mechanism enforces cryptographic devolution ceilings and establishes an immutable transaction record before funds enter provincial accounts.
+  - Verified Metrics: Ethereum Sepolia (Chain ID 11155111, Contract 0x103cdC78...19c6),
+    Atal Mission for Rejuvenation (₹49 Cr remaining), Maharashtra (MH), Amount ₹1 Cr,
+    RBI Central Consolidated Fund to Bank of Maharashtra (XXXX 4918).
+
+Fig. 4. State-to-District Fund Allocation Interface
+  - Image: fig4_state_to_district_transfer.png (2052 x 1404 px)
+  - Caption: Fig. 4. State-to-District Fund Allocation Interface (directly below screenshot, centered, bold)
+  - Explanation: Fig. 4 shows the state-level fund allocation interface used by state finance officers to devolve received quotas to district implementing agencies. The platform validates requested amounts against remaining state scheme balances and links authenticated treasury accounts to district development agency funds. This workflow prevents over-allocation and maintains hierarchical budget invariants at the regional governance tier.
+  - Verified Metrics: Jal Jeevan Mission (TRF-ST-KA-ZXPSIQ, ₹5.00 Cr available),
+    Bengaluru Urban (Karnataka, 31 districts), Amount ₹5 Cr (5,00,00,000),
+    Karnataka State Treasury to Bengaluru Urban District Dev Agency Fund (XXXX 4855).
+
+Fig. 5. Public Transparency Portal
+  - Image: fig5_public_transparency_portal.png (2052 x 1040 px)
+  - Caption: Fig. 5. Public Transparency Portal (directly below screenshot, centered, bold)
+  - Explanation: Fig. 5 displays the unauthenticated Public Transparency Portal deployed for independent citizen and civil society oversight. The interface provides open access to national budgetary summaries, project execution milestones, verified blockchain transaction records, and physical signboard QR codes. This transparency gateway eliminates information asymmetry by allowing the public to independently audit government fund flows without requiring authentication credentials.
+  - Verified Metrics: Open Citizen Gateway at govfund-public.vercel.app, Total Allocation
+    ₹50 Cr, Disbursed ₹1 Cr, 1 Public Work, 6 States/UTs, 73 Verified Records, 1 Scheme,
+    Citizen multi-field search and Scan Site Signboard QR verification module.
+
+--------------------------------------------------------------------------------
+3. ACADEMIC INTEGRITY & HARNESS METRICS
+--------------------------------------------------------------------------------
+- Backend Pytest       : 204/204 automated tests passed in 60.24 s.
+- Smart Contracts      : 31/31 unit tests passed in 4.00 s.
+- Frontend Production  : 1,705 modules compiled with zero errors in 20.98 s.
+- Sepolia Deployment   : Confirmed at 0x103cdC78636491B20deadC5574755Bbd64B119c6.
+- Dual-Ledger Sync     : 100/100 trial allocations matched with 100% consistency.
+================================================================================

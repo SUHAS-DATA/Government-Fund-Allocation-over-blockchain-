@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Navigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Briefcase, 
   UserPlus, 
@@ -57,7 +57,7 @@ const CONTRACTOR_PROFILES = [
 ];
 
 const ContractorPortalPage = () => {
-  const { user, login } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
@@ -98,15 +98,6 @@ const ContractorPortalPage = () => {
   const [regLoading, setRegLoading] = useState(false);
   const [regSuccess, setRegSuccess] = useState(false);
   const [registeredData, setRegisteredData] = useState(null);
-
-  // If already logged in, redirect to permitted dashboard or role home
-  if (user) {
-    if (user.role === 'CONTRACTOR') return <Navigate to="/contractor/dashboard" replace />;
-    if (user.role === 'SUPER_ADMIN') return <Navigate to="/admin" replace />;
-    if (user.role === 'FINANCE') return <Navigate to="/finance" replace />;
-    if (user.role === 'STATE' || user.role === 'DISTRICT' || user.role === 'DEPARTMENT') return <Navigate to="/department" replace />;
-    return <Navigate to="/public" replace />;
-  }
 
   const handleSelectProfile = (p) => {
     setSelectedProfile(p);

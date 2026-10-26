@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { 
   Landmark, 
   FileSpreadsheet, 
@@ -45,7 +45,7 @@ const ADMIN_ROLES = [
 ];
 
 const AdminPortalPage = () => {
-  const { user, login } = useAuth();
+  const { login } = useAuth();
   const navigate = useNavigate();
   const [activeRole, setActiveRole] = useState(ADMIN_ROLES[0]);
   const [email, setEmail] = useState(ADMIN_ROLES[0].defaultEmail);
@@ -57,15 +57,6 @@ const AdminPortalPage = () => {
   useEffect(() => {
     testBackendHealth().catch(() => {});
   }, []);
-
-  // If already logged in, redirect to permitted dashboard or role home
-  if (user) {
-    if (user.role === 'SUPER_ADMIN') return <Navigate to="/admin" replace />;
-    if (user.role === 'FINANCE') return <Navigate to="/finance" replace />;
-    if (user.role === 'STATE' || user.role === 'DISTRICT' || user.role === 'DEPARTMENT') return <Navigate to="/department" replace />;
-    if (user.role === 'CONTRACTOR') return <Navigate to="/contractor/dashboard" replace />;
-    return <Navigate to="/public" replace />;
-  }
 
   const handleRoleSelect = (roleObj) => {
     if (loading) return;

@@ -483,6 +483,23 @@ async def create_scheme(
         "code": code
     })
 
+    try:
+        from audit_service import log_audit_event
+        log_audit_event(
+            event_type="SCHEME_CREATED",
+            actor=current_user,
+            target_id=code,
+            target_type="SCHEME",
+            amount=doc["target_budget"],
+            action="CREATE_SCHEME",
+            status="SUCCESS",
+            details=f"Created national scheme '{name}' (Code: {code}) with target ceiling {doc['target_budget']}",
+            financial_year=fy,
+            extra_data={"department_code": doc.get("department_code"), "department_name": doc.get("department_name")}
+        )
+    except Exception:
+        pass
+
     return {"success": True, "message": "Scheme created successfully", "scheme": serialize_doc(doc)}
 
 # --- Central Budget Allocation & Blockchain Dispatch ---
@@ -758,6 +775,23 @@ async def send_to_finance(
         "created_at": datetime.now(timezone.utc)
     })
 
+    try:
+        from audit_service import log_audit_event
+        log_audit_event(
+            event_type="BUDGET_FORWARDED_TO_FINANCE",
+            actor=current_user,
+            target_id=alloc_id,
+            target_type="BUDGET_ALLOCATION",
+            amount=alloc.get("amount", 0.0),
+            action="FORWARD_TO_FINANCE",
+            status="SUCCESS",
+            details=f"Forwarded allocation {alloc_id} ({alloc.get('scheme_name')}) to Ministry of Finance",
+            financial_year=alloc.get("financial_year"),
+            extra_data={"scheme_name": alloc.get("scheme_name"), "department": alloc.get("department")}
+        )
+    except Exception:
+        pass
+
     return {"success": True, "message": f"Allocation {alloc_id} forwarded to Finance Department successfully."}
 
 # --- User & Role Management ---
@@ -767,6 +801,87 @@ async def get_users(
 ):
     users = list(db.users.find().sort("created_at", -1))
     return {"success": True, "users": serialize_doc(users)}
+
+@router.post("/users", status_code=status.HTTP_201_CREATED)
+async def create_user_by_admin(
+    request: Request,
+    current_user: dict = Depends(require_roles(["SUPER_ADMIN"]))
+):
+    """
+    Super Admin account provisioning (including AUDITOR accounts).
+    Securely hashes password with bcrypt.
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
+    email = data.get("email", "").strip().lower()
+    password = data.get("password", "")
+    name = data.get("name", "").strip()
+    role = data.get("role", "AUDITOR").strip().upper()
+
+    if not email or not password or not name:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Email, password, and full name are required."}
+        )
+
+    if len(password) < 6:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "Password must be at least 6 characters."}
+        )
+
+    if db.users.find_one({"email": email}):
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"success": False, "message": "A user with this email already exists."}
+        )
+
+    from auth_middleware import hash_password
+    now = datetime.now(timezone.utc)
+    new_user = {
+        "email": email,
+        "password": hash_password(password),
+        "name": name,
+        "role": role,
+        "department": data.get("department", "Comptroller & Auditor General of India" if role == "AUDITOR" else "Central Secretariat"),
+        "is_active": True,
+        "created_at": now
+    }
+
+    if role == "AUDITOR":
+        new_user["officer_id"] = data.get("officer_id") or f"AUD-{email.split('@')[0].upper()[:6]}"
+
+    res = db.users.insert_one(new_user)
+    new_id = str(res.inserted_id)
+
+    try:
+        from audit_service import log_audit_event
+        log_audit_event(
+            event_type="ADMIN_USER_PROVISIONED",
+            actor=current_user,
+            target_id=new_id,
+            target_type="USER_ACCOUNT",
+            action="PROVISION_USER",
+            status="SUCCESS",
+            details=f"Super Admin provisioned user '{name}' with role '{role}' ({email})",
+            extra_data={"role": role, "email": email}
+        )
+    except Exception:
+        pass
+
+    user_data = serialize_doc(new_user)
+    user_data["user_id"] = new_id
+    if "password" in user_data:
+        del user_data["password"]
+
+    return {
+        "success": True,
+        "message": f"User '{name}' provisioned successfully with role {role}.",
+        "user": user_data
+    }
 
 @router.put("/users/{user_id}/role")
 async def update_user_role(
@@ -786,10 +901,29 @@ async def update_user_role(
             content={"success": False, "message": "Role is required"}
         )
 
+    user = db.users.find_one({"_id": ObjectId(user_id)}) if ObjectId.is_valid(user_id) else None
+    old_role = user.get("role") if user else None
+
     db.users.update_one(
         {"_id": ObjectId(user_id)},
         {"$set": {"role": new_role, "updated_at": datetime.now(timezone.utc)}}
     )
+
+    try:
+        from audit_service import log_audit_event
+        log_audit_event(
+            event_type="USER_ROLE_UPDATED",
+            actor=current_user,
+            target_id=user_id,
+            target_type="USER_ACCOUNT",
+            action="UPDATE_ROLE",
+            status="SUCCESS",
+            details=f"Changed user role from '{old_role}' to '{new_role}'",
+            extra_data={"old_role": old_role, "new_role": new_role, "target_user": user.get("name") if user else user_id}
+        )
+    except Exception:
+        pass
+
     return {"success": True, "message": f"User role updated to {new_role}"}
 
 @router.put("/users/{user_id}/status")
@@ -808,6 +942,22 @@ async def toggle_user_status(
         {"_id": ObjectId(user_id)},
         {"$set": {"is_active": is_active, "updated_at": datetime.now(timezone.utc)}}
     )
+
+    try:
+        from audit_service import log_audit_event
+        log_audit_event(
+            event_type="USER_STATUS_UPDATED",
+            actor=current_user,
+            target_id=user_id,
+            target_type="USER_ACCOUNT",
+            action="UPDATE_STATUS",
+            status="SUCCESS",
+            details=f"User status set to {'Active' if is_active else 'Suspended'}",
+            extra_data={"is_active": is_active}
+        )
+    except Exception:
+        pass
+
     return {"success": True, "message": f"User status updated to {'Active' if is_active else 'Suspended'}"}
 
 # --- Blockchain Explorer ---

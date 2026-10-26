@@ -180,6 +180,7 @@ const MyProjects = () => {
     setActivePhaseIndex(phase.milestone_index);
     setFundRequestAmount(phase.amount);
     setFundRequestNotes(`Mobilization and materials advance for Phase #${phase.milestone_index + 1}: ${phase.title}`);
+    setActionError('');
     setShowFundRequestModal(true);
   };
 
@@ -238,12 +239,34 @@ const MyProjects = () => {
     setProgressVideoFile(null);
     setVideoUrl('');
     setOtherDocFile(null);
+    setActionError('');
     setShowProgressModal(true);
   };
 
   const handleUploadProgress = async (e) => {
     e.preventDefault();
     if (!selectedProject) return;
+
+    // Fast client-side file size guards (25 MB limit)
+    const MAX_SIZE = 25 * 1024 * 1024;
+    if (progressVideoFile && progressVideoFile.size > MAX_SIZE) {
+      const mb = (progressVideoFile.size / (1024 * 1024)).toFixed(1);
+      setActionError(`Video file "${progressVideoFile.name}" is ${mb} MB, exceeding the 25 MB direct upload limit. Please use the "Or Video Stream / Cloud Link URL" field below.`);
+      return;
+    }
+    if (materialBillsFile && materialBillsFile.size > MAX_SIZE) {
+      setActionError(`Material bills file exceeds the 25 MB limit.`);
+      return;
+    }
+    if (progressPhotoFile && progressPhotoFile.size > MAX_SIZE) {
+      setActionError(`Progress photo exceeds the 25 MB limit.`);
+      return;
+    }
+    if (otherDocFile && otherDocFile.size > MAX_SIZE) {
+      setActionError(`Quality document file exceeds the 25 MB limit.`);
+      return;
+    }
+
     setSubmitting(true);
     setActionError('');
     setActionSuccess('');
@@ -261,7 +284,11 @@ const MyProjects = () => {
     if (otherDocFile) data.append('other_doc_file', otherDocFile);
 
     try {
-      const res = await API.post(`/contractor/projects/${selectedProject.project_id}/phases/${activePhaseIndex}/submit-milestone`, data);
+      const res = await API.post(
+        `/contractor/projects/${selectedProject.project_id}/phases/${activePhaseIndex}/submit-milestone`,
+        data,
+        { timeout: 120000 }
+      );
       if (res.success) {
         setActionSuccess(`Work proof (Material Bills, Photos, Videos, Docs) verified and submitted to District Officer!`);
         setShowProgressModal(false);
@@ -281,6 +308,7 @@ const MyProjects = () => {
     setEvidencePhaseIndex(phase.milestone_index);
     setEvidenceFile(null);
     setEvidenceDescription(phase.rejection_reason ? `Rectified work evidence for Phase #${phase.milestone_index + 1}` : `Completed work evidence for Phase #${phase.milestone_index + 1}`);
+    setActionError('');
     setShowEvidenceModal(true);
   };
 
@@ -997,6 +1025,24 @@ const MyProjects = () => {
       {/* MODAL 1: Request Phase Funds */}
       <Modal title={`Request Funds for Phase #${activePhaseIndex + 1}`} isOpen={showFundRequestModal} onClose={() => setShowFundRequestModal(false)}>
         <form onSubmit={handleSubmitFundRequest}>
+          {actionError && (
+            <div style={{
+              background: '#FEF2F2',
+              border: '1.5px solid #FCA5A5',
+              borderRadius: 'var(--radius-sm)',
+              padding: '10px 14px',
+              color: '#B91C1C',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontWeight: '600',
+              fontSize: '13px'
+            }}>
+              <AlertCircle size={16} color="#DC2626" />
+              <span>{actionError}</span>
+            </div>
+          )}
           <div className="form-group">
             <label className="form-label">Phase Target</label>
             <input
@@ -1049,6 +1095,25 @@ const MyProjects = () => {
       {/* MODAL 2: Submit 4-Category Completion Proof */}
       <Modal title={`Submit Phase #${activePhaseIndex + 1} Completion Proof`} isOpen={showProgressModal} onClose={() => setShowProgressModal(false)} maxWidth="750px">
         <form onSubmit={handleUploadProgress}>
+
+          {actionError && (
+            <div style={{
+              background: '#FEF2F2',
+              border: '1.5px solid #FCA5A5',
+              borderRadius: 'var(--radius-sm)',
+              padding: '12px 16px',
+              color: '#B91C1C',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              fontWeight: '600',
+              fontSize: '13px'
+            }}>
+              <AlertCircle size={18} color="#DC2626" />
+              <span>{actionError}</span>
+            </div>
+          )}
 
           <div style={{ background: 'rgba(15, 118, 110, 0.06)', padding: '12px 16px', borderRadius: 'var(--radius-sm)', border: '1px solid #CCFBF1', marginBottom: '16px', fontSize: '12px', color: '#0F766E' }}>
             <strong>Flowchart Deliverables:</strong> Please provide proof across all 4 statutory categories: Material Bills, Progress Photos, Progress Videos, and Quality Test Documents.
@@ -1177,7 +1242,7 @@ const MyProjects = () => {
             </button>
             <button type="submit" className="btn btn-primary" disabled={submitting} style={{ background: '#0F766E', borderColor: '#0F766E' }}>
               <Upload size={14} />
-              <span>{submitting ? 'Anchoring SHA-256...' : 'Submit Phase Completion Proof'}</span>
+              <span>{submitting ? 'Uploading Proof (Hashing SHA-256)...' : 'Submit Phase Completion Proof'}</span>
             </button>
           </div>
         </form>
@@ -1210,6 +1275,24 @@ const MyProjects = () => {
       {/* MODAL 4: Upload Work Evidence */}
       <Modal title={`Upload Work Evidence — Phase #${evidencePhaseIndex + 1}`} isOpen={showEvidenceModal} onClose={() => setShowEvidenceModal(false)}>
         <form onSubmit={handleSubmitEvidence}>
+          {actionError && (
+            <div style={{
+              background: '#FEF2F2',
+              border: '1.5px solid #FCA5A5',
+              borderRadius: 'var(--radius-sm)',
+              padding: '10px 14px',
+              color: '#B91C1C',
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              fontWeight: '600',
+              fontSize: '13px'
+            }}>
+              <AlertCircle size={16} color="#DC2626" />
+              <span>{actionError}</span>
+            </div>
+          )}
           <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', padding: '12px 14px', borderRadius: 'var(--radius-sm)', marginBottom: '14px', fontSize: '12px', color: '#1E40AF' }}>
             Upload site photographs, progress images, PDF completion certificates, or quality test documents for District Department verification.
           </div>

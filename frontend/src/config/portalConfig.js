@@ -104,11 +104,11 @@ export const PORTAL_DETAILS = {
   },
   AUDITOR: {
     id: 'AUDITOR',
-    title: 'CAG Auditor Portal',
-    badge: 'Auditor & Oversight',
-    description: 'Independent audit trail inspection, transaction verification, and fund reconciliation.',
-    allowedRoles: ['AUDITOR', 'SUPER_ADMIN'],
-    homePath: () => '/admin?tab=monitoring',
-    loginPath: '/'
+    title: 'Auditor General Portal',
+    badge: 'CAG & Independent Oversight',
+    description: 'Centralized independent audit inspection across Super Admin, Finance, State, District, and Contractor operations.',
+    allowedRoles: ['AUDITOR'],
+    homePath: () => '/auditor/dashboard',
+    loginPath: '/auditor/login'
   }
 };

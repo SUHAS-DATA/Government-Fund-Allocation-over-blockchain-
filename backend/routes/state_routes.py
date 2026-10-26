@@ -638,6 +638,21 @@ async def review_contractor_kyc_state(
         "user_id": str(user_id)
     })
 
+    try:
+        from audit_service import log_audit_event
+        log_audit_event(
+            event_type="CONTRACTOR_KYC_VERIFICATION",
+            actor=current_user,
+            target_id=str(user_id),
+            target_type="CONTRACTOR_KYC",
+            action=action,
+            status="SUCCESS",
+            details=f"State Department {action} contractor '{company_name}'. Remarks: {remarks}",
+            extra_data={"contractor_name": company_name, "state_code": user_state, "remarks": remarks}
+        )
+    except Exception:
+        pass
+
     return {
         "success": True,
         "message": f"Contractor '{company_name}' registration successfully {action} by {user_state_name} State Department",

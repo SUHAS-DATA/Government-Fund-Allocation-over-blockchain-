@@ -29,6 +29,7 @@ from routes.notification_routes import notification_bp
 from routes.blockchain_routes import blockchain_bp
 from routes.evidence_routes import router as evidence_bp
 from routes.transaction_routes import transaction_bp
+from routes.auditor_routes import auditor_bp
 
 load_dotenv()
 
@@ -262,6 +263,7 @@ app.include_router(notification_bp, prefix="/api/notifications", tags=["Notifica
 app.include_router(blockchain_bp, prefix="/api/blockchain", tags=["Blockchain"])
 app.include_router(evidence_bp, prefix="/api/evidence", tags=["Evidence"])
 app.include_router(transaction_bp, prefix="/api", tags=["BankAccountsAndTransactions"])
+app.include_router(auditor_bp, prefix="/api/auditor", tags=["Auditor"])
 
 @app.get("/api/schemes", tags=["Public"])
 async def get_api_schemes_alias():
