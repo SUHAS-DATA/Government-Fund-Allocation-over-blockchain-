@@ -808,7 +808,7 @@ async def create_user_by_admin(
     current_user: dict = Depends(require_roles(["SUPER_ADMIN"]))
 ):
     """
-    Super Admin account provisioning (including AUDITOR accounts).
+    Super Admin account provisioning.
     Securely hashes password with bcrypt.
     """
     try:
@@ -819,7 +819,7 @@ async def create_user_by_admin(
     email = data.get("email", "").strip().lower()
     password = data.get("password", "")
     name = data.get("name", "").strip()
-    role = data.get("role", "AUDITOR").strip().upper()
+    role = data.get("role", "CONTRACTOR").strip().upper()
 
     if not email or not password or not name:
         return JSONResponse(
@@ -846,13 +846,10 @@ async def create_user_by_admin(
         "password": hash_password(password),
         "name": name,
         "role": role,
-        "department": data.get("department", "Comptroller & Auditor General of India" if role == "AUDITOR" else "Central Secretariat"),
+        "department": data.get("department", "Central Secretariat"),
         "is_active": True,
         "created_at": now
     }
-
-    if role == "AUDITOR":
-        new_user["officer_id"] = data.get("officer_id") or f"AUD-{email.split('@')[0].upper()[:6]}"
 
     res = db.users.insert_one(new_user)
     new_id = str(res.inserted_id)

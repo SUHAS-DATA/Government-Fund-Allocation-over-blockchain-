@@ -52,7 +52,6 @@ const UserManagement = () => {
         >
           <option value="SUPER_ADMIN">SUPER ADMIN</option>
           <option value="FINANCE">FINANCE</option>
-          <option value="AUDITOR">AUDITOR</option>
           <option value="STATE">STATE OFFICER</option>
           <option value="DISTRICT">DISTRICT OFFICER</option>
           <option value="CONTRACTOR">CONTRACTOR</option>

@@ -52,15 +52,11 @@ const lazyWithRetry = (componentImport) =>
     }
   });
 
-// Dedicated Frontend Portal Entry Pages (Lazy Loaded)
+// 4 Dedicated Frontend Portal Entry Pages (Lazy Loaded)
 const AdminPortalPage = lazyWithRetry(() => import('./pages/portals/AdminPortalPage'));
 const FieldPortalPage = lazyWithRetry(() => import('./pages/portals/FieldPortalPage'));
 const ContractorPortalPage = lazyWithRetry(() => import('./pages/portals/ContractorPortalPage'));
 const PublicPortalPage = lazyWithRetry(() => import('./pages/portals/PublicPortalPage'));
-const AuditorPortalPage = lazyWithRetry(() => import('./pages/portals/AuditorPortalPage'));
-
-// Auditor Pages (Lazy Loaded)
-const AuditorDashboard = lazyWithRetry(() => import('./pages/auditor/AuditorDashboard'));
 
 // Public Pages (Lazy Loaded)
 const PublicProjects = lazyWithRetry(() => import('./pages/public/PublicProjects'));
@@ -96,9 +92,6 @@ const NotificationsPage = lazyWithRetry(() => import('./pages/common/Notificatio
 
 // Role Home Helper based on Active Portal
 const getRoleHome = (role, activePortal) => {
-  if (role === 'AUDITOR' || activePortal === PORTAL_TYPES.AUDITOR) {
-    return '/auditor/dashboard';
-  }
   if (activePortal === PORTAL_TYPES.ADMIN) {
     return role === 'FINANCE' ? '/finance' : '/admin';
   }
@@ -158,7 +151,6 @@ function App() {
               <Route path="/public/verify/:qrId" element={<PublicVerificationPage />} />
               <Route path="/verify-project/:qrId" element={<PublicVerificationPage />} />
               {/* ========================================================= */}
-              {/* ========================================================= */}
               {/* PORTAL 1 — ADMIN (VITE_PORTAL=ADMIN)                      */}
               {/* Shows Super Admin and Finance Operations                  */}
               {/* ========================================================= */}
@@ -169,7 +161,7 @@ function App() {
                   <Route path="/admin-portal" element={<AdminPortalPage />} />
                   <Route path="/login" element={<AdminPortalPage />} />
 
-                  {/* Super Admin Operations */}
+                  {/* Super Admin Centered Control Hub & Operations */}
                   <Route path="/admin" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} activePortal={activePortal}><AdminDashboard /></ProtectedRoute>} />
                   <Route path="/admin/dashboard" element={<Navigate to="/admin" replace />} />
                   <Route path="/admin/financial-years" element={<Navigate to="/admin?tab=config" replace />} />
@@ -189,53 +181,18 @@ function App() {
                   <Route path="/finance/transfers" element={<Navigate to="/finance?tab=release" replace />} />
                   <Route path="/finance/history" element={<Navigate to="/finance?tab=history" replace />} />
 
-                  {/* Direct Auditor Access in Admin deployment */}
-                  <Route path="/auditor/login" element={<AuditorPortalPage />} />
-                  <Route path="/auditor/dashboard" element={<ProtectedRoute allowedRoles={['AUDITOR']} activePortal={activePortal}><AuditorDashboard /></ProtectedRoute>} />
-                  <Route path="/auditor" element={<Navigate to="/auditor/login" replace />} />
-
                   {/* Common Authenticated Routes */}
-                  <Route path="/profile" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'FINANCE', 'AUDITOR']} activePortal={activePortal}><ProfilePage /></ProtectedRoute>} />
-                  <Route path="/notifications" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'FINANCE', 'AUDITOR']} activePortal={activePortal}><NotificationsPage /></ProtectedRoute>} />
+                  <Route path="/profile" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'FINANCE']} activePortal={activePortal}><ProfilePage /></ProtectedRoute>} />
+                  <Route path="/notifications" element={<ProtectedRoute allowedRoles={['SUPER_ADMIN', 'FINANCE']} activePortal={activePortal}><NotificationsPage /></ProtectedRoute>} />
 
                   {/* Inter-portal links */}
                   <Route path="/contractor-portal" element={<Navigate to="/?portal=CONTRACTOR" replace />} />
                   <Route path="/contractor-login" element={<Navigate to="/?portal=CONTRACTOR" replace />} />
                   <Route path="/register" element={<Navigate to="/?portal=CONTRACTOR&tab=register" replace />} />
                   <Route path="/field-portal" element={<Navigate to="/?portal=FIELD" replace />} />
-                  <Route path="/auditor-portal" element={<Navigate to="/?portal=AUDITOR" replace />} />
 
                   {/* Catch-all: Redirect to Admin Portal Entry */}
                   <Route path="*" element={<Navigate to="/" replace />} />
-                </>
-              )}
-
-              {/* ========================================================= */}
-              {/* PORTAL 5 — AUDITOR (VITE_PORTAL=AUDITOR)                  */}
-              {/* Dedicated Auditor Login & 5-Block Inspection Dashboard    */}
-              {/* ========================================================= */}
-              {activePortal === PORTAL_TYPES.AUDITOR && (
-                <>
-                  {/* Entry Point: Dedicated Auditor Portal Login */}
-                  <Route path="/" element={<AuditorPortalPage />} />
-                  <Route path="/auditor" element={<AuditorPortalPage />} />
-                  <Route path="/auditor/login" element={<AuditorPortalPage />} />
-                  <Route path="/login" element={<AuditorPortalPage />} />
-
-                  {/* Auditor 5-Block Inspection Dashboard */}
-                  <Route path="/auditor/dashboard" element={<ProtectedRoute allowedRoles={['AUDITOR']} activePortal={activePortal}><AuditorDashboard /></ProtectedRoute>} />
-
-                  {/* Common Authenticated Routes */}
-                  <Route path="/profile" element={<ProtectedRoute allowedRoles={['AUDITOR']} activePortal={activePortal}><ProfilePage /></ProtectedRoute>} />
-                  <Route path="/notifications" element={<ProtectedRoute allowedRoles={['AUDITOR']} activePortal={activePortal}><NotificationsPage /></ProtectedRoute>} />
-
-                  {/* Inter-portal links */}
-                  <Route path="/admin-portal" element={<Navigate to="/?portal=ADMIN" replace />} />
-                  <Route path="/field-portal" element={<Navigate to="/?portal=FIELD" replace />} />
-                  <Route path="/contractor-portal" element={<Navigate to="/?portal=CONTRACTOR" replace />} />
-
-                  {/* Catch-all: Redirect to Auditor Portal Entry */}
-                  <Route path="*" element={<Navigate to="/auditor/login" replace />} />
                 </>
               )}
 
