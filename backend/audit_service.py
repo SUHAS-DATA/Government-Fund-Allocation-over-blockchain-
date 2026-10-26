@@ -84,7 +84,7 @@ def query_audit_logs(
         and_clauses.append({"event_type": event_type})
 
     # Jurisdiction Isolation
-    if role in ["SUPER_ADMIN", "ADMIN", "FINANCE", "AUDITOR"]:
+    if role in ["SUPER_ADMIN", "ADMIN", "FINANCE"]:
         pass  # Global visibility
     elif role == "STATE":
         sc = (current_user.get("state_code") or "").upper()

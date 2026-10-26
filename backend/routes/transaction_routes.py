@@ -316,7 +316,7 @@ def check_transaction_access(tx: dict, current_user: dict) -> bool:
     Verify caller has permission to view the transaction based on role and jurisdiction.
     """
     role = current_user.get("role")
-    if role in ["SUPER_ADMIN", "ADMIN", "FINANCE", "AUDITOR"]:
+    if role in ["SUPER_ADMIN", "ADMIN", "FINANCE"]:
         return True
 
     if role == "STATE":
@@ -378,10 +378,10 @@ async def trigger_reconciliation(
 ):
     """
     Reconciles MongoDB financial records with on-chain smart contract state and transaction receipts.
-    Restricted to SUPER_ADMIN, ADMIN, FINANCE, and AUDITOR roles.
+    Restricted to SUPER_ADMIN, ADMIN, and FINANCE roles.
     """
     role = current_user.get("role")
-    if role not in ["SUPER_ADMIN", "ADMIN", "FINANCE", "AUDITOR"]:
+    if role not in ["SUPER_ADMIN", "ADMIN", "FINANCE"]:
         return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN,
             content={"success": False, "message": "Access Denied: Financial reconciliation restricted to administrative audit authorities."}

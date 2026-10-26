@@ -187,23 +187,23 @@ def test_public_portal_read_only_access():
         assert res_fail.status_code == 503
         assert res_fail.json()["success"] is False
 
-def test_auditor_portal_connectivity_and_authorization():
-    """Verify Auditor Portal: audit logs, reconciliation, and role authorization."""
-    auditor_token = generate_token(
-        user_id="test_auditor_user",
-        email="cag@audit.gov.in",
-        role="AUDITOR",
-        name="Comptroller & Auditor"
+def test_finance_admin_audit_connectivity_and_authorization():
+    """Verify Finance and Administrative access: audit logs, reconciliation, and role authorization."""
+    finance_token = generate_token(
+        user_id="test_finance_user",
+        email="finance@govtfund.gov.in",
+        role="FINANCE",
+        name="Finance Officer"
     )
     citizen_token = generate_token(
-        user_id="test_citizen_auditor",
-        email="citizen@audit.org",
+        user_id="test_citizen_user",
+        email="citizen@govtfund.org",
         role="CITIZEN",
         name="Citizen"
     )
 
-    # 1. Auditor Audit Trail (/api/transactions/audit-logs)
-    res_audit = client.get("/api/transactions/audit-logs", headers={"Authorization": f"Bearer {auditor_token}"})
+    # 1. Finance Audit Trail (/api/transactions/audit-logs)
+    res_audit = client.get("/api/transactions/audit-logs", headers={"Authorization": f"Bearer {finance_token}"})
     assert res_audit.status_code == 200
     assert "audit_logs" in res_audit.json()
 
@@ -212,8 +212,8 @@ def test_auditor_portal_connectivity_and_authorization():
     assert res_unauth.status_code == 200
     assert res_unauth.json()["audit_logs"] == []
 
-    # 3. Auditor Reconciliation (/api/transactions/reconcile)
-    res_recon = client.post("/api/transactions/reconcile", json={}, headers={"Authorization": f"Bearer {auditor_token}"})
+    # 3. Finance Reconciliation (/api/transactions/reconcile)
+    res_recon = client.post("/api/transactions/reconcile", json={}, headers={"Authorization": f"Bearer {finance_token}"})
     assert res_recon.status_code == 200
     assert "report" in res_recon.json()
 

@@ -362,7 +362,7 @@ def test_reconciliation_detects_match_and_amount_discrepancy():
          patch.object(bcs, "verify_transaction_onchain", return_value={"verified": True, "status": "VERIFIED_SUCCESS"}):
 
 
-        report = reconcile_financial_records(financial_year=fy, current_user={"name": "CAG Auditor", "role": "AUDITOR"})
+        report = reconcile_financial_records(financial_year=fy, current_user={"name": "Finance Officer", "role": "FINANCE"})
         assert report["blockchain_connected"] is True
         assert report["discrepancy_count"] >= 1
 

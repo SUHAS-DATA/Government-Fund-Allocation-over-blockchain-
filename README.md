@@ -10,7 +10,7 @@
 [![MongoDB](https://img.shields.io/badge/MongoDB-Atlas%20%2F%20Local-%234ea94b.svg?logo=mongodb&logoColor=white)](https://www.mongodb.com/)
 [![Web3.py](https://img.shields.io/badge/Web3.py-v6.0+-F16822.svg?logo=web3dotjs&logoColor=white)](https://web3py.readthedocs.io/)
 
-A next-generation, multi-tier, decentralized governance and public financial management platform (PFMS 2.0). Built on **Ethereum Smart Contracts**, **Python FastAPI**, and **React 18**, this system eliminates financial leakages, eradicates ghost projects, automates milestone-based escrow payouts, and empowers citizens and Comptroller & Auditor General (CAG) inspectors with tamper-proof, real-time auditability.
+A next-generation, multi-tier, decentralized governance and public financial management platform (PFMS 2.0). Built on **Ethereum Smart Contracts**, **Python FastAPI**, and **React 18**, this system eliminates financial leakages, eradicates ghost projects, automates milestone-based escrow payouts, and empowers citizens and administrative inspectors with tamper-proof, real-time auditability.
 
 ---
 
@@ -43,8 +43,8 @@ A next-generation, multi-tier, decentralized governance and public financial man
   2. **State Treasury**: State quota receipt, oversight, and sub-allocation to District Implementing Agencies (DRDA).
   3. **District Implementing Agency**: Project creation, geo-location boundaries, contractor selection, milestone verification, and escrow disbursals.
 - 📦 **Milestone-Based Escrow Release**: Public funds are locked in smart contract escrow vaults. Payments are auto-released only after contractors upload geo-tagged photographic evidence, invoice digests, and district officers complete physical inspections.
-- 📱 **Universal Public QR Code Verification**: Automatically generates a unique cryptographic QR code for each accepted contract. On-site signboards and invoices allow citizens and auditors to scan and view real-time fund flows, progress photos, and verified on-chain transactions without authentication.
-- 🛑 **Emergency Circuit Breaker (Project Freeze)**: CAG Auditors and Super Admins can instantly freeze project funds on-chain upon detecting irregularities, budget overruns, or contractor non-compliance.
+- 📱 **Universal Public QR Code Verification**: Automatically generates a unique cryptographic QR code for each accepted contract. On-site signboards and invoices allow citizens and inspectors to scan and view real-time fund flows, progress photos, and verified on-chain transactions without authentication.
+- 🛑 **Emergency Circuit Breaker (Project Freeze)**: Super Admins and Finance Authorities can instantly freeze project funds on-chain upon detecting irregularities, budget overruns, or contractor non-compliance.
 - 📡 **Real-Time WebSocket Synchronization Hub**: Multi-device, cross-laptop synchronization propagates project approvals, fund releases, and milestone claims instantaneously.
 - 🏦 **Masked Bank Account & Escrow Management**: Statutory masking (`XXXX XXXX 1234`) with strict IFSC validation for all government treasury departments and vendor accounts.
 - 📢 **Public Transparency & Citizen Grievance Redressal**: Open public ledger to inspect schemes, projects, and expenditures with an integrated civic grievance mechanism featuring GPS geotagging and reference tracking.
@@ -65,7 +65,6 @@ flowchart TD
         ST["State Treasury"]
         DA["District Agency (DRDA)"]
         CO["Contractor / Vendor"]
-        AU["CAG Auditor"]
         CZ["Citizens / Public"]
     end
 
@@ -74,7 +73,6 @@ flowchart TD
         P2["Field Portal (VITE_PORTAL=FIELD)"]
         P3["Contractor Portal (VITE_PORTAL=CONTRACTOR)"]
         P4["Public Portal (VITE_PORTAL=PUBLIC)"]
-        P5["Auditor Portal (VITE_PORTAL=AUDITOR)"]
     end
 
     subgraph Backend ["Python FastAPI Core"]
@@ -122,7 +120,7 @@ flowchart TD
 
 ## 🌐 Multi-Portal Architecture
 
-The frontend is dynamically compartmentalized into **5 distinct dedicated portals** using the `VITE_PORTAL` build/runtime configuration:
+The frontend is dynamically compartmentalized into **4 distinct dedicated portals** using the `VITE_PORTAL` build/runtime configuration:
 
 | Portal Type | Target Stakeholders | Primary Modules & Permissions |
 |:---|:---|:---|
@@ -130,7 +128,6 @@ The frontend is dynamically compartmentalized into **5 distinct dedicated portal
 | **`FIELD`** | State Treasuries, District Implementing Agencies (DRDA) | State Fund Receipt, District Sub-Allocations, Project Setup, Contractor Tendering, Physical Milestone Inspection, Escrow Release |
 | **`CONTRACTOR`** | Registered Concessionaires & Infrastructure Vendors | Vendor Registration, KYC Submission (GST/PAN/License), Tender Acceptance, QR Access, Milestone Proof Upload (Geo-Photos, Invoices), Payment Claims |
 | **`PUBLIC`** | Citizens, Media, Civic Watchdogs *(No Login Required)* | National Scheme Explorer, District Expenditure Ledgers, Universal QR Code Scanner (`/verify/:qrId`), Public Grievance Filing & Tracking |
-| **`AUDITOR`** | Comptroller & Auditor General (CAG), Central Vigilance | Independent Audit Logs, Anomaly Analytics (Vendor Concentration, Ceiling Breaches), Milestone Hash Cross-Verification, Emergency Fund Freeze |
 
 > **Dynamic Switcher**: In development or unified hosting, navigate to any portal via query parameter (e.g. `http://localhost:5173/?portal=CONTRACTOR` or `?portal=FIELD`).
 
@@ -378,7 +375,7 @@ cd ../frontend
 npm install
 
 # (Optional) Set specific portal mode in frontend/.env
-# VITE_PORTAL=ADMIN   (Options: ADMIN, FIELD, CONTRACTOR, PUBLIC, AUDITOR)
+# VITE_PORTAL=ADMIN   (Options: ADMIN, FIELD, CONTRACTOR, PUBLIC)
 cp .env.example .env
 
 # Start Vite dev server
@@ -402,7 +399,6 @@ The database seed (`backend/seed_data.py`) automatically initializes demonstrati
 | **DISTRICT** | Pune DRDA Development Agency (Maharashtra) | `district@govtfund.gov.in` | `District@123` |
 | **CONTRACTOR** | Apex Infrastructure & Civil Works Ltd. | `contractor@buildcorp.in` | `Contractor@123` |
 | **CONTRACTOR** | Karnataka Highway Infra Concessionaires | `contractor.ka@infra.in` | `Contractor@123` |
-| **AUDITOR** | Comptroller & Auditor General (CAG) | *(Access via Admin Portal monitoring tab)* | `Admin@123` |
 | **PUBLIC** | Open Public Citizen Access | *(No credentials required)* | *N/A* |
 
 ---
@@ -468,7 +464,6 @@ The system is configured for cloud production deployment:
   - Instance 2: `VITE_PORTAL=FIELD`
   - Instance 3: `VITE_PORTAL=CONTRACTOR`
   - Instance 4: `VITE_PORTAL=PUBLIC`
-  - Instance 5: `VITE_PORTAL=AUDITOR`
 - **Backend Linkage**: Set `VITE_API_URL` to your hosted Render backend URL.
 
 ---

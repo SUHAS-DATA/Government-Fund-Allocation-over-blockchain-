@@ -69,7 +69,7 @@ def get_user_notification_query(current_user: dict) -> dict:
         {"recipient_role": "ALL"}
     ]
 
-    if role in ["SUPER_ADMIN", "ADMIN", "FINANCE", "AUDITOR"]:
+    if role in ["SUPER_ADMIN", "ADMIN", "FINANCE"]:
         base_or.append({"recipient_role": role})
     elif role == "STATE":
         state_cond = {"recipient_role": "STATE"}

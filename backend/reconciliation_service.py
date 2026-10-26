@@ -21,7 +21,7 @@ def reconcile_financial_records(
     report = {
         "financial_year": fy,
         "run_at": now.isoformat(),
-        "reconciled_by": current_user.get("name") if current_user else "System Auditor",
+        "reconciled_by": current_user.get("name") if current_user else "System Automated Service",
         "blockchain_connected": bcs.is_blockchain_connected(),
         "contract_address": bcs.contract_address,
         "total_records_checked": 0,
