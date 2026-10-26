@@ -1,5 +1,30 @@
 import os
 import shutil
+
+# In Render Web Shell, service env vars might not be exported to interactive bash by default.
+# Auto-resolve MONGODB_URI and MONGODB_DB_NAME from the running container service process.
+if not os.getenv("MONGODB_URI") or "127.0.0.1" in os.getenv("MONGODB_URI", ""):
+    if os.path.exists("/proc"):
+        for pid in sorted(os.listdir("/proc"), key=lambda x: int(x) if x.isdigit() else 999999):
+            if pid.isdigit() and pid != str(os.getpid()):
+                env_file = f"/proc/{pid}/environ"
+                try:
+                    with open(env_file, "rb") as f:
+                        entries = f.read().split(b"\x00")
+                        for entry in entries:
+                            if entry.startswith(b"MONGODB_URI="):
+                                val = entry.split(b"=", 1)[1].decode("utf-8", errors="ignore")
+                                if val and "127.0.0.1" not in val:
+                                    os.environ["MONGODB_URI"] = val
+                            elif entry.startswith(b"MONGODB_DB_NAME="):
+                                val = entry.split(b"=", 1)[1].decode("utf-8", errors="ignore")
+                                if val:
+                                    os.environ["MONGODB_DB_NAME"] = val
+                except Exception:
+                    pass
+                if os.getenv("MONGODB_URI") and "127.0.0.1" not in os.getenv("MONGODB_URI", ""):
+                    break
+
 from database import db
 
 def reset_all_transaction_data():
@@ -9,6 +34,13 @@ def reset_all_transaction_data():
     print(f"[*] Target Database Name: {db.name}")
     if db.name != "FUNDSYSTEM":
         raise ValueError(f"CRITICAL SAFETY ABORT: Target database must be 'FUNDSYSTEM', found '{db.name}'")
+
+    current_uri = os.getenv("MONGODB_URI", "")
+    if "127.0.0.1" in current_uri or "localhost" in current_uri:
+        raise ValueError(
+            "CRITICAL SAFETY ABORT: MONGODB_URI is pointing to localhost/127.0.0.1! "
+            "Please ensure production Atlas MONGODB_URI is loaded in this shell before running reset."
+        )
 
     # 1. Operational & User-Inputted Fund Allocation Collections
     fund_collections = [
