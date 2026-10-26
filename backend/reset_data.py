@@ -1,89 +1,175 @@
 import os
+import shutil
 from database import db
 
 def reset_all_transaction_data():
     print("==================================================")
-    print("  PURGING ALL FINANCIAL, FUND & BLOCKCHAIN DATA   ")
+    print("  PURGING ALL FINANCIAL, FUND & INPUT STORAGE DATA")
     print("==================================================")
 
-    # 1. Clear Financial Years, Schemes & Fund Allocations
-    r_fy = db.financial_years.delete_many({})
-    print(f"[-] Deleted {r_fy.deleted_count} Financial Years")
+    # 1. Operational & User-Inputted Fund Allocation Collections
+    fund_collections = [
+        ("schemes", "Schemes"),
+        ("budget_allocations", "Central Budget Allocations"),
+        ("state_transfers", "State Treasury Transfers"),
+        ("district_allocations", "District Allocations"),
+        ("contractor_transfers", "Contractor Transfers"),
+        ("budgets", "Budgets"),
+        ("fund_transfers", "Fund Transfers"),
+        ("state_allocations", "State Allocations"),
+        ("allocations", "Legacy Allocations"),
+    ]
+    for col_name, label in fund_collections:
+        res = db[col_name].delete_many({})
+        print(f"[-] Deleted {res.deleted_count} {label} ({col_name})")
 
-    r_schemes = db.schemes.delete_many({})
-    print(f"[-] Deleted {r_schemes.deleted_count} Schemes")
+    # 2. Project, Milestone & Evidence Collections
+    project_collections = [
+        ("projects", "Projects"),
+        ("milestones", "Milestones"),
+        ("progress_updates", "Progress Updates"),
+        ("documents", "Uploaded Documents & Hashes"),
+        ("evidence", "Evidence Records"),
+        ("qr_codes", "Project QR Codes"),
+    ]
+    for col_name, label in project_collections:
+        res = db[col_name].delete_many({})
+        print(f"[-] Deleted {res.deleted_count} {label} ({col_name})")
 
-    r_alloc = db.budget_allocations.delete_many({})
-    print(f"[-] Deleted {r_alloc.deleted_count} Central Budget Allocations")
+    # 3. Audits, Fraud Reports & Grievances
+    audit_collections = [
+        ("fraud_reports", "Fraud Reports"),
+        ("audit_reports", "Audit Reports"),
+        ("audits", "Audits"),
+        ("audit_logs", "Operational Audit Logs"),
+        ("complaints", "Citizen Grievances & Complaints"),
+    ]
+    for col_name, label in audit_collections:
+        res = db[col_name].delete_many({})
+        print(f"[-] Deleted {res.deleted_count} {label} ({col_name})")
 
-    r_transfers = db.state_transfers.delete_many({})
-    print(f"[-] Deleted {r_transfers.deleted_count} State Treasury Transfers")
+    # 4. Transaction Logs & Notifications
+    tx_collections = [
+        ("blockchain_transactions", "Blockchain Transaction Receipts"),
+        ("blockchain_tx_logs", "Blockchain Tx Logs"),
+        ("financial_transactions", "Financial & Bank Transactions"),
+        ("notifications", "System Notifications"),
+    ]
+    for col_name, label in tx_collections:
+        res = db[col_name].delete_many({})
+        print(f"[-] Deleted {res.deleted_count} {label} ({col_name})")
 
-    r_dist_alloc = db.district_allocations.delete_many({})
-    print(f"[-] Deleted {r_dist_alloc.deleted_count} District Allocations")
-
-    db.budgets.delete_many({})
-    db.fund_transfers.delete_many({})
-    db.state_allocations.delete_many({})
-    db.progress_updates.delete_many({})
-
-    # 2. Clear Projects, Escrows & Milestones
-    r_proj = db.projects.delete_many({})
-    print(f"[-] Deleted {r_proj.deleted_count} Projects")
-
-    r_miles = db.milestones.delete_many({})
-    print(f"[-] Deleted {r_miles.deleted_count} Milestones")
-
-    r_docs = db.documents.delete_many({})
-    print(f"[-] Deleted {r_docs.deleted_count} Uploaded Documents & Hashes")
-
-    # 3. Clear Audits & Fraud Reports
-    r_fraud = db.fraud_reports.delete_many({})
-    print(f"[-] Deleted {r_fraud.deleted_count} Fraud Reports")
-
-    r_audits = db.audit_reports.delete_many({})
-    print(f"[-] Deleted {r_audits.deleted_count} Audit Reports")
-    db.audits.delete_many({})
-
-    # 4. Clear Grievances & Blockchain Tx Logs
-    r_comp = db.complaints.delete_many({})
-    print(f"[-] Deleted {r_comp.deleted_count} Citizen Grievances")
-
-    r_tx = db.blockchain_transactions.delete_many({})
-    print(f"[-] Deleted {r_tx.deleted_count} Blockchain Transaction Receipts")
-    db.blockchain_tx_logs.delete_many({})
-
-    r_notif = db.notifications.delete_many({})
-    print(f"[-] Deleted {r_notif.deleted_count} Notifications")
-
-    # 5. Reset Contractor KYC to UNDER_REVIEW so user can test the KYC approval process
+    # 5. Reset Contractor Operational Counters & KYC status
     r_kyc = db.contractor_kyc.update_many(
         {},
         {"$set": {
             "kyc_status": "UNDER_REVIEW",
             "verified_by": None,
-            "verification_notes": None
+            "verification_notes": None,
+            "verification_remarks": None,
+            "reviewed_at": None,
+            "reviewed_by": None,
         }}
     )
-    print(f"[*] Reset {r_kyc.modified_count} Contractor KYC status to UNDER_REVIEW")
+    print(f"[*] Reset {r_kyc.modified_count} Contractor KYC records to UNDER_REVIEW")
 
-    # 6. Clean Uploads folder
-    upload_folder = os.path.join(os.path.dirname(__file__), "uploads")
-    if os.path.exists(upload_folder):
-        count = 0
-        for f in os.listdir(upload_folder):
-            fpath = os.path.join(upload_folder, f)
-            if os.path.isfile(fpath):
+    r_contractors = db.contractors.update_many(
+        {},
+        {"$set": {
+            "active_projects_count": 0,
+            "completed_projects_count": 0,
+            "kyc_status": "UNDER_REVIEW",
+            "kyc_documents": []
+        }}
+    )
+    print(f"[*] Reset {r_contractors.modified_count} Contractors operational project counters to 0")
+
+    # 6. Reset all Department and Administrative Level Financial Balances to 0
+    r_depts = db.departments.update_many(
+        {},
+        {"$set": {
+            "allocated_budget": 0.0,
+            "transferred_to_state": 0.0
+        }}
+    )
+    print(f"[*] Reset financial balances to 0 for {r_depts.modified_count} Departments")
+
+    r_states = db.states.update_many(
+        {},
+        {"$set": {
+            "total_received": 0.0,
+            "allocated_to_districts": 0.0
+        }}
+    )
+    print(f"[*] Reset financial balances to 0 for {r_states.modified_count} State Administrative Levels")
+
+    r_districts = db.districts.update_many(
+        {},
+        {"$set": {
+            "total_received": 0.0,
+            "allocated_to_projects": 0.0
+        }}
+    )
+    print(f"[*] Reset financial balances to 0 for {r_districts.modified_count} District Administrative Levels")
+
+    # 7. Ensure Master Fiscal Cycles exist
+    active_fy = db.financial_years.find_one({"status": "ACTIVE"})
+    if not active_fy:
+        db.financial_years.update_one(
+            {"year": "2027-28"},
+            {"$set": {
+                "year": "2027-28",
+                "title": "Union Budget FY 2027-2028 (Projected)",
+                "total_budget": 6000000000.0,
+                "status": "ACTIVE",
+                "start_date": "2027-04-01",
+                "end_date": "2028-03-31"
+            }},
+            upsert=True
+        )
+        print("[+] Enforced active Financial Year 2027-28")
+
+    # 8. Clean all off-chain files from backend/uploads including evidence subdirectories
+    uploads_dir = os.path.join(os.path.dirname(__file__), "uploads")
+    if os.path.exists(uploads_dir):
+        files_removed = 0
+        for root, dirs, files in os.walk(uploads_dir, topdown=False):
+            for f in files:
+                if f == ".gitkeep":
+                    continue
+                file_path = os.path.join(root, f)
                 try:
-                    os.remove(fpath)
-                    count += 1
+                    os.remove(file_path)
+                    files_removed += 1
+                except Exception as e:
+                    print(f"[!] Warning deleting file {file_path}: {e}")
+            for d in dirs:
+                dir_path = os.path.join(root, d)
+                # Keep evidence folder structure but empty
+                if d == "evidence":
+                    continue
+                try:
+                    if not os.listdir(dir_path):
+                        os.rmdir(dir_path)
                 except Exception:
                     pass
-        print(f"[-] Cleaned {count} off-chain files from backend/uploads/")
+
+        # Ensure .gitkeep in uploads and uploads/evidence
+        evidence_dir = os.path.join(uploads_dir, "evidence")
+        os.makedirs(evidence_dir, exist_ok=True)
+        for target_dir in [uploads_dir, evidence_dir]:
+            gitkeep = os.path.join(target_dir, ".gitkeep")
+            if not os.path.exists(gitkeep):
+                with open(gitkeep, "w") as fp:
+                    fp.write("# Keep directory in git\n")
+
+        print(f"[-] Cleaned {files_removed} off-chain files and evidence from backend/uploads/")
 
     print("==================================================")
-    print("  DATABASE RESET COMPLETE — READY FOR MANUAL RUN  ")
+    print("  INPUT STORAGE & TRANSACTIONAL DATA PURGE COMPLETE")
+    print("  ADMIN USERS, DEPARTMENTS & MASTER DATA PRESERVED ")
     print("==================================================")
 
 if __name__ == "__main__":
     reset_all_transaction_data()
+
