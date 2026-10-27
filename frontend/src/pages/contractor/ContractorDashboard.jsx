@@ -337,7 +337,7 @@ const ContractorDashboard = () => {
                 id="back-to-contractor-hub-btn"
               >
                 <ArrowLeft size={15} />
-                <span>← Back to Contractor Hub</span>
+                <span>Back to Contractor Hub</span>
               </button>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -398,7 +398,7 @@ const ContractorDashboard = () => {
                             onClick={() => { setBidForm({ ...bidForm, project_id: p.id }); setTab('apply_bid'); }}
                             style={{ marginTop: '8px', background: '#006B4F', color: '#FFF', border: 'none', padding: '8px 16px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' }}
                           >
-                            Apply / Bid →
+                            Apply / Bid <ArrowRight size={12} style={{ display: 'inline', marginLeft: 4, verticalAlign: '-1px' }} />
                           </button>
                         </div>
                       </div>
@@ -550,15 +550,16 @@ const ContractorDashboard = () => {
                     </button>
                   </div>
                   <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: '8px', padding: '16px', marginBottom: '20px', fontSize: '13px', color: '#166534' }}>
-                    📸 <strong>Work Proof Upload:</strong> Upload project photos and testing certificates. Each file is recorded securely in the official government system.
+                    <Camera size={14} style={{ display: 'inline', verticalAlign: '-2px', marginRight: 6, color: 'var(--color-primary)' }} /><strong>Work Proof Upload:</strong> Upload project photos and testing certificates. Each file is recorded securely in the official government system.
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                     <button
                       type="button"
                       onClick={() => setTab('projects')}
-                      style={{ background: '#006B4F', color: '#FFF', border: 'none', padding: '14px 20px', borderRadius: '8px', fontWeight: '800', cursor: 'pointer', textAlign: 'center' }}
+                      style={{ background: '#006B4F', color: '#FFF', border: 'none', padding: '14px 20px', borderRadius: '8px', fontWeight: '800', cursor: 'pointer', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
                     >
-                      Open Active Projects to Upload Work Proof →
+                      <span>Open Active Projects to Upload Work Proof</span>
+                      <ArrowRight size={14} />
                     </button>
                   </div>
                 </div>
@@ -674,7 +675,10 @@ const ContractorDashboard = () => {
                         </div>
                         <div style={{ textAlign: 'right' }}>
                           <div style={{ fontSize: '18px', fontWeight: '900', color: '#006B4F' }}>{tx.amount}</div>
-                          <span style={{ fontSize: '11px', color: '#16A34A', fontWeight: '800' }}>✓ Verified Record</span>
+                          <span style={{ fontSize: '11px', color: '#16A34A', fontWeight: '800', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                            <CheckCircle2 size={12} />
+                            <span>Verified Record</span>
+                          </span>
                         </div>
                       </div>
                     ))}

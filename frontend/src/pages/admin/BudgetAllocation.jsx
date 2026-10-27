@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { Coins, Plus, Send, ShieldCheck, ArrowRight, Calendar, Filter, TrendingUp, Layers } from 'lucide-react';
+import { Coins, Plus, Send, ShieldCheck, ArrowRight, Calendar, Filter, TrendingUp, Layers, AlertCircle, CheckCircle2 } from 'lucide-react';
 import API from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
 import BlockchainBadge from '../../components/BlockchainBadge';
@@ -344,7 +344,7 @@ const BudgetAllocation = ({ initialAllocations, initialDepartments, initialSchem
               {financialYears.length > 0 ? (
                 financialYears.map((fy) => (
                   <option key={fy.year} value={fy.year}>
-                    FY {fy.year} ({fy.title || 'Central Budget'} — Budget: {formatCurrency(fy.total_budget)}) {fy.status === 'ACTIVE' ? '★ ACTIVE' : ''}
+                    FY {fy.year} ({fy.title || 'Central Budget'} — Budget: {formatCurrency(fy.total_budget)}) {fy.status === 'ACTIVE' ? '(ACTIVE)' : ''}
                   </option>
                 ))
               ) : (
@@ -431,8 +431,9 @@ const BudgetAllocation = ({ initialAllocations, initialDepartments, initialSchem
               </div>
 
               {schemeRemainingCeiling <= 0 && (
-                <div style={{ marginTop: '8px', color: 'var(--color-danger)', fontSize: '11px', fontWeight: '700' }}>
-                  ⚠️ Budget Reached: This scheme has received its full approved budget ({formatCurrency(schemeTargetCeiling)}). No further funds can be allocated.
+                <div style={{ marginTop: '8px', color: 'var(--color-danger)', fontSize: '11px', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <AlertCircle size={13} />
+                  <span>Budget Reached: This scheme has received its full approved budget ({formatCurrency(schemeTargetCeiling)}). No further funds can be allocated.</span>
                 </div>
               )}
             </div>
@@ -458,9 +459,13 @@ const BudgetAllocation = ({ initialAllocations, initialDepartments, initialSchem
               color: 'var(--color-danger)',
               fontSize: '12px',
               fontWeight: '700',
-              marginBottom: '12px'
+              marginBottom: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
             }}>
-              ❌ Cannot Allocate: The entered amount ({formatCurrency(formData.amount)}) exceeds the scheme's remaining budget of {formatCurrency(schemeRemainingCeiling)}.
+              <AlertCircle size={14} />
+              <span>Cannot Allocate: The entered amount ({formatCurrency(formData.amount)}) exceeds the scheme's remaining budget of {formatCurrency(schemeRemainingCeiling)}.</span>
             </div>
           )}
 
@@ -473,9 +478,13 @@ const BudgetAllocation = ({ initialAllocations, initialDepartments, initialSchem
               color: 'var(--color-danger)',
               fontSize: '12px',
               fontWeight: '700',
-              marginBottom: '12px'
+              marginBottom: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
             }}>
-              ❌ Exceeds FY Budget: Allocation exceeds the remaining budget for FY {formData.financial_year} ({formatCurrency(formFYRemaining)}).
+              <AlertCircle size={14} />
+              <span>Exceeds FY Budget: Allocation exceeds the remaining budget for FY {formData.financial_year} ({formatCurrency(formFYRemaining)}).</span>
             </div>
           )}
 

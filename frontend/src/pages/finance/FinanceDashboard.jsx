@@ -210,7 +210,7 @@ const FinanceDashboard = () => {
                 id="back-to-finance-hub-btn"
               >
                 <ArrowLeft size={15} />
-                <span>← Back to Finance Hub</span>
+                <span>Back to Finance Hub</span>
               </button>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -277,7 +277,7 @@ const FinanceDashboard = () => {
                               cursor: 'pointer'
                             }}
                           >
-                            Send Funds →
+                            Send Funds <ArrowRight size={12} style={{ display: 'inline', marginLeft: 4, verticalAlign: '-1px' }} />
                           </button>
                         </div>
                       </div>
@@ -334,7 +334,7 @@ const FinanceDashboard = () => {
                                 cursor: 'pointer'
                               }}
                             >
-                              Send More →
+                              Send More <ArrowRight size={12} style={{ display: 'inline', marginLeft: 4, verticalAlign: '-1px' }} />
                             </button>
                           </div>
                         </div>

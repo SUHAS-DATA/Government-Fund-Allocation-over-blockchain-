@@ -43,10 +43,10 @@ export const ThemeToggle = ({
         ...style,
       }}
       onMouseOver={(e) => {
-        e.currentTarget.style.borderColor = isDark ? '#FACC15' : 'var(--color-primary)';
+        e.currentTarget.style.borderColor = isDark ? '#6366F1' : 'var(--color-primary)';
         e.currentTarget.style.transform = 'translateY(-1px)';
         e.currentTarget.style.boxShadow = isDark 
-          ? '0 4px 12px rgba(250, 204, 21, 0.2)' 
+          ? '0 4px 12px rgba(99, 102, 241, 0.25)' 
           : '0 3px 8px rgba(0, 0, 0, 0.1)';
       }}
       onMouseOut={(e) => {
@@ -121,16 +121,16 @@ export const FloatingThemeToggle = () => {
           borderRadius: '9999px',
           cursor: 'pointer',
           border: isDark 
-            ? '1.5px solid rgba(250, 204, 21, 0.35)' 
+            ? '1.5px solid rgba(99, 102, 241, 0.4)' 
             : '1.5px solid rgba(13, 92, 58, 0.25)',
           backgroundColor: isDark 
-            ? 'rgba(19, 28, 49, 0.92)' 
+            ? 'rgba(23, 32, 51, 0.94)' 
             : 'rgba(255, 255, 255, 0.94)',
           backdropFilter: 'blur(12px)',
           WebkitBackdropFilter: 'blur(12px)',
           color: isDark ? '#F8FAFC' : '#0F172A',
           boxShadow: isDark
-            ? '0 10px 25px -3px rgba(0, 0, 0, 0.6), 0 0 14px rgba(250, 204, 21, 0.15)'
+            ? '0 10px 25px -3px rgba(0, 0, 0, 0.6), 0 0 14px rgba(99, 102, 241, 0.2)'
             : '0 10px 25px -3px rgba(15, 23, 42, 0.12), 0 4px 6px -2px rgba(15, 23, 42, 0.05)',
           transform: hovered ? 'translateY(-2px) scale(1.03)' : 'translateY(0) scale(1)',
           transition: 'all 0.22s cubic-bezier(0.34, 1.56, 0.64, 1)',
@@ -143,7 +143,7 @@ export const FloatingThemeToggle = () => {
             width: '26px',
             height: '26px',
             borderRadius: '50%',
-            backgroundColor: isDark ? 'rgba(250, 204, 21, 0.16)' : 'rgba(13, 92, 58, 0.1)',
+            backgroundColor: isDark ? 'rgba(99, 102, 241, 0.18)' : 'rgba(13, 92, 58, 0.1)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -177,7 +177,7 @@ export const FloatingThemeToggle = () => {
             width: '28px',
             height: '16px',
             borderRadius: '9999px',
-            backgroundColor: isDark ? '#10B981' : '#CBD5E1',
+            backgroundColor: isDark ? '#6366F1' : '#CBD5E1',
             position: 'relative',
             transition: 'background-color 0.2s ease',
           }}

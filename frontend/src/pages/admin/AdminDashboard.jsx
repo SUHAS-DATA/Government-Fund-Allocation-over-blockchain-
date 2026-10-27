@@ -240,7 +240,7 @@ const AdminDashboard = () => {
                 id="back-to-super-admin-btn"
               >
                 <ArrowLeft size={15} />
-                <span>← Back to Super Admin</span>
+                <span>Back to Super Admin</span>
               </button>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

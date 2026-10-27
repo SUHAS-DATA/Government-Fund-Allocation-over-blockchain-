@@ -78,7 +78,7 @@ const FinancialYearSelector = ({ compact = false, showLabel = true, className = 
                   padding: '8px'
                 }}
               >
-                FY {fy.year} {fy.is_current ? '★ (Active)' : '(Historical)'}
+                FY {fy.year} {fy.is_current ? '(Active)' : '(Historical)'}
               </option>
             ))
           )}

@@ -26,7 +26,9 @@ import {
   QrCode,
   Download,
   ExternalLink,
-  RefreshCw
+  RefreshCw,
+  FileSpreadsheet,
+  Award
 } from 'lucide-react';
 import API, { getApiBaseUrl } from '../../services/api';
 import { formatCurrency } from '../../services/blockchain';
@@ -549,8 +551,9 @@ const ProjectsManagement = () => {
                   {assignedDistrict} ({assignedStateName})
                 </div>
               </div>
-              <span className="badge badge-success" style={{ fontSize: '10px', marginLeft: '6px' }}>
-                🔒 Authorized
+              <span className="badge badge-success" style={{ fontSize: '10px', marginLeft: '6px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                <Lock size={10} />
+                <span>Authorized</span>
               </span>
             </div>
           ) : (
@@ -1376,11 +1379,12 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
               {isBankDeactivated ? (
                 <span className="badge badge-danger" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}>
                   <Ban size={12} />
-                  <span>🚫 Account Not Available to Contractor (Deactivated)</span>
+                  <span>Account Not Available to Contractor (Deactivated)</span>
                 </span>
               ) : (
-                <span className="badge badge-success" style={{ fontSize: '11px' }}>
-                  ✓ Bank Account Active & Linked
+                <span className="badge badge-success" style={{ fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <CheckCircle2 size={12} />
+                  <span>Bank Account Active & Linked</span>
                 </span>
               )}
             </div>
@@ -1614,7 +1618,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
                       {formatCurrency(m.amount)}
                     </div>
                     <div style={{ marginTop: '4px' }}>
-                      {isCompleted && <span className="badge badge-success">✓ COMPLETED</span>}
+                      {isCompleted && <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><CheckCircle2 size={11} /> COMPLETED</span>}
                       {isSubmitted && <span className="badge badge-primary" style={{ background: '#1D4ED8', color: '#FFF', fontWeight: '800' }}>VERIFICATION PENDING</span>}
                       {isFundsTransferred && <span className="badge badge-success">FUNDS TRANSFERRED TO BANK</span>}
                       {isWorkInProgress && <span className="badge badge-warning">EXECUTING WORK</span>}
@@ -1669,22 +1673,22 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
 
                           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginTop: '8px' }}>
                             <div style={{ background: '#FFF', padding: '8px 10px', borderRadius: '4px', border: '1px solid #DCFCE7' }}>
-                              <div style={{ fontWeight: '700', color: '#15803D' }}>📄 Material Bills:</div>
+                              <div style={{ fontWeight: '700', color: '#15803D', display: 'flex', alignItems: 'center', gap: '4px' }}><FileText size={13} /> Material Bills:</div>
                               <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{m.material_bills_notes || 'Uploaded invoice vouchers'}</div>
                             </div>
 
                             <div style={{ background: '#FFF', padding: '8px 10px', borderRadius: '4px', border: '1px solid #DCFCE7' }}>
-                              <div style={{ fontWeight: '700', color: '#15803D' }}>📸 Progress Photos:</div>
+                              <div style={{ fontWeight: '700', color: '#15803D', display: 'flex', alignItems: 'center', gap: '4px' }}><Camera size={13} /> Progress Photos:</div>
                               <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{mEvidence.some(e => e.file_type?.startsWith('image/')) ? `${mEvidence.filter(e => e.file_type?.startsWith('image/')).length} geotagged site photo(s) attached` : 'Site photos attached'}</div>
                             </div>
 
                             <div style={{ background: '#FFF', padding: '8px 10px', borderRadius: '4px', border: '1px solid #DCFCE7' }}>
-                              <div style={{ fontWeight: '700', color: '#15803D' }}>🎥 Progress Videos:</div>
+                              <div style={{ fontWeight: '700', color: '#15803D', display: 'flex', alignItems: 'center', gap: '4px' }}><Video size={13} /> Progress Videos:</div>
                               <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{m.video_url ? <a href={m.video_url} target="_blank" rel="noreferrer" style={{ color: 'var(--color-primary)', fontWeight: '700' }}>View Site Video ↗</a> : 'Video recording attached'}</div>
                             </div>
 
                             <div style={{ background: '#FFF', padding: '8px 10px', borderRadius: '4px', border: '1px solid #DCFCE7' }}>
-                              <div style={{ fontWeight: '700', color: '#15803D' }}>📑 Site Notes & Reports:</div>
+                              <div style={{ fontWeight: '700', color: '#15803D', display: 'flex', alignItems: 'center', gap: '4px' }}><FileSpreadsheet size={13} /> Site Notes & Reports:</div>
                               <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>{m.progress_notes || 'Quality test reports verified'}</div>
                             </div>
                           </div>
@@ -1747,18 +1751,21 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
 
                                     <div>
                                       {isEvVerified && (
-                                        <span className="badge badge-success" style={{ background: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC', fontWeight: '700' }}>
-                                          ✓ VERIFIED
+                                        <span className="badge badge-success" style={{ background: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                          <CheckCircle2 size={12} />
+                                          <span>VERIFIED</span>
                                         </span>
                                       )}
                                       {isEvRejected && (
-                                        <span className="badge badge-danger" style={{ background: '#FEE2E2', color: '#991B1B', border: '1px solid #FCA5A5', fontWeight: '700' }}>
-                                          ⚠️ REJECTED
+                                        <span className="badge badge-danger" style={{ background: '#FEE2E2', color: '#991B1B', border: '1px solid #FCA5A5', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                          <AlertCircle size={12} />
+                                          <span>REJECTED</span>
                                         </span>
                                       )}
                                       {isEvPending && (
-                                        <span className="badge badge-warning" style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D', fontWeight: '700' }}>
-                                          ⏳ Pending Approval
+                                        <span className="badge badge-warning" style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                          <Clock size={12} />
+                                          <span>Pending Approval</span>
                                         </span>
                                       )}
                                     </div>
@@ -2000,7 +2007,7 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontWeight: '700' }}>
                         <CheckCircle2 size={12} />
-                        <span>Proof Verified ✓</span>
+                        <span>Proof Verified</span>
                       </span>
                       {m.blockchain_tx_hash && <BlockchainBadge txHash={m.blockchain_tx_hash} />}
                     </div>
@@ -2023,8 +2030,9 @@ const ProjectManageModal = ({ project, onClose, onRefresh, onOpenQrModal }) => {
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
             <div>
-              <div style={{ fontWeight: '800', fontSize: '15px', color: isProjectClosed ? 'var(--text-main)' : '#166534' }}>
-                {isProjectClosed ? '✓ Project Formally Closed' : '🎉 Final Project Completed!'}
+              <div style={{ fontWeight: '800', fontSize: '15px', color: isProjectClosed ? 'var(--text-main)' : '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {isProjectClosed ? <CheckCircle2 size={16} /> : <Award size={16} />}
+                <span>{isProjectClosed ? 'Project Formally Closed' : 'Final Project Completed!'}</span>
               </div>
               <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '2px' }}>
                 {isBankDeactivated ? 'Contractor Project Bank Account Deactivated (Account Not Available to Contractor).' : 'Proceed to Close Project and Deactivate Contractor Bank Account.'}

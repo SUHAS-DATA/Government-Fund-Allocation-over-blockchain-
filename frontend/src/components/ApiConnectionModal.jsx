@@ -4,6 +4,7 @@ import {
   Cpu,
   ShieldCheck,
   CheckCircle2,
+  XCircle,
   AlertTriangle,
   X,
   RefreshCw,
@@ -297,8 +298,13 @@ export const ApiConnectionModal = ({ isOpen, onClose, portal = null, isFinanceVi
 
               {testResult.success && testResult.data?.blockchain && (
                 <div style={{ marginTop: '8px', paddingTop: '8px', borderTop: '1px solid #DCFCE7', fontSize: '12px', color: '#14532D', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '6px' }}>
-                  <div>
-                    <strong>Blockchain Connected:</strong> {testResult.data.blockchain.connected ? '✅ Yes' : '❌ Disconnected'}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <strong>Blockchain Connected:</strong>
+                    {testResult.data.blockchain.connected ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#16A34A', fontWeight: '700' }}><CheckCircle2 size={13} /> Yes</span>
+                    ) : (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#DC2626', fontWeight: '700' }}><XCircle size={13} /> Disconnected</span>
+                    )}
                   </div>
                   <div>
                     <strong>Chain ID:</strong> {testResult.data.blockchain.chain_id || (isFinance ? '11155111' : '1337')}
@@ -306,8 +312,13 @@ export const ApiConnectionModal = ({ isOpen, onClose, portal = null, isFinanceVi
                   <div style={{ gridColumn: '1 / -1' }}>
                     <strong>Contract Address:</strong> <code style={{ fontSize: '11px', background: 'rgba(0,0,0,0.05)', padding: '2px 4px', borderRadius: '4px' }}>{testResult.data.blockchain.contract_address || (isFinance ? '0x103cdC78636491B20deadC5574755Bbd64B119c6' : '')}</code>
                   </div>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                    <strong>Contract Deployed:</strong> {testResult.data.blockchain.contract_deployed ? '✅ Verified on-chain' : '❌ Not deployed'}
+                  <div style={{ gridColumn: '1 / -1', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <strong>Contract Deployed:</strong>
+                    {testResult.data.blockchain.contract_deployed ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#16A34A', fontWeight: '700' }}><CheckCircle2 size={13} /> Verified on-chain</span>
+                    ) : (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#DC2626', fontWeight: '700' }}><XCircle size={13} /> Not deployed</span>
+                    )}
                   </div>
                 </div>
               )}

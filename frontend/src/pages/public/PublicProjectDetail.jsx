@@ -190,8 +190,8 @@ const PublicProjectDetail = () => {
                     {formatCurrency(m.amount)}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px', marginTop: '4px' }}>
-                    <span className={`badge ${m.status === 'COMPLETED' || m.status === 'RELEASED' ? 'badge-success' : 'badge-warning'}`}>
-                      {m.status === 'COMPLETED' ? '✓ COMPLETED' : m.status?.replace(/_/g, ' ')}
+                    <span className={`badge ${m.status === 'COMPLETED' || m.status === 'RELEASED' ? 'badge-success' : 'badge-warning'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      {m.status === 'COMPLETED' ? <><CheckCircle2 size={11} /> COMPLETED</> : m.status?.replace(/_/g, ' ')}
                     </span>
                     <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
                       Progress: {m.status === 'COMPLETED' ? '100%' : `${m.progress_percentage || 0}%`}

@@ -239,7 +239,7 @@ const PublicPortalPage = () => {
                 id="back-to-public-hub-btn"
               >
                 <ArrowLeft size={15} />
-                <span>← Back to Public Portal</span>
+                <span>Back to Public Portal</span>
               </button>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

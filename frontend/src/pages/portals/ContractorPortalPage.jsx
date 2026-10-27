@@ -385,7 +385,8 @@ const ContractorPortalPage = () => {
                 }}
               >
                 <UserPlus size={14} />
-                <span>Open Registration Form →</span>
+                <span>Open Registration Form</span>
+                <ArrowRight size={13} />
               </button>
             </div>
 
@@ -599,8 +600,9 @@ const ContractorPortalPage = () => {
                   </div>
                 </div>
 
-                <div style={{ fontSize: '12px', color: '#92400E', marginBottom: '22px', maxWidth: '500px', margin: '0 auto 22px auto', lineHeight: '1.4' }}>
-                  🔒 <em>Per governance rules, you cannot log into the Contractor Portal or receive project allocations until the <strong>{(registeredData || regForm).state_name} State Department</strong> reviews and approves your KYC credentials.</em>
+                <div style={{ fontSize: '12px', color: '#92400E', marginBottom: '22px', maxWidth: '500px', margin: '0 auto 22px auto', lineHeight: '1.4', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                  <Lock size={14} style={{ flexShrink: 0, marginTop: '2px', color: '#B45309' }} />
+                  <em>Per governance rules, you cannot log into the Contractor Portal or receive project allocations until the <strong>{(registeredData || regForm).state_name} State Department</strong> reviews and approves your KYC credentials.</em>
                 </div>
 
                 <button

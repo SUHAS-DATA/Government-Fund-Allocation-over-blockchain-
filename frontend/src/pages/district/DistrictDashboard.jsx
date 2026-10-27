@@ -11,6 +11,7 @@ import {
   TrendingUp,
   MapPin,
   Lock,
+  Zap,
   FileSpreadsheet,
   Activity,
   Send,
@@ -260,7 +261,7 @@ const DistrictDashboard = () => {
                 id="back-to-district-hub-btn"
               >
                 <ArrowLeft size={15} />
-                <span>← Back to District Hub</span>
+                <span>Back to District Hub</span>
               </button>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -423,7 +424,7 @@ const DistrictDashboard = () => {
                     </div>
                   </div>
                   <div style={{ background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: '8px', padding: '14px 18px', marginBottom: '20px', fontSize: '13px', color: '#0369A1' }}>
-                    💡 <strong>Smart Escrow Security:</strong> Field engineers must verify geotagged photos and test reports before milestone sign-off triggers escrow release.
+                    <ShieldCheck size={15} style={{ display: 'inline', verticalAlign: '-2px', marginRight: 6, color: '#0284C7' }} /><strong>Smart Escrow Security:</strong> Field engineers must verify geotagged photos and test reports before milestone sign-off triggers escrow release.
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
                     {data?.pending_verifications && data.pending_verifications.length > 0 ? (
@@ -435,11 +436,11 @@ const DistrictDashboard = () => {
                               {m.stage} • Target Value: <strong style={{ color: '#006B4F' }}>{formatCurrency(m.amount)}</strong> • Contractor: <strong>{m.contractor_name}</strong>
                             </div>
                             <div style={{ fontSize: '11px', color: '#7C3AED', fontWeight: '700', marginTop: '4px' }}>
-                              Milestone ID: {m.milestone_id} • Project ID: {m.project_id} • <span style={{ background: '#FEF3C7', color: '#92400E', padding: '2px 6px', borderRadius: '4px' }}>⚡ {m.status}</span>
+                              Milestone ID: {m.milestone_id} • Project ID: {m.project_id} • <span style={{ background: '#FEF3C7', color: '#92400E', padding: '2px 6px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}><Zap size={11} /> {m.status}</span>
                             </div>
                             {m.proof_document_hash && (
                               <div style={{ fontSize: '11px', color: '#0284C7', fontFamily: 'monospace', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                <span>🔒 SHA-256 Proof Hash:</span>
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Lock size={12} /> SHA-256 Proof Hash:</span>
                                 <code>{m.proof_document_hash.slice(0, 24)}...</code>
                               </div>
                             )}

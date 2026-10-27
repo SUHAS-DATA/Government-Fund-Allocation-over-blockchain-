@@ -198,7 +198,7 @@ const StateDashboard = () => {
                 id="back-to-state-hub-btn"
               >
                 <ArrowLeft size={15} />
-                <span>← Back to State Hub</span>
+                <span>Back to State Hub</span>
               </button>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -269,7 +269,7 @@ const StateDashboard = () => {
                                 cursor: 'pointer'
                               }}
                             >
-                              Send More →
+                              Send More <ArrowRight size={12} style={{ display: 'inline', marginLeft: 4, verticalAlign: '-1px' }} />
                             </button>
                           </div>
                         </div>
@@ -334,7 +334,7 @@ const StateDashboard = () => {
                               cursor: 'pointer'
                             }}
                           >
-                            Approve & Send →
+                            Approve & Send <ArrowRight size={12} style={{ display: 'inline', marginLeft: 4, verticalAlign: '-1px' }} />
                           </button>
                         </div>
                       </div>

@@ -479,7 +479,10 @@ const PublicVerificationPage = () => {
                     </div>
                     <div style={{ marginTop: '4px' }}>
                       {isCompleted ? (
-                        <span className="badge badge-success" style={{ fontSize: '11px' }}>✓ WORK VERIFIED & PAID</span>
+                        <span className="badge badge-success" style={{ fontSize: '11px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <CheckCircle2 size={11} />
+                          <span>WORK VERIFIED & PAID</span>
+                        </span>
                       ) : (
                         <span className="badge badge-secondary" style={{ fontSize: '11px' }}>{m.status?.replace(/_/g, ' ') || 'SCHEDULED'}</span>
                       )}

@@ -10,6 +10,7 @@ import {
   AlertCircle,
   Lock,
   Unlock,
+  Zap,
   Layers,
   ArrowRight,
   Sparkles,
@@ -505,7 +506,7 @@ const MyProjects = () => {
               <Ban size={28} color="#DC2626" />
               <div>
                 <div style={{ fontWeight: '800', fontSize: '14px', color: '#991B1B' }}>
-                  🚫 Account Not Available to Contractor (Project Bank Account Deactivated)
+                  Account Not Available to Contractor (Project Bank Account Deactivated)
                 </div>
                 <div style={{ fontSize: '12px', color: '#B91C1C', marginTop: '2px' }}>
                   The District Development Authority has completed quality audits and closed this project. The designated project bank account/escrow facility is now deactivated and no further fund requests or evidence submissions are permitted.
@@ -709,15 +710,15 @@ const MyProjects = () => {
                           {formatCurrency(phase.amount)}
                         </div>
                         <div style={{ marginTop: '4px' }}>
-                          {isCompleted && <span className="badge badge-success">✓ COMPLETED & AUDITED</span>}
-                          {isRejectedProof && <span className="badge badge-danger">⚠️ RECTIFICATION REQUIRED</span>}
-                          {isFundRejected && <span className="badge badge-danger">⚠️ FUND REQUEST REJECTED</span>}
+                          {isCompleted && <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><CheckCircle2 size={11} /> COMPLETED & AUDITED</span>}
+                          {isRejectedProof && <span className="badge badge-danger" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><AlertCircle size={11} /> RECTIFICATION REQUIRED</span>}
+                          {isFundRejected && <span className="badge badge-danger" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><AlertCircle size={11} /> FUND REQUEST REJECTED</span>}
                           {isSubmitted && <span className="badge badge-info">UNDER DISTRICT VERIFICATION</span>}
                           {isFundsTransferred && <span className="badge badge-success">FUNDS RECEIVED IN BANK</span>}
                           {isApprovedForWork && <span className="badge badge-warning">EXECUTING WORK</span>}
                           {isFundRequested && <span className="badge badge-info">FUND APPROVAL PENDING</span>}
-                          {isReadyForFund && <span className="badge badge-primary">⚡ UNLOCKED</span>}
-                          {isLocked && <span className="badge badge-secondary">🔒 LOCKED</span>}
+                          {isReadyForFund && <span className="badge badge-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Zap size={11} /> UNLOCKED</span>}
+                          {isLocked && <span className="badge badge-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}><Lock size={11} /> LOCKED</span>}
                         </div>
                       </div>
                     </div>
@@ -737,8 +738,9 @@ const MyProjects = () => {
                         gap: '10px'
                       }}>
                         <div>
-                          <div style={{ fontWeight: '800', fontSize: '13px', color: '#166534' }}>
-                            ✓ Allocated Funds ({formatCurrency(phase.amount)}) Received in Bank Account
+                          <div style={{ fontWeight: '800', fontSize: '13px', color: '#166534', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <CheckCircle2 size={14} />
+                            <span>Allocated Funds ({formatCurrency(phase.amount)}) Received in Bank Account</span>
                           </div>
                           <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
                             District Authority transferred mobilization funds to your registered bank account. Click below to acknowledge and start physical work.
@@ -846,18 +848,21 @@ const MyProjects = () => {
 
                                     <div>
                                       {isEvVerified && (
-                                        <span className="badge badge-success" style={{ background: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC', fontWeight: '700' }}>
-                                          ✓ VERIFIED
+                                        <span className="badge badge-success" style={{ background: '#DCFCE7', color: '#166534', border: '1px solid #86EFAC', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                          <CheckCircle2 size={12} />
+                                          <span>VERIFIED</span>
                                         </span>
                                       )}
                                       {isEvRejected && (
-                                        <span className="badge badge-danger" style={{ background: '#FEE2E2', color: '#991B1B', border: '1px solid #FCA5A5', fontWeight: '700' }}>
-                                          ⚠️ REJECTED
+                                        <span className="badge badge-danger" style={{ background: '#FEE2E2', color: '#991B1B', border: '1px solid #FCA5A5', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                          <AlertCircle size={12} />
+                                          <span>REJECTED</span>
                                         </span>
                                       )}
                                       {isEvPending && (
-                                        <span className="badge badge-warning" style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D', fontWeight: '700' }}>
-                                          ⏳ Pending Verification
+                                        <span className="badge badge-warning" style={{ background: '#FEF3C7', color: '#92400E', border: '1px solid #FCD34D', fontWeight: '700', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                          <Clock size={12} />
+                                          <span>Pending Verification</span>
                                         </span>
                                       )}
                                     </div>
