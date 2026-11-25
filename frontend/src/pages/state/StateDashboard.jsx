@@ -395,26 +395,28 @@ const StateDashboard = () => {
           <>
             {/* Top Bar: Official Emblem, Live Pulse & Officer Pill */}
             <div className="super-admin-top-meta-bar">
-              <div className="super-admin-badge-left">
-                <span className="live-pulse-dot" />
-                <span className="live-network-text">STATE SYSTEM ONLINE</span>
-                <span style={{ color: '#CBD5E1' }}>•</span>
-                <span style={{ color: '#486581', fontWeight: '600' }}>SECURE GOVERNMENT RECORDS</span>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              {/* Left Side: Jurisdiction & Operational System Status */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 <div className="super-admin-jurisdiction-pill">
-                  <MapPin size={12} color="#006B4F" />
+                  <MapPin size={13} color="#006B4F" />
                   <span style={{ color: '#102A43', fontWeight: '800' }}>
                     {stateName} ({stateCode})
                   </span>
-                  <span style={{ fontSize: '10px', background: '#E6F4EA', color: '#006B4F', padding: '2px 6px', borderRadius: '4px', fontWeight: '800' }}>
+                  <span style={{ fontSize: '10px', background: '#E6F4EA', color: '#006B4F', padding: '2px 8px', borderRadius: '9999px', fontWeight: '800' }}>
                     STATE GOVERNMENT
                   </span>
                 </div>
 
+                <div className="super-admin-badge-left">
+                  <span className="live-pulse-dot" />
+                  <span className="live-network-text">STATE SYSTEM ONLINE</span>
+                </div>
+              </div>
+
+              {/* Right Side: Financial Year, Theme Toggle & Officer Session */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 <FinancialYearSelector />
-                <ThemeToggle />
+                <ThemeToggle variant="pill" />
 
                 <div className="super-admin-user-pill">
                   <span className="super-admin-user-name">
@@ -440,9 +442,6 @@ const StateDashboard = () => {
                 <span>Republic of India • State Department of Finance</span>
               </div>
 
-              <span className="super-admin-badge-eyebrow">
-                STATE DEPARTMENT
-              </span>
               <h1 className="super-admin-main-title">
                 State Government & District Allocation Hub
               </h1>
@@ -455,7 +454,7 @@ const StateDashboard = () => {
 
               <div className="super-admin-fy-pill">
                 <Calendar size={13} color="#006B4F" />
-                <span>State Department of Finance • FY {selectedFY}</span>
+                <span>Allocation Period: Financial Year {selectedFY}</span>
               </div>
             </div>
 

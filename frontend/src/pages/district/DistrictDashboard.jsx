@@ -539,18 +539,11 @@ const DistrictDashboard = () => {
           <>
             {/* Top Bar: Official Emblem, Live Pulse & Jurisdiction Pill */}
             <div className="super-admin-top-meta-bar">
-              <div className="super-admin-badge-left">
-                <span className="live-pulse-dot" />
-                <span className="live-network-text">DISTRICT SYSTEM ONLINE</span>
-                <span style={{ color: '#CBD5E1' }}>•</span>
-                <span style={{ color: '#486581', fontWeight: '600' }}>SECURE GOVERNMENT RECORDS</span>
-              </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                {/* District Switcher (Only if non-district officer like Admin) */}
+              {/* Left Side: Jurisdiction & Operational System Status */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 {!isDistrictOfficer ? (
                   <div className="super-admin-jurisdiction-pill">
-                    <MapPin size={12} color="#006B4F" />
+                    <MapPin size={13} color="#006B4F" />
                     <span style={{ color: '#627D98' }}>DISTRICT:</span>
                     <select
                       style={{ border: 'none', background: 'transparent', fontWeight: '800', color: '#102A43', outline: 'none', cursor: 'pointer' }}
@@ -564,18 +557,26 @@ const DistrictDashboard = () => {
                   </div>
                 ) : (
                   <div className="super-admin-jurisdiction-pill">
-                    <MapPin size={12} color="#006B4F" />
+                    <MapPin size={13} color="#006B4F" />
                     <span style={{ color: '#102A43', fontWeight: '800' }}>
                       {assignedDistrict} ({assignedStateCode})
                     </span>
-                    <span style={{ fontSize: '10px', background: '#E6F4EA', color: '#006B4F', padding: '2px 6px', borderRadius: '4px', fontWeight: '800' }}>
-                      LOCKED
+                    <span style={{ fontSize: '10px', background: '#E6F4EA', color: '#006B4F', padding: '2px 8px', borderRadius: '9999px', fontWeight: '800' }}>
+                      DISTRICT OFFICE
                     </span>
                   </div>
                 )}
 
+                <div className="super-admin-badge-left">
+                  <span className="live-pulse-dot" />
+                  <span className="live-network-text">DISTRICT SYSTEM ONLINE</span>
+                </div>
+              </div>
+
+              {/* Right Side: Financial Year, Theme Toggle & Officer Session */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                 <FinancialYearSelector />
-                <ThemeToggle />
+                <ThemeToggle variant="pill" />
 
                 <div className="super-admin-user-pill">
                   <span className="super-admin-user-name">

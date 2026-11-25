@@ -46,15 +46,21 @@
 /* ==========================================================================
    Top Meta Row (Live Status & Officer Session)
    ========================================================================== */
-.super-admin-top-meta {
+.super-admin-top-meta,
+.super-admin-top-meta-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
   margin-bottom: 28px;
   padding: 0 4px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
-.super-admin-status-pill {
+.super-admin-status-pill,
+.super-admin-badge-left {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -68,6 +74,39 @@
   letter-spacing: 0.6px;
   text-transform: uppercase;
   box-shadow: 0 1px 3px rgba(16, 42, 67, 0.04);
+  white-space: nowrap;
+}
+
+.super-admin-jurisdiction-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #FFFFFF;
+  border: 1px solid #D9E2EC;
+  color: #102A43;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: 9999px;
+  box-shadow: 0 1px 3px rgba(16, 42, 67, 0.04);
+  white-space: nowrap;
+}
+
+.financial-year-selector {
+  background-color: #FFFFFF !important;
+  border: 1px solid #D9E2EC !important;
+  color: #102A43 !important;
+  box-shadow: 0 1px 3px rgba(16, 42, 67, 0.04) !important;
+  border-radius: 9999px !important;
+  padding: 5px 14px !important;
+}
+
+[data-theme="dark"] .financial-year-selector,
+body.dark-theme .financial-year-selector {
+  background-color: #172033 !important;
+  border-color: #334155 !important;
+  color: #F8FAFC !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4) !important;
 }
 
 .live-pulse-dot {

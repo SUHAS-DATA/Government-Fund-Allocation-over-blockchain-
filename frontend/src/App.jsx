@@ -10,9 +10,6 @@ import { FinancialYearProvider } from './context/FinancialYearContext';
 import { getActivePortal, PORTAL_TYPES } from './config/portalConfig';
 import PortalConfigError from './components/PortalConfigError';
 
-// Shared Components
-import { FloatingThemeToggle } from './components/ThemeToggle';
-
 // Lightweight fallback spinner for route transitions
 const PageFallback = () => (
   <div style={{
@@ -115,12 +112,11 @@ const ProtectedRoute = ({ allowedRoles, activePortal, children }) => {
   return children;
 };
 
-// Portal Layout Wrapper with Centered Control Hub & Floating Theme Toggle
+// Portal Layout Wrapper with Centered Control Hub
 const PortalLayout = ({ children }) => {
   return (
     <div className="super-admin-portal-wrapper">
       {children}
-      <FloatingThemeToggle />
     </div>
   );
 };
